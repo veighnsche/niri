@@ -14,14 +14,14 @@ Establish the 2D canvas implementation plan, team coordination rules, and projec
 - `gutter-bar/src/niri.rs` — understood external IPC integration
 
 ## Changes Made
-- `docs/2d-canvas-plan/README.md` — created master plan with 6 phases
-- `docs/2d-canvas-plan/AI_TEAM_RULES.md` — created team coordination rules
-- `docs/2d-canvas-plan/phases/phase-0-preparation.md` — modular refactoring plan
-- `docs/2d-canvas-plan/phases/phase-1-row-and-canvas.md` — Row + Canvas2D creation
-- `docs/2d-canvas-plan/phases/phase-2-row-spanning.md` — row spanning implementation
-- `docs/2d-canvas-plan/phases/phase-3-camera.md` — camera system with zoom
-- `docs/2d-canvas-plan/phases/phase-4-navigation.md` — geometric navigation
-- `docs/2d-canvas-plan/phases/phase-5-integration.md` — final integration
+- `docs/2d-canvas-plan/README.md` — created master plan with 6 phases, updated for fresh main branch
+- `docs/2d-canvas-plan/ai-teams-rules.md` — created team coordination rules
+- `docs/2d-canvas-plan/phases/phase-0-preparation.md` — modular refactoring plan (updated by TEAM_001)
+- `docs/2d-canvas-plan/phases/phase-1-row-and-canvas.md` — Row + Canvas2D creation, added starting point context
+- `docs/2d-canvas-plan/phases/phase-2-row-spanning.md` — row spanning implementation, added starting point context
+- `docs/2d-canvas-plan/phases/phase-3-camera.md` — camera system with zoom, added starting point context
+- `docs/2d-canvas-plan/phases/phase-4-navigation.md` — geometric navigation, added starting point context
+- `docs/2d-canvas-plan/phases/phase-5-integration.md` — final integration, added starting point context
 - `docs/2d-canvas-plan/.teams/` — created team folder structure
 
 ## Decisions
@@ -46,7 +46,7 @@ Each team owns a file, leaves breadcrumbs for next team.
 ## For Next Team
 
 ### Start Here
-1. Read `AI_TEAM_RULES.md` (you probably already did)
+1. Read `ai-teams-rules.md` (you probably already did)
 2. Read `phases/phase-0-preparation.md`
 3. Your first task: Step 0.1 — Extract Column into its own module
 
@@ -55,7 +55,8 @@ Each team owns a file, leaves breadcrumbs for next team.
 - `src/layout/tile.rs` — Column depends on this
 
 ### Warnings
-- Don't create `scrolling/` folder — that was the failed attempt on old branch
+- We're on `2d-canvas` branch from fresh `main` — no old refactor baggage
+- `scrolling.rs` is a 5586-line monolith — extract Column first
 - Create `column/` as a sibling to `scrolling.rs`, not inside it
 - Keep `scrolling.rs` working throughout — incremental refactor
 

@@ -8,6 +8,22 @@
 
 - Phase 0 complete (modular Column, AnimatedValue, clean ScrollingSpace)
 
+### Starting Point After Phase 0
+```
+src/layout/
+├── column/              # Extracted from scrolling.rs
+│   ├── mod.rs
+│   ├── layout.rs
+│   ├── operations.rs
+│   └── sizing.rs
+├── animated_value/      # New reusable animation primitive
+│   └── mod.rs
+├── scrolling.rs         # Now ~4000 lines (ScrollingSpace only)
+├── tile.rs              # Unchanged
+├── workspace.rs         # Unchanged
+└── monitor.rs           # Unchanged
+```
+
 ---
 
 ## Step 1.1: Create Row Module

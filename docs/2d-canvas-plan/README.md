@@ -2,7 +2,7 @@
 
 > Transform niri from a 1D scrolling tiler to a 2D canvas with rows, row-spanning windows, and dynamic camera zoom — built from modular, well-encapsulated components.
 
-**AI Teams: Read [AI_TEAM_RULES.md](AI_TEAM_RULES.md) first. Check [.teams/](.teams/) for recent activity.**
+**AI Teams: Read [ai-teams-rules.md](ai-teams-rules.md) first. Check [.teams/](.teams/) for recent activity.**
 
 ---
 
@@ -12,13 +12,18 @@
 Every component owns its own state and exposes a clean interface. No monolithic files.
 
 ```
-Bad:  scrolling.rs (4000+ lines, everything in one file)
-Good: scrolling/
-      ├── mod.rs          (public interface only)
-      ├── column.rs       (Column owns its tiles)
-      ├── navigation.rs   (focus movement logic)
-      ├── positioning.rs  (layout calculations)
-      └── ...
+Current:  scrolling.rs (5586 lines, everything in one file)
+
+Target:
+  layout/
+  ├── column/           (Column extracted from scrolling.rs)
+  │   ├── mod.rs        (struct + public interface)
+  │   ├── layout.rs     (tile positioning)
+  │   ├── operations.rs (add/remove/focus)
+  │   └── sizing.rs     (width/height)
+  ├── scrolling.rs      (ScrollingSpace only, uses column/)
+  ├── row/              (NEW in Phase 1)
+  └── canvas/           (NEW in Phase 1)
 ```
 
 ### 2. Composition Over Inheritance
@@ -116,10 +121,10 @@ src/layout/
 
 ## Progress Tracking
 
-### Phase 0: Preparation
-- [ ] Step 0.1: Create modular column structure
-- [ ] Step 0.2: Extract view offset into reusable component
-- [ ] Step 0.3: Clean up scrolling dependencies
+### Phase 0: Preparation (~1 week)
+- [ ] Step 0.1: Extract Column from scrolling.rs → layout/column/ module (2-3 days)
+- [ ] Step 0.2: Create AnimatedValue abstraction for view offset (1 day)
+- [ ] Step 0.3: Clean up ScrollingSpace dependencies (1-2 days)
 
 ### Phase 1: Row + Canvas2D
 - [ ] Step 1.1: Create Row module

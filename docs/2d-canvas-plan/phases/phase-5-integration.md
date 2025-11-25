@@ -8,6 +8,22 @@
 
 - Phase 4 complete (navigation and polish done)
 
+### Starting Point After Phase 4
+```
+src/layout/
+├── column/              # Modular column (Phase 0)
+├── animated_value/      # Reusable animations (Phase 0)
+├── row/                 # Row = horizontal strip (Phase 1)
+├── canvas/              # Canvas2D with spanning + navigation (Phase 1-4)
+├── camera/              # Camera with zoom (Phase 3)
+├── scrolling.rs         # Legacy mode (still works)
+├── tile.rs              # Has row_span field
+├── workspace.rs         # Legacy mode
+└── monitor.rs           # Feature-flagged for 2D vs legacy
+```
+
+All 2D canvas features work. This phase integrates everything and removes legacy code paths.
+
 ---
 
 ## Step 5.1: Replace Workspaces

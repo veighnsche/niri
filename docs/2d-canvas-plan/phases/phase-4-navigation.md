@@ -8,6 +8,22 @@
 
 - Phase 3 complete (camera with zoom works)
 
+### Starting Point After Phase 3
+```
+src/layout/
+├── column/              # From Phase 0
+├── animated_value/      # From Phase 0
+├── row/                 # From Phase 1
+├── canvas/              # From Phase 1-2
+├── camera/              # NEW in Phase 3
+│   ├── mod.rs
+│   ├── position.rs
+│   ├── zoom.rs
+│   └── following.rs
+├── tile.rs              # Has row_span
+└── ...
+```
+
 ---
 
 ## Step 4.1: Geometric Navigation

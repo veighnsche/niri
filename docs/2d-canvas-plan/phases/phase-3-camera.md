@@ -8,6 +8,23 @@
 
 - Phase 2 complete (row spanning works)
 
+### Starting Point After Phase 2
+```
+src/layout/
+├── column/              # From Phase 0
+├── animated_value/      # From Phase 0
+├── row/                 # From Phase 1
+├── canvas/              # From Phase 1, updated in Phase 2
+│   ├── mod.rs
+│   ├── layout.rs
+│   ├── navigation.rs
+│   ├── operations.rs
+│   ├── render.rs
+│   └── spanning.rs      # NEW in Phase 2
+├── tile.rs              # Updated: has row_span field
+└── ...
+```
+
 ---
 
 ## Core Concept

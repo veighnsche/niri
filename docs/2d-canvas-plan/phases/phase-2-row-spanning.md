@@ -8,6 +8,28 @@
 
 - Phase 1 complete (Row, Canvas2D, basic navigation)
 
+### Starting Point After Phase 1
+```
+src/layout/
+├── column/              # From Phase 0
+├── animated_value/      # From Phase 0
+├── row/                 # NEW in Phase 1
+│   ├── mod.rs
+│   ├── layout.rs
+│   ├── navigation.rs
+│   └── operations.rs
+├── canvas/              # NEW in Phase 1
+│   ├── mod.rs
+│   ├── layout.rs
+│   ├── navigation.rs
+│   ├── operations.rs
+│   └── render.rs
+├── scrolling.rs         # Still exists for non-2D mode
+├── tile.rs
+├── workspace.rs
+└── monitor.rs           # Updated with feature flag
+```
+
 ---
 
 ## Core Concept
