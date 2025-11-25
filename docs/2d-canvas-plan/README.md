@@ -2,6 +2,8 @@
 
 > Transform niri from a 1D scrolling tiler to a 2D canvas with rows, row-spanning windows, and dynamic camera zoom — built from modular, well-encapsulated components.
 
+**AI Teams: Read [AI_TEAM_RULES.md](AI_TEAM_RULES.md) first. Check [.teams/](.teams/) for recent activity.**
+
 ---
 
 ## Design Principles
