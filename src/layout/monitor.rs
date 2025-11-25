@@ -11,7 +11,9 @@ use smithay::output::Output;
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
 use super::insert_hint_element::{InsertHintElement, InsertHintRenderElement};
-use super::scrolling::{Column, ColumnWidth};
+// TEAM_003: Import Column from column module, ColumnWidth from types module
+use super::column::Column;
+use super::types::ColumnWidth;
 use super::tile::Tile;
 use super::workspace::{
     compute_working_area, OutputId, Workspace, WorkspaceAddWindowTarget, WorkspaceId,
@@ -125,12 +127,8 @@ pub struct WorkspaceSwitchGesture {
     dnd_nonzero_start_time: Option<Duration>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum InsertPosition {
-    NewColumn(usize),
-    InColumn(usize, usize),
-    Floating,
-}
+// TEAM_003: InsertPosition moved to types module
+pub use super::types::InsertPosition;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum InsertWorkspace {

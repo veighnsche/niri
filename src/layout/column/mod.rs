@@ -21,27 +21,11 @@ use smithay::utils::{Logical, Rectangle, Size};
 pub use self::tile_data::{TileData, WindowHeight};
 use super::tab_indicator::TabIndicator;
 use super::tile::Tile;
-use super::workspace::ResolvedSize;
+// TEAM_003: Import ColumnWidth and ResolvedSize from types module
+pub use super::types::ColumnWidth;
+use super::types::ResolvedSize;
 use super::{LayoutElement, Options};
 use crate::animation::{Animation, Clock};
-
-/// Width of a column.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ColumnWidth {
-    /// Proportion of the current view width.
-    Proportion(f64),
-    /// Fixed width in logical pixels.
-    Fixed(f64),
-}
-
-impl From<PresetSize> for ColumnWidth {
-    fn from(value: PresetSize) -> Self {
-        match value {
-            PresetSize::Proportion(p) => Self::Proportion(p.clamp(0., 10000.)),
-            PresetSize::Fixed(f) => Self::Fixed(f64::from(f.clamp(1, 100000))),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub(crate) struct MoveAnimation {

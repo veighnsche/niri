@@ -42,7 +42,8 @@ use niri_config::{
     Config, CornerRadius, LayoutPart, PresetSize, Workspace as WorkspaceConfig, WorkspaceReference,
 };
 use niri_ipc::{ColumnDisplay, PositionChange, SizeChange, WindowLayout};
-use column::{Column, ColumnWidth};
+use column::Column;
+use types::{ColumnWidth, ScrollDirection};
 use smithay::backend::renderer::element::surface::WaylandSurfaceRenderElement;
 use smithay::backend::renderer::element::utils::RescaleRenderElement;
 use smithay::backend::renderer::gles::{GlesRenderer, GlesTexture};
@@ -57,7 +58,7 @@ use self::monitor::{Monitor, WorkspaceSwitch};
 use self::workspace::{OutputId, Workspace};
 use crate::animation::{Animation, Clock};
 use crate::input::swipe_tracker::SwipeTracker;
-use crate::layout::scrolling::ScrollDirection;
+// TEAM_003: ScrollDirection now imported from types module above
 use crate::niri_render_elements;
 use crate::render_helpers::offscreen::OffscreenData;
 use crate::render_helpers::renderer::NiriRenderer;
@@ -85,6 +86,8 @@ pub mod scrolling;
 pub mod shadow;
 pub mod tab_indicator;
 pub mod tile;
+// TEAM_003: Shared types for layout modules
+pub mod types;
 pub mod workspace;
 
 #[cfg(test)]

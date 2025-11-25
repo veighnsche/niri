@@ -4,6 +4,8 @@
 
 **AI Teams: Read [ai-teams-rules.md](ai-teams-rules.md) first. Check [.teams/](.teams/) for recent activity.**
 
+⚠️ **Before ANY layout refactor**: Run `cargo insta test` to verify golden tests pass. See Rule 8.
+
 ---
 
 ## Design Principles
@@ -34,6 +36,9 @@ Each module owns its data. No reaching into other modules' internals.
 
 ### 4. Incremental Progress
 Each phase produces working, testable code. No big bang rewrites.
+
+### 5. Golden Snapshot Testing
+Refactored code must produce identical positions as original main branch code. Every layout change must pass `cargo insta test`.
 
 ---
 
@@ -95,6 +100,16 @@ src/layout/
 │   ├── resize.rs             # Interactive resize
 │   └── operations.rs         # Add/remove tiles
 │
+├── golden/                   # Original main branch code (reference)
+│   ├── mod.rs                # Test-only module
+│   ├── scrolling.rs          # Original scrolling.rs
+│   └── ...                   # Other original files
+│
+├── snapshot.rs               # Snapshot types for golden testing
+│
+├── tests/
+│   └── golden.rs             # Golden snapshot comparison tests
+│
 ├── row/                      # Row module (NEW)
 │   ├── mod.rs                # Row struct + public interface
 │   ├── layout.rs             # Column positioning within row
@@ -123,8 +138,13 @@ src/layout/
 
 ### Phase 0: Preparation (~1 week)
 - [x] Step 0.1: Extract Column from scrolling.rs → layout/column/ module (TEAM_002 - COMPLETE)
+- [x] Step 0.3: Clean up ScrollingSpace dependencies (TEAM_003 - COMPLETE)
+- [ ] **Step 0.5: Golden snapshot infrastructure** — MUST complete before continuing
+  - [ ] 0.5.A: Infrastructure setup (insta, types)
+  - [ ] 0.5.B: Golden code extraction, snapshot() methods
+  - [ ] 0.5.C: Core golden tests (Groups A-L)
+  - [ ] 0.5.D: Advanced golden tests (Groups M-W)
 - [ ] Step 0.2: Create AnimatedValue abstraction for view offset (1 day)
-- [ ] Step 0.3: Clean up ScrollingSpace dependencies (1-2 days)
 
 ### Phase 1: Row + Canvas2D
 - [ ] Step 1.1: Create Row module
@@ -161,6 +181,7 @@ src/layout/
 ## Quick Links
 
 - [Phase 0: Preparation](phases/phase-0-preparation.md)
+- [Phase 0.5: Golden Snapshots](phases/phase-0.5-golden-snapshots.md) ⚠️ **REQUIRED**
 - [Phase 1: Row + Canvas2D](phases/phase-1-row-and-canvas.md)
 - [Phase 2: Row Spanning](phases/phase-2-row-spanning.md)
 - [Phase 3: Camera System](phases/phase-3-camera.md)

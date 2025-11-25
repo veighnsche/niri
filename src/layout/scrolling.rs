@@ -12,13 +12,13 @@ use smithay::utils::{Logical, Point, Rectangle, Scale, Serial, Size};
 
 use super::closing_window::{ClosingWindow, ClosingWindowRenderElement};
 // TEAM_002: Import Column and related types from the new column module
-use super::column::{resolve_preset_size, WindowHeight};
-// Re-export for backwards compatibility with other modules
-pub use super::column::{Column, ColumnWidth};
-use super::monitor::InsertPosition;
+use super::column::{resolve_preset_size, Column, WindowHeight};
 use super::tab_indicator::{TabIndicator, TabIndicatorRenderElement};
 use super::tile::{Tile, TileRenderElement, TileRenderSnapshot};
-use super::workspace::{InteractiveResize, ResolvedSize};
+// TEAM_003: Import shared types from types module
+use super::types::{ColumnWidth, InsertPosition, InteractiveResize, ResolvedSize};
+// Re-export ScrollDirection for backwards compatibility
+pub use super::types::ScrollDirection;
 use super::{ConfigureIntent, HitType, InteractiveResizeData, LayoutElement, Options, RemovedTile};
 use crate::animation::{Animation, Clock};
 use crate::input::swipe_tracker::SwipeTracker;
@@ -146,16 +146,7 @@ pub(super) struct ViewGesture {
 }
 
 // TEAM_002: Column, ColumnWidth, WindowHeight, TileData, MoveAnimation moved to column module
-
-/// Horizontal direction for an operation.
-///
-/// As operations often have a symmetrical counterpart, e.g. focus-right/focus-left, methods
-/// on `Scrolling` can sometimes be factored using the direction of the operation as a parameter.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ScrollDirection {
-    Left,
-    Right,
-}
+// TEAM_003: ScrollDirection moved to types module
 
 impl<W: LayoutElement> ScrollingSpace<W> {
     pub fn new(

@@ -18,15 +18,13 @@ use smithay::wayland::compositor::with_states;
 use smithay::wayland::shell::xdg::SurfaceCachedState;
 
 use super::floating::{FloatingSpace, FloatingSpaceRenderElement};
-use super::scrolling::{
-    Column, ColumnWidth, ScrollDirection, ScrollingSpace, ScrollingSpaceRenderElement,
-};
+// TEAM_003: Import Column from column module, ColumnWidth and ScrollDirection from types module
+use super::column::Column;
+use super::scrolling::{ScrollingSpace, ScrollingSpaceRenderElement};
+use super::types::{ColumnWidth, ScrollDirection};
 use super::shadow::Shadow;
 use super::tile::{Tile, TileRenderSnapshot};
-use super::{
-    ActivateWindow, HitType, InsertPosition, InteractiveResizeData, LayoutElement, Options,
-    RemovedTile, SizeFrac,
-};
+use super::{ActivateWindow, HitType, InsertPosition, LayoutElement, Options, RemovedTile, SizeFrac};
 use crate::animation::Clock;
 use crate::niri_render_elements;
 use crate::render_helpers::renderer::NiriRenderer;
@@ -148,21 +146,8 @@ niri_render_elements! {
     }
 }
 
-#[derive(Debug)]
-pub(super) struct InteractiveResize<W: LayoutElement> {
-    pub window: W::Id,
-    pub original_window_size: Size<f64, Logical>,
-    pub data: InteractiveResizeData,
-}
-
-/// Resolved width or height in logical pixels.
-#[derive(Debug, Clone, Copy)]
-pub enum ResolvedSize {
-    /// Size of the tile including borders.
-    Tile(f64),
-    /// Size of the window excluding borders.
-    Window(f64),
-}
+// TEAM_003: InteractiveResize and ResolvedSize moved to types module
+pub use super::types::{InteractiveResize, ResolvedSize};
 
 /// Whether the floating space is active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

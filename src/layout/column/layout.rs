@@ -10,7 +10,8 @@ use smithay::utils::{Logical, Point, Size};
 use super::tile_data::{TileData, WindowHeight};
 use super::{resolve_preset_size, Column, ColumnWidth};
 use crate::layout::tile::Tile;
-use crate::layout::workspace::ResolvedSize;
+// TEAM_003: Import ResolvedSize from types module
+use crate::layout::types::ResolvedSize;
 use crate::layout::{LayoutElement, SizingMode};
 
 impl<W: LayoutElement> Column<W> {

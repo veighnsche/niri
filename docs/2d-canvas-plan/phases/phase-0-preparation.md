@@ -441,12 +441,12 @@ src/layout/
 - [ ] Replace ViewOffset with AnimatedValue
 - [ ] Create AnimatedPoint for 2D (Camera prep)
 
-### Step 0.3: Clean ScrollingSpace (Estimated: 1-2 days)
-- [ ] Update all imports to use `column::` directly
-- [ ] Create `layout/types.rs` for shared types
-- [ ] Move InteractiveResize out of workspace.rs
-- [ ] No upward dependencies (workspace, monitor)
-- [ ] Document public interface
+### Step 0.3: Clean ScrollingSpace ✅ COMPLETE (TEAM_003)
+- [x] Update all imports to use `column::` directly
+- [x] Create `layout/types.rs` for shared types (ColumnWidth, ScrollDirection, ResolvedSize, InteractiveResize, InsertPosition)
+- [x] Move InteractiveResize out of workspace.rs to types.rs
+- [x] No upward dependencies (workspace, monitor) in scrolling.rs
+- [x] Document public interface
 
 ---
 

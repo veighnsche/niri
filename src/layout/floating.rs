@@ -9,9 +9,9 @@ use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::utils::{Logical, Point, Rectangle, Scale, Serial, Size};
 
 use super::closing_window::{ClosingWindow, ClosingWindowRenderElement};
-use super::scrolling::ColumnWidth;
+// TEAM_003: Import ColumnWidth, InteractiveResize, ResolvedSize from types module
+use super::types::{ColumnWidth, InteractiveResize, ResolvedSize};
 use super::tile::{Tile, TileRenderElement, TileRenderSnapshot};
-use super::workspace::{InteractiveResize, ResolvedSize};
 use super::{
     ConfigureIntent, InteractiveResizeData, LayoutElement, Options, RemovedTile, SizeFrac,
 };

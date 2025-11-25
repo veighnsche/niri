@@ -8,7 +8,8 @@ use smithay::utils::Size;
 
 use super::tile_data::WindowHeight;
 use super::{Column, ColumnWidth};
-use crate::layout::workspace::ResolvedSize;
+// TEAM_003: Import ResolvedSize from types module
+use crate::layout::types::ResolvedSize;
 use crate::layout::{LayoutElement, SizingMode};
 use crate::utils::transaction::Transaction;
 

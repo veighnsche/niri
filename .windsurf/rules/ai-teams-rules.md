@@ -8,7 +8,7 @@ trigger: always_on
 
 ---
 
-## Rule -1: Canonical Source
+## Rule 1: Canonical Source
 
 `/home/vince/Projects/niri/docs/2d-canvas-plan/` is the **ONLY** source of truth.
 - All plans live here
@@ -17,16 +17,7 @@ trigger: always_on
 
 ---
 
-## Rule 0: Breaking Changes > Backwards Compatibility
-
-**Breaking changes = temporary pain** (compiler shows call sites to fix).  
-**Backwards compatibility = permanent debt.**
-
-Be bold. Break things. Fix them properly.
-
----
-
-## Rule 1: Team Registration
+## Rule 2: Team Registration
 
 Every new AI conversation = new team number.
 
@@ -38,8 +29,6 @@ Every new AI conversation = new team number.
 ### Your Team File
 Create: `.teams/TEAM_XXX_three_word_summary.md`
 
-Example: `.teams/TEAM_000_initial_plan_setup.md`
-
 ### Code Comments
 When you modify code, add your team number:
 ```rust
@@ -48,23 +37,76 @@ When you modify code, add your team number:
 
 ---
 
-## Rule 2: Modular Refactoring
+## Rule 3: Before You Start
+
+1. **Read** `docs/2d-canvas-plan/README.md`
+2. **Read** the current phase file in `phases/`
+3. **Check** `.teams/` for recent team files
+4. **Check** `.questions/` for any unanswered questions
+5. **Claim** your team number
+6. **Create** your team file
+7. **Run** `cargo insta test` — golden tests must pass BEFORE you start
+8. **Then** start coding
+
+---
+
+## Rule 4: Golden Snapshot Testing
+
+**Purpose**: Prevent behavioral regressions. Refactored code must produce identical layout positions as original main branch code.
+
+### ⚠️ MANDATORY: If You Touch Layout Logic
+
+**Before ANY refactor that touches these files, you MUST:**
+1. Run `cargo insta test` — verify golden tests pass BEFORE your changes
+2. Make your changes
+3. Run `cargo insta test` again — verify they STILL pass
+4. If tests fail → you introduced a regression, fix it
+
+### Key Files
+- `src/layout/golden/` — Original main branch code (reference)
+- `src/layout/snapshot.rs` — Snapshot types (positions, indices, etc.)
+- `src/layout/tests/golden.rs` — Snapshot comparison tests
+
+### What Snapshots Capture
+- Column X positions and widths
+- Tile bounds (x, y, w, h)
+- Active indices (column, tile)
+- View offset (camera position)
+- Working area
+
+### Workflow
+1. Golden code and refactored code both implement `snapshot()` → same types
+2. Tests compare outputs using `insta` (`cargo insta test`)
+3. If snapshots differ → regression found, fix before proceeding
+4. Use `cargo insta review` to inspect diffs (never accept without USER approval)
+
+### Adding New Features?
+- New features won't have golden tests (original code didn't have them)
+- But existing behavior MUST still match golden snapshots
+- Create new test scenarios in `tests/golden.rs` for new features
+
+---
+
+## Rule 5: Breaking Changes > Backwards Compatibility
+
+**Breaking changes = temporary pain** (compiler shows call sites to fix).  
+**Backwards compatibility = permanent debt.**
+
+Be bold. Break things. Fix them properly.
+
+### The Process
+1. Move the type/function to its new location
+2. **Let the compiler fail** — it will show all import sites
+3. Fix each import site directly
+4. Delete any temporary re-exports
+
+**If you find yourself writing `pub use` to "keep things working" — STOP. Fix the imports instead.**
+
+---
+
+## Rule 6: Modular Refactoring
 
 **Goal**: Break monolithic files into small, focused modules.
-
-### Before
-```
-scrolling.rs (5000+ lines, everything)
-```
-
-### After
-```
-scrolling/
-├── mod.rs        (public interface only)
-├── column.rs     (owns column state)
-├── navigation.rs (focus movement)
-└── ...
-```
 
 ### Principles
 - Each module **owns its state** (private fields, public methods)
@@ -74,122 +116,41 @@ scrolling/
 
 ---
 
-## Rule 3: Ask Questions
+## Rule 7: Ask Questions
 
 **When uncertain, blocked, or plans don't add up**: ask the USER.
 
-Create a question file:
-```
-.questions/TEAM_XXX_topic.md
-```
-
-### When to Ask
-- Something is missing from the plan
-- Requirements conflict or are ambiguous
-- You need to make a significant design decision
-- The current approach isn't working
-- You're about to do something that might be wrong
-
-### Question File Format
-```markdown
-# TEAM_XXX: Topic
-
-## Context
-Brief background on what you're working on.
-
-## Questions
-1. Specific question?
-2. Another question?
-
-## Your Current Thinking
-What you would do if you had to guess.
-
-## Impact
-What's blocked until this is answered.
-```
-
-### After USER Answers
-- USER will edit the file with answers
-- Read the answers, then proceed
-- Reference the Q&A file in your team file
+Create a question file: `.questions/TEAM_XXX_topic.md`
 
 **Don't guess on important decisions. Ask.**
 
 ---
 
-## Rule 4: Task Splitting
+## Rule 8: Task Splitting
 
 **If a task takes > 1 hour or touches > 3 files**: split it.
 
-Create sub-task files:
-```
-.teams/TEAM_XXX_task_part_1.md
-.teams/TEAM_XXX_task_part_2.md
-```
-
-Each file must have:
-1. **What to do** (specific, actionable)
-2. **What to read first** (files, context)
-3. **Success criteria** (how to know it's done)
+Create sub-task files in `.teams/`
 
 ---
 
-## Rule 5: Team File Format
-
-```markdown
-# TEAM_XXX: Three Word Summary
-
-## Status: [IN_PROGRESS | COMPLETED | BLOCKED | HANDED_OFF]
-
-## Mission
-One sentence: what you're trying to accomplish.
-
-## Context Read
-Files you studied before starting:
-- `path/to/file.rs` — why you read it
-
-## Changes Made
-Files you modified:
-- `path/to/file.rs` — what you changed
-
-## Decisions
-Key choices and reasoning:
-- Decision: X because Y
-
-## For Next Team
-What they need to know:
-- Gotchas, warnings, suggestions
-- What's left to do
-
-## Handoff
-- [ ] Code compiles
-- [ ] Tests pass (or documented why not)
-- [ ] Team file complete
-```
-
----
-
-## Rule 6: Before You Start
-
-1. **Read** `docs/2d-canvas-plan/README.md`
-2. **Read** the current phase file in `phases/`
-3. **Check** `.teams/` for recent team files
-4. **Check** `.questions/` for any unanswered questions
-5. **Claim** your team number
-6. **Create** your team file
-7. **If uncertain** — create a question file in `.questions/` before coding
-8. **Then** start coding
-
----
-
-## Rule 7: Before You Finish
+## Rule 9: Before You Finish
 
 1. **Update** your team file with all changes
 2. **Verify** code compiles: `cargo check`
 3. **Run** tests: `cargo test`
-4. **Document** any failures or blockers
-5. **Write** clear handoff notes for next team
-6. **If you have open questions** — create/update `.questions/` file for next team or USER
+4. **Run** golden tests: `cargo insta test` — if touching layout logic
+5. **Document** any failures or blockers
+6. **Write** clear handoff notes for next team
+
+### Team File Handoff Checklist
+```markdown
+## Handoff
+- [ ] Code compiles (`cargo check`)
+- [ ] Tests pass (`cargo test`)
+- [ ] Golden tests pass (`cargo insta test`) — if touching layout logic
+- [ ] Team file complete
+```
 
 ---
 
@@ -201,6 +162,8 @@ What they need to know:
 | Current phase | `phases/phase-X-*.md` |
 | Team logs | `.teams/TEAM_XXX_*.md` |
 | Questions for USER | `.questions/TEAM_XXX_*.md` |
+| Golden reference code | `src/layout/golden/` |
+| Snapshot types | `src/layout/snapshot.rs` |
 | Your code comments | `// TEAM_XXX: ...` |
 
 ---
@@ -208,9 +171,10 @@ What they need to know:
 ## Current Project State
 
 **Branch**: `2d-canvas`  
-**Phase**: 0 (Preparation — Modular Foundation)  
-**Next Step**: Read `phases/phase-0-preparation.md`
+**Phase**: 0.5 (Golden Snapshots) → then 0.2 (AnimatedValue)  
+**Completed**: Phase 0.1 (Column extraction), Phase 0.3 (Import cleanup)  
+**Next Step**: Read `phases/phase-0.5-golden-snapshots.md`
 
 ---
 
-*Rules established by TEAM_000. Do not modify without USER approval.*
+*Rules established by TEAM_000. Updated by TEAM_003.*
