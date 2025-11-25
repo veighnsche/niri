@@ -122,7 +122,7 @@ src/layout/
 ## Progress Tracking
 
 ### Phase 0: Preparation (~1 week)
-- [ ] Step 0.1: Extract Column from scrolling.rs → layout/column/ module (2-3 days)
+- [x] Step 0.1: Extract Column from scrolling.rs → layout/column/ module (TEAM_002 - COMPLETE)
 - [ ] Step 0.2: Create AnimatedValue abstraction for view offset (1 day)
 - [ ] Step 0.3: Clean up ScrollingSpace dependencies (1-2 days)
 

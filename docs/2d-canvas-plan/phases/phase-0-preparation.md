@@ -161,14 +161,14 @@ src/layout/
 
 ### Tasks
 
-- [ ] **0.1.1**: Create `src/layout/column/mod.rs` with Column struct (copy from scrolling.rs lines 145-216)
-- [ ] **0.1.2**: Create `column/layout.rs` — move tile positioning methods
-- [ ] **0.1.3**: Create `column/operations.rs` — move add/remove/focus methods
-- [ ] **0.1.4**: Create `column/sizing.rs` — move width/height/fullscreen methods
-- [ ] **0.1.5**: Create `column/render.rs` — move rendering methods
-- [ ] **0.1.6**: Move supporting types (`ColumnWidth`, `WindowHeight`, `TileData`, `MoveAnimation`) to column module
-- [ ] **0.1.7**: Update `scrolling.rs` to `use crate::layout::column::Column`
-- [ ] **0.1.8**: Verify all tests pass after extraction
+- [x] **0.1.1**: Create `src/layout/column/mod.rs` with Column struct (TEAM_002)
+- [x] **0.1.2**: Create `column/layout.rs` — move tile positioning methods (TEAM_002)
+- [x] **0.1.3**: Create `column/operations.rs` — move add/remove/focus methods (TEAM_002)
+- [x] **0.1.4**: Create `column/sizing.rs` — move width/height/fullscreen methods (TEAM_002)
+- [x] **0.1.5**: Create `column/render.rs` — move rendering methods (TEAM_002)
+- [x] **0.1.6**: Move supporting types (`ColumnWidth`, `WindowHeight`, `TileData`, `MoveAnimation`) to column module (TEAM_002)
+- [x] **0.1.7**: Update `scrolling.rs` to `use crate::layout::column::Column` (TEAM_002)
+- [x] **0.1.8**: Verify all tests pass after extraction (TEAM_002 - 189 tests pass)
 
 ### Interface Design
 
@@ -332,11 +332,18 @@ After Column extraction, `ScrollingSpace` (which will become `Row`) should:
 
 ### Tasks
 
-- [ ] **0.3.1**: Audit all imports in scrolling.rs after Column extraction
-- [ ] **0.3.2**: Move `InteractiveResize` to scrolling.rs (or make it a parameter)
-- [ ] **0.3.3**: Move shared types (`InsertPosition`, etc.) to `layout/types.rs`
-- [ ] **0.3.4**: Ensure no `super::workspace` or `super::monitor` imports remain
-- [ ] **0.3.5**: Document the clean public interface for ScrollingSpace
+- [ ] **0.3.1**: Update all imports to use `column::` directly (per TEAM_002 Q1)
+  - `monitor.rs`: change `use super::scrolling::{Column, ColumnWidth}` → `use super::column::{Column, ColumnWidth}`
+  - `workspace.rs`: same
+  - `floating.rs`: same
+  - Remove re-exports from `scrolling.rs`
+- [ ] **0.3.2**: Create `src/layout/types.rs` for shared types (per TEAM_002 Q3)
+  - Move `TileData`, `WindowHeight`, `ColumnWidth`, `ScrollDirection` from column module
+  - These types will be used by Column, Row, and Canvas2D
+- [ ] **0.3.3**: Move `InteractiveResize` to scrolling.rs (or make it a parameter)
+- [ ] **0.3.4**: Move other shared types (`InsertPosition`, etc.) to `layout/types.rs`
+- [ ] **0.3.5**: Ensure no `super::workspace` or `super::monitor` imports remain
+- [ ] **0.3.6**: Document the clean public interface for ScrollingSpace
 
 ### Interface Design
 
@@ -384,15 +391,48 @@ impl<W: LayoutElement> ScrollingSpace<W> {
 
 ---
 
+## Test Strategy (per TEAM_002 Q4)
+
+### Structure
+
+```
+src/layout/
+├── tests.rs                    # Integration tests (3873 lines, keep as-is)
+│                               # Tests full Layout behavior with TestWindow
+│
+├── column/
+│   └── tests.rs               # Column unit tests + verify_invariants
+│
+├── types.rs                   # Shared types (no tests needed)
+│
+├── animated_value/            # Phase 0.2
+│   └── tests.rs               # AnimatedValue unit tests
+│
+├── row/                       # Phase 1 (future)
+│   └── tests.rs               # Row unit tests
+│
+└── canvas/                    # Phase 1 (future)
+    └── tests.rs               # Canvas2D unit tests
+```
+
+### Principles
+
+1. **Unit tests per module**: Each module has `tests.rs` for isolated testing
+2. **Integration tests stay central**: `layout/tests.rs` tests full system
+3. **`verify_invariants()` pattern**: Each struct asserts internal consistency
+4. **Property-based tests**: Use `proptest` for random operation sequences
+
+---
+
 ## Checklist Summary
 
-### Step 0.1: Modular Column (Estimated: 2-3 days)
-- [ ] Create `layout/column/` module structure
-- [ ] Extract Column struct + 1520 lines of methods
-- [ ] Split into: mod.rs, layout.rs, operations.rs, sizing.rs, render.rs
-- [ ] Move supporting types (ColumnWidth, WindowHeight, TileData, MoveAnimation)
-- [ ] Update scrolling.rs to use new column module
-- [ ] All tests pass
+### Step 0.1: Modular Column ✅ COMPLETE (TEAM_002)
+- [x] Create `layout/column/` module structure
+- [x] Extract Column struct + 1520 lines of methods
+- [x] Split into: mod.rs, layout.rs, operations.rs, sizing.rs, render.rs
+- [x] Move supporting types (ColumnWidth, WindowHeight, TileData, MoveAnimation)
+- [x] Update scrolling.rs to use new column module
+- [x] All tests pass (189 tests)
 
 ### Step 0.2: AnimatedValue (Estimated: 1 day)
 - [ ] Create `layout/animated_value/` module
@@ -402,9 +442,9 @@ impl<W: LayoutElement> ScrollingSpace<W> {
 - [ ] Create AnimatedPoint for 2D (Camera prep)
 
 ### Step 0.3: Clean ScrollingSpace (Estimated: 1-2 days)
-- [ ] Audit and fix imports after Column extraction
+- [ ] Update all imports to use `column::` directly
+- [ ] Create `layout/types.rs` for shared types
 - [ ] Move InteractiveResize out of workspace.rs
-- [ ] Create layout/types.rs for shared types
 - [ ] No upward dependencies (workspace, monitor)
 - [ ] Document public interface
 
