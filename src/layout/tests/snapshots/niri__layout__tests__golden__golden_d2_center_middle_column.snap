@@ -1,6 +1,6 @@
 ---
 source: src/layout/tests/golden.rs
-expression: snapshot
+expression: "snapshot([Op::AddOutput(1), win(1), win(2), win(3), Op::FocusColumnLeft,\nOp::CenterColumn,])"
 ---
 columns:
   - x: 0
@@ -43,3 +43,12 @@ working_area:
 view_size:
   w: 1280
   h: 720
+animations:
+  - target: view_offset
+    from: -132
+    to: -590
+    kind:
+      type: Spring
+      damping_ratio: 1
+      stiffness: 800
+    duration_ms: 325

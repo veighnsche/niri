@@ -97,6 +97,7 @@ pub mod canvas;
 pub mod workspace;
 
 // TEAM_004: Golden snapshot infrastructure
+// TEAM_010: Extended with animation timeline snapshots
 #[cfg(test)]
 pub mod snapshot;
 

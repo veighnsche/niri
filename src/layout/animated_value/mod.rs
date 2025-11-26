@@ -113,6 +113,17 @@ impl AnimatedValue {
     pub fn stop_anim_and_gesture(&mut self) {
         *self = AnimatedValue::Static(self.current());
     }
+
+    /// Returns the underlying Animation if this is in an animation state.
+    ///
+    /// Used for golden testing to extract animation parameters.
+    #[cfg(test)]
+    pub fn as_animation(&self) -> Option<&Animation> {
+        match self {
+            AnimatedValue::Animation(anim) => Some(anim),
+            _ => None,
+        }
+    }
 }
 
 /// A 2D point with animated X and Y components.

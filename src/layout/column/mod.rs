@@ -87,6 +87,7 @@ pub(crate) fn resolve_preset_size(
 }
 
 // TEAM_004: Snapshot method for golden testing
+// TEAM_010: Extended with animation capture
 #[cfg(test)]
 impl<W: LayoutElement> Column<W> {
     /// Create a snapshot of this column for golden testing.
@@ -116,5 +117,15 @@ impl<W: LayoutElement> Column<W> {
             is_full_width: self.is_full_width,
             is_fullscreen: self.sizing_mode().is_fullscreen(),
         }
+    }
+
+    /// Returns the column's move animation if present (animation, from_offset).
+    pub fn move_animation(&self) -> Option<(&crate::animation::Animation, f64)> {
+        self.move_animation.as_ref().map(|m| (&m.anim, m.from))
+    }
+
+    /// Returns iterator over tiles with their animations for golden testing.
+    pub fn tiles_with_animations(&self) -> impl Iterator<Item = (&super::tile::Tile<W>, usize)> {
+        self.tiles.iter().enumerate().map(|(idx, tile)| (tile, idx))
     }
 }

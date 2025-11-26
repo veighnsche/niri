@@ -589,6 +589,27 @@ fn golden_v1_gesture_scroll_left() {
 }
 
 // ============================================================================
+// TEAM_010: Animation Timeline Tests
+// These capture snapshots DURING animation (before CompleteAnimations)
+// to verify animation parameters match between golden and refactored code.
+// ============================================================================
+
+/// Captures view_offset animation triggered by gesture end.
+/// This test does NOT call CompleteAnimations, so animations[] will contain the timeline.
+#[test]
+fn golden_anim_v1_gesture_triggers_animation() {
+    use std::time::Duration;
+    // Note: No CompleteAnimations - we want to capture the animation in progress
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3),
+        Op::ViewOffsetGestureBegin { output_idx: 1, workspace_idx: None, is_touchpad: true },
+        Op::ViewOffsetGestureUpdate { delta: -100., timestamp: Duration::from_millis(100), is_touchpad: true },
+        Op::ViewOffsetGestureEnd { is_touchpad: Some(true) },
+        // No CompleteAnimations - snapshot captures animation in progress!
+    ]));
+}
+
+// ============================================================================
 // Group W: Combined Focus Movement
 // ============================================================================
 
@@ -617,5 +638,355 @@ fn golden_w3_focus_window_or_workspace_down() {
         Op::AddOutput(1), win(1), win(2),
         consume_left(),
         Op::FocusWindowOrWorkspaceDown,
+    ]));
+}
+
+// ============================================================================
+// Group X: Manual Width Adjustments (SetColumnWidth)
+// ============================================================================
+
+#[test]
+fn golden_x1_set_column_width_increase() {
+    use crate::layout::SizeChange;
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::FocusColumnFirst,
+        Op::SetColumnWidth(SizeChange::AdjustProportion(0.1)),
+    ]));
+}
+
+#[test]
+fn golden_x2_set_column_width_decrease() {
+    use crate::layout::SizeChange;
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::FocusColumnFirst,
+        Op::SetColumnWidth(SizeChange::AdjustProportion(-0.1)),
+    ]));
+}
+
+#[test]
+fn golden_x3_set_column_width_fixed() {
+    use crate::layout::SizeChange;
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::FocusColumnFirst,
+        Op::SetColumnWidth(SizeChange::SetProportion(0.25)),
+    ]));
+}
+
+// ============================================================================
+// Group Y: Expand to Available Width
+// ============================================================================
+
+#[test]
+fn golden_y1_expand_column_to_available_width() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::FocusColumnFirst,
+        Op::ExpandColumnToAvailableWidth,
+    ]));
+}
+
+#[test]
+fn golden_y2_expand_second_column() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::ExpandColumnToAvailableWidth,
+    ]));
+}
+
+// ============================================================================
+// Group Z: Move Column to Index
+// ============================================================================
+
+#[test]
+fn golden_z1_move_column_right() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3),
+        Op::FocusColumnFirst,
+        Op::MoveColumnRight,
+    ]));
+}
+
+#[test]
+fn golden_z2_move_column_to_last() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3),
+        Op::FocusColumnFirst,
+        Op::MoveColumnToLast,
+    ]));
+}
+
+// ============================================================================
+// ANIMATION TESTS: Capture animations DURING execution (no CompleteAnimations)
+// These verify animation parameters match between golden and refactored code.
+// ============================================================================
+
+// --- Animation: Focus Changes ---
+
+#[test]
+fn golden_anim_focus_left() {
+    // Focus change triggers view_offset animation
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3),
+        Op::FocusColumnLeft,
+        // No CompleteAnimations - captures animation
+    ]));
+}
+
+#[test]
+fn golden_anim_focus_first() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3),
+        Op::FocusColumnFirst,
+    ]));
+}
+
+// --- Animation: Column Width Changes ---
+
+#[test]
+fn golden_anim_switch_preset_width() {
+    // Preset width change triggers resize animation
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::FocusColumnFirst,
+        Op::SwitchPresetColumnWidth,
+    ]));
+}
+
+#[test]
+fn golden_anim_maximize_column() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::FocusColumnFirst,
+        Op::MaximizeColumn,
+    ]));
+}
+
+// --- Animation: Consume/Expel ---
+
+#[test]
+fn golden_anim_consume_left() {
+    // Consume triggers tile move animations
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        consume_left(),
+    ]));
+}
+
+#[test]
+fn golden_anim_expel_right() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        consume_left(),
+        expel_right(),
+    ]));
+}
+
+// --- Animation: Move Column ---
+
+#[test]
+fn golden_anim_move_column_left() {
+    // Move column triggers column_move_x animations
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3),
+        Op::MoveColumnLeft,
+    ]));
+}
+
+#[test]
+fn golden_anim_move_column_to_first() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3),
+        Op::MoveColumnToFirst,
+    ]));
+}
+
+// --- Animation: Move Window Within Column ---
+
+#[test]
+fn golden_anim_move_window_up() {
+    // Move window triggers tile move_y animations
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        consume_left(),
+        Op::MoveWindowUp,
+    ]));
+}
+
+#[test]
+fn golden_anim_move_window_down() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        consume_left(),
+        Op::FocusWindowUp,
+        Op::MoveWindowDown,
+    ]));
+}
+
+// --- Animation: Height Changes ---
+
+#[test]
+fn golden_anim_switch_preset_height() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        consume_left(),
+        Op::SwitchPresetWindowHeight { id: None },
+    ]));
+}
+
+// --- Animation: Swap Window ---
+
+#[test]
+fn golden_anim_swap_right() {
+    use crate::layout::ScrollDirection;
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        consume_left(),
+        Op::SwapWindowInDirection(ScrollDirection::Right),
+    ]));
+}
+
+#[test]
+fn golden_anim_swap_left() {
+    use crate::layout::ScrollDirection;
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        consume_left(),
+        Op::FocusWindowUp,
+        Op::SwapWindowInDirection(ScrollDirection::Left),
+    ]));
+}
+
+// --- Animation: Center Column ---
+
+#[test]
+fn golden_anim_center_column() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3),
+        Op::FocusColumnFirst,
+        Op::CenterColumn,
+    ]));
+}
+
+// --- Animation: Add Window ---
+
+#[test]
+fn golden_anim_add_window() {
+    // Adding window may trigger view_offset animation
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        win(3), // This triggers animation
+    ]));
+}
+
+// --- Animation: Close Window ---
+
+#[test]
+fn golden_anim_close_window() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3),
+        Op::FocusColumnLeft,
+        Op::CloseWindow(2),
+    ]));
+}
+
+// --- Animation: Interactive Resize ---
+
+#[test]
+fn golden_anim_resize_right_edge() {
+    use crate::utils::ResizeEdge;
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::FocusColumnFirst,
+        Op::InteractiveResizeBegin { window: 1, edges: ResizeEdge::RIGHT },
+        Op::InteractiveResizeUpdate { window: 1, dx: 100., dy: 0. },
+        Op::InteractiveResizeEnd { window: 1 },
+    ]));
+}
+
+#[test]
+fn golden_anim_resize_bottom_edge() {
+    use crate::utils::ResizeEdge;
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        consume_left(),
+        Op::FocusWindowUp,
+        Op::InteractiveResizeBegin { window: 1, edges: ResizeEdge::BOTTOM },
+        Op::InteractiveResizeUpdate { window: 1, dx: 0., dy: 50. },
+        Op::InteractiveResizeEnd { window: 1 },
+    ]));
+}
+
+// --- Animation: Tabbed Display ---
+
+#[test]
+fn golden_anim_toggle_tabbed() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        consume_left(),
+        Op::ToggleColumnTabbedDisplay,
+    ]));
+}
+
+// --- Animation: Focus Wrap ---
+
+#[test]
+fn golden_anim_focus_right_or_first() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3),
+        Op::FocusColumnRightOrFirst,
+    ]));
+}
+
+#[test]
+fn golden_anim_focus_left_or_last() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3),
+        Op::FocusColumnFirst,
+        Op::FocusColumnLeftOrLast,
+    ]));
+}
+
+// --- Animation: Set Width ---
+
+#[test]
+fn golden_anim_set_column_width() {
+    use crate::layout::SizeChange;
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::FocusColumnFirst,
+        Op::SetColumnWidth(SizeChange::AdjustProportion(0.2)),
+    ]));
+}
+
+// --- Animation: Expand Width ---
+
+#[test]
+fn golden_anim_expand_to_available() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::FocusColumnFirst,
+        Op::ExpandColumnToAvailableWidth,
+    ]));
+}
+
+// --- Animation: Four Windows ---
+
+#[test]
+fn golden_anim_four_windows_focus_first() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3), win(4),
+        Op::FocusColumnFirst,
+    ]));
+}
+
+#[test]
+fn golden_anim_four_windows_center() {
+    insta::assert_yaml_snapshot!(snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3), win(4),
+        Op::FocusColumn(1),
+        Op::CenterColumn,
     ]));
 }

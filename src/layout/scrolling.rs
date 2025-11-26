@@ -3587,9 +3587,12 @@ impl<W: LayoutElement> ScrollingSpace<W> {
     }
 
     // TEAM_004: Snapshot method for golden testing
+    // TEAM_010: Extended to include animation timelines for ALL edges
     #[cfg(test)]
     pub fn snapshot(&self) -> crate::layout::snapshot::ScrollingSnapshot {
-        use crate::layout::snapshot::{RectSnapshot, ScrollingSnapshot, SizeSnapshot};
+        use crate::layout::snapshot::{
+            AnimationTimelineSnapshot, RectSnapshot, ScrollingSnapshot, SizeSnapshot,
+        };
 
         let columns = self
             .columns
@@ -3601,12 +3604,180 @@ impl<W: LayoutElement> ScrollingSpace<W> {
             })
             .collect();
 
+        // TEAM_010: Capture ALL active animations
+        let mut animations = Vec::new();
+
+        // 1. Capture view_offset animation (camera X movement)
+        if let AnimatedValue::Animation(anim) = &self.view_offset {
+            let kind = Self::extract_animation_kind(anim);
+            animations.push(AnimationTimelineSnapshot::view_offset(
+                anim.from(),
+                anim.to(),
+                kind,
+                anim.duration().as_millis() as u64,
+            ));
+        }
+
+        // 2. Capture all column and tile animations
+        for (col_idx, column) in self.columns.iter().enumerate() {
+            let col_x = self.column_x(col_idx);
+
+            // Column move animation affects all tiles' X position
+            if let Some((anim, from_offset)) = column.move_animation() {
+                let kind = Self::extract_animation_kind(anim);
+                // Column move is an offset, not absolute position
+                animations.push(AnimationTimelineSnapshot {
+                    target: format!("column_{col_idx}_move_x"),
+                    from: from_offset,
+                    to: 0.0, // Animation moves toward 0 offset
+                    kind,
+                    duration_ms: anim.duration().as_millis() as u64,
+                    pinned_edge: None,
+                });
+            }
+
+            // Iterate through tiles for individual animations
+            for (tile, tile_idx) in column.tiles_with_animations() {
+                let tile_offset = column.tile_offset(tile_idx);
+                let tile_size = tile.tile_size();
+
+                // Tile resize animation → affects width (right edge) and height (bottom edge)
+                if let Some(anim) = tile.resize_animation() {
+                    if let Some((_, tile_size_from)) = tile.resize_animation_from_sizes() {
+                        let kind = Self::extract_animation_kind(anim);
+
+                        // Width animation: x_max (right edge in LTR) moves
+                        if (tile_size_from.w - tile_size.w).abs() > 0.1 {
+                            animations.push(AnimationTimelineSnapshot::tile_edge(
+                                col_idx,
+                                tile_idx,
+                                "x_max",
+                                col_x + tile_offset.x + tile_size_from.w,
+                                col_x + tile_offset.x + tile_size.w,
+                                kind.clone(),
+                                anim.duration().as_millis() as u64,
+                            ));
+                        }
+
+                        // Height animation: y_max (bottom edge) moves
+                        if (tile_size_from.h - tile_size.h).abs() > 0.1 {
+                            animations.push(AnimationTimelineSnapshot::tile_edge(
+                                col_idx,
+                                tile_idx,
+                                "y_max",
+                                tile_offset.y + tile_size_from.h,
+                                tile_offset.y + tile_size.h,
+                                kind,
+                                anim.duration().as_millis() as u64,
+                            ));
+                        }
+                    }
+                }
+
+                // Tile move_x animation → x_min and x_max edges move together
+                if let Some((anim, from_x)) = tile.move_x_animation_with_from() {
+                    let kind = Self::extract_animation_kind(anim);
+                    let current_x = col_x + tile_offset.x;
+                    let from_abs_x = current_x + from_x; // from is relative offset
+
+                    // x_min edge (left in LTR)
+                    animations.push(AnimationTimelineSnapshot::tile_edge(
+                        col_idx,
+                        tile_idx,
+                        "x_min",
+                        from_abs_x,
+                        current_x,
+                        kind.clone(),
+                        anim.duration().as_millis() as u64,
+                    ));
+
+                    // x_max edge (right in LTR) moves same amount
+                    animations.push(AnimationTimelineSnapshot::tile_edge(
+                        col_idx,
+                        tile_idx,
+                        "x_max",
+                        from_abs_x + tile_size.w,
+                        current_x + tile_size.w,
+                        kind,
+                        anim.duration().as_millis() as u64,
+                    ));
+                }
+
+                // Tile move_y animation → y_min and y_max edges move together
+                if let Some((anim, from_y)) = tile.move_y_animation_with_from() {
+                    let kind = Self::extract_animation_kind(anim);
+                    let current_y = tile_offset.y;
+                    let from_abs_y = current_y + from_y; // from is relative offset
+
+                    // y_min edge (top)
+                    animations.push(AnimationTimelineSnapshot::tile_edge(
+                        col_idx,
+                        tile_idx,
+                        "y_min",
+                        from_abs_y,
+                        current_y,
+                        kind.clone(),
+                        anim.duration().as_millis() as u64,
+                    ));
+
+                    // y_max edge (bottom) moves same amount
+                    animations.push(AnimationTimelineSnapshot::tile_edge(
+                        col_idx,
+                        tile_idx,
+                        "y_max",
+                        from_abs_y + tile_size.h,
+                        current_y + tile_size.h,
+                        kind,
+                        anim.duration().as_millis() as u64,
+                    ));
+                }
+            }
+        }
+
         ScrollingSnapshot {
             columns,
             active_column_idx: self.active_column_idx,
             view_offset: self.view_offset.current(),
             working_area: RectSnapshot::from(self.working_area),
             view_size: SizeSnapshot::from(self.view_size),
+            animations,
+        }
+    }
+
+    // TEAM_010: Helper to extract animation kind for snapshots
+    #[cfg(test)]
+    fn extract_animation_kind(anim: &Animation) -> crate::layout::snapshot::AnimationKindSnapshot {
+        use crate::layout::snapshot::AnimationKindSnapshot;
+
+        if let Some(curve_name) = anim.easing_curve_name() {
+            return AnimationKindSnapshot::Easing {
+                curve: curve_name.to_string(),
+                duration_ms: anim.duration().as_millis() as u64,
+            };
+        }
+
+        if let Some(params) = anim.spring_params() {
+            // Calculate damping_ratio from damping
+            // damping = damping_ratio * 2 * sqrt(mass * stiffness)
+            // For mass=1: damping_ratio = damping / (2 * sqrt(stiffness))
+            let damping_ratio = params.damping / (2.0 * params.stiffness.sqrt());
+            return AnimationKindSnapshot::Spring {
+                damping_ratio: (damping_ratio * 100.0).round() / 100.0,
+                stiffness: (params.stiffness * 10.0).round() / 10.0,
+            };
+        }
+
+        if let Some((initial_velocity, deceleration_rate)) = anim.deceleration_params() {
+            return AnimationKindSnapshot::Deceleration {
+                initial_velocity: (initial_velocity * 10.0).round() / 10.0,
+                deceleration_rate: (deceleration_rate * 1000.0).round() / 1000.0,
+            };
+        }
+
+        // Fallback
+        AnimationKindSnapshot::Easing {
+            curve: "Unknown".to_string(),
+            duration_ms: anim.duration().as_millis() as u64,
         }
     }
 

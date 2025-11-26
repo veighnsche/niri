@@ -53,3 +53,20 @@ working_area:
 view_size:
   w: 1280
   h: 720
+animations:
+  - target: column_2_move_x
+    from: -116
+    to: 0
+    kind:
+      type: Spring
+      damping_ratio: 1
+      stiffness: 800
+    duration_ms: 325
+  - target: column_3_move_x
+    from: -116
+    to: 0
+    kind:
+      type: Spring
+      damping_ratio: 1
+      stiffness: 800
+    duration_ms: 325

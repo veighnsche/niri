@@ -16,6 +16,7 @@ use super::*;
 mod animations;
 mod fullscreen;
 // TEAM_004: Golden snapshot tests
+// TEAM_010: Extended with animation timeline captures
 mod golden;
 
 impl<W: LayoutElement> Default for Layout<W> {
