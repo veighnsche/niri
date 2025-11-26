@@ -18,7 +18,7 @@ Phase 1.5 bridges the gap between "modules exist" and "modules are usable."
 
 ---
 
-## Current State (After TEAM_008)
+## Current State (After TEAM_009)
 
 ### What's Done ✓
 ```
@@ -33,18 +33,18 @@ src/layout/
 │   ├── gesture.rs      (445 lines) - Gesture handling ✓
 │   └── resize.rs       (151 lines) - Interactive resize ✓
 ├── canvas/
-│   └── mod.rs          (426 lines) - Canvas2D with rendering ✓
+│   └── mod.rs          (608 lines) - Canvas2D with FloatingSpace ✓
 └── animated_value/
     ├── mod.rs          (212 lines) - AnimatedValue enum ✓
     └── gesture.rs      (73 lines)  - ViewGesture ✓
 ```
 
 ### What's Still Missing
-1. **FloatingSpace** — Not integrated into Canvas2D
+1. ~~**FloatingSpace**~~ — ✅ Integrated by TEAM_009
 2. **Feature flag** — `canvas-2d` feature not created
 3. **Monitor integration** — Canvas2D not wired into compositor
-4. **Camera offset** — Not applied to render elements
-5. **Config** — `vertical_view_movement` not added to niri-config
+4. **Camera offset** — Deferred to Phase 3 (Camera System)
+5. **Config** — `vertical_view_movement` deferred to Phase 3
 
 ---
 
@@ -71,23 +71,24 @@ src/layout/
 
 ---
 
-## Step 1.5.2: Complete Canvas2D Module
+## Step 1.5.2: Complete Canvas2D Module ✅ CORE COMPLETE (TEAM_009)
 
-### FloatingSpace Integration
-- [ ] **1.5.2.1**: Add `floating: FloatingSpace<W>` field
-- [ ] **1.5.2.2**: Add `floating_is_active: bool` field
-- [ ] **1.5.2.3**: Implement `toggle_floating`
-- [ ] **1.5.2.4**: Update `render_elements` for floating layer
-- [ ] **1.5.2.5**: Update navigation for floating windows
+### FloatingSpace Integration ✅
+- [x] **1.5.2.1**: Add `floating: FloatingSpace<W>` field
+- [x] **1.5.2.2**: Add `floating_is_active: bool` field
+- [x] **1.5.2.3**: Implement `toggle_floating_window` and `toggle_floating_focus`
+- [x] **1.5.2.4**: Update `render_elements` for floating layer
+- [x] **1.5.2.5**: Update animations to include floating
 
-### Camera System
-- [ ] **1.5.2.6**: Apply camera offset in `render_elements`
-- [ ] **1.5.2.7**: Add `camera_x` tracking for horizontal scroll
-- [ ] **1.5.2.8**: Add `vertical_view_movement` config to niri-config
+### Camera System (Deferred to Phase 3)
+- [ ] **1.5.2.6**: Apply camera offset in `render_elements` — Phase 3
+- [ ] **1.5.2.7**: Add `camera_x` tracking for horizontal scroll — Phase 3
+- [ ] **1.5.2.8**: Add `vertical_view_movement` config to niri-config — Phase 3
 
-### Window Operations
-- [ ] **1.5.2.9**: Add `add_window` that routes to correct row
-- [ ] **1.5.2.10**: Add `remove_window` that finds across rows
+### Window Operations ✅
+- [x] **1.5.2.9**: Add `add_window` that routes to correct layer
+- [x] **1.5.2.10**: Add `remove_window` that finds across all layers
+- [x] **Bonus**: Add `contains_any`, `start_close_animation_for_window`
 
 ---
 

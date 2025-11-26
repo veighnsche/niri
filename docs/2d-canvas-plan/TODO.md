@@ -3,7 +3,7 @@
 > **Check this file first** to see where past teams planned to add features.
 > This maintains architectural consistency across teams.
 
-**Last updated**: TEAM_008 (Phase 1.5.1 complete)
+**Last updated**: TEAM_009 (Phase 1.5.2 in progress)
 
 ---
 
@@ -51,27 +51,29 @@ Row module is now feature-complete for Phase 1.5.1. All core ScrollingSpace meth
 
 Canvas2D depends on Row completion. Additional work needed:
 
-### Window Operations (DONE)
+### Window Operations ✅ COMPLETE (TEAM_009)
 - [x] `add_tile`, `add_tile_to_row` — done
 - [x] `contains`, `find_window` — done
+- [x] `add_window` — routes to correct layer (floating or tiled)
+- [x] `remove_window` — finds window across all layers
+- [x] `toggle_floating_window` — move window between layers
+- [x] `toggle_floating_focus` — switch focus between layers
 
-### Floating Layer
-- [ ] TODO(TEAM_006): Integrate FloatingSpace (line 423)
-- [ ] TODO(TEAM_006): Add floating layer rendering (line 408)
-
-### Window Operations
-- [ ] TODO(TEAM_006): Add `add_window` that routes to correct row (line 424)
-- [ ] TODO(TEAM_006): Add `remove_window` that finds window across rows (line 425)
+### Floating Layer ✅ COMPLETE (TEAM_009)
+- [x] Integrate FloatingSpace into Canvas2D
+- [x] Add floating layer rendering
+- [x] Update animations to include floating
 
 ### Camera
 - [x] TODO(TEAM_007): Animate camera_y when changing rows — DONE
-- [ ] TODO(TEAM_007): Add vertical_view_movement config to niri-config (line 239)
-- [ ] TODO(TEAM_006): Add camera_x tracking for horizontal scroll
+- [ ] TODO(TEAM_007): Add vertical_view_movement config to niri-config (Phase 3)
+- [ ] TODO(TEAM_006): Add camera_x tracking for horizontal scroll (Phase 3)
 
-### Rendering
+### Rendering ✅ COMPLETE
 - [x] TODO(TEAM_007): Add `render_elements` method — DONE
 - [x] TODO(TEAM_007): Add `update_render_elements` method — DONE
-- [ ] TODO(TEAM_007): Apply camera offset to render elements (line 379)
+- [x] TEAM_009: Floating layer rendering integrated
+- [ ] TODO(TEAM_007): Apply camera offset to render elements (Phase 3 - full camera system)
 
 ---
 

@@ -129,6 +129,21 @@ impl<W: LayoutElement> Row<W> {
         removed
     }
 
+    /// Removes the active tile (from the active column).
+    ///
+    /// Returns the removed tile, or None if the row is empty.
+    pub fn remove_active_tile(&mut self, transaction: Transaction) -> Option<RemovedTile<W>> {
+        if self.columns.is_empty() {
+            return None;
+        }
+        
+        let column_idx = self.active_column_idx;
+        let column = &self.columns[column_idx];
+        let tile_idx = column.active_tile_idx;
+        
+        Some(self.remove_tile_by_idx(column_idx, tile_idx, transaction))
+    }
+
     /// Removes the active column.
     pub fn remove_active_column(&mut self) -> Option<Column<W>> {
         if self.columns.is_empty() {

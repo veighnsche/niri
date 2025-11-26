@@ -228,7 +228,10 @@ src/layout/
   - [x] Interactive resize (resize.rs)
   - [x] Window operations (add/remove/consume/expel)
   - [x] render_above_top_layer
-- [ ] Step 1.5.2: Complete Canvas2D (FloatingSpace, camera offset)
+- [x] Step 1.5.2: Complete Canvas2D (TEAM_009)
+  - [x] FloatingSpace integration
+  - [x] Window operations (add_window, remove_window, toggle_floating)
+  - [ ] Camera offset (deferred to Phase 3)
 - [ ] Step 1.5.3: Feature flag (canvas-2d)
 - [ ] Step 1.5.4: Monitor integration
 

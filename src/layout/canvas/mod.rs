@@ -26,23 +26,26 @@ use std::rc::Rc;
 use smithay::output::Output;
 use smithay::utils::{Logical, Point, Rectangle, Scale, Size};
 
+use smithay::backend::renderer::gles::GlesRenderer;
+
 use super::animated_value::AnimatedValue;
+use super::floating::{FloatingSpace, FloatingSpaceRenderElement};
 use super::row::{Row, RowRenderElement};
-use super::tile::Tile;
+use super::tile::{Tile, TileRenderSnapshot};
 use super::types::ColumnWidth;
-use super::{LayoutElement, Options};
+use super::{LayoutElement, Options, RemovedTile};
 use crate::animation::{Animation, Clock};
+use crate::utils::transaction::{Transaction, TransactionBlocker};
 use crate::niri_render_elements;
 use crate::render_helpers::renderer::NiriRenderer;
 use crate::render_helpers::RenderTarget;
 
-// TEAM_006: FloatingSpace temporarily removed until Row has full functionality.
-// Will be re-added when Canvas2D is more complete.
-
 // TEAM_007: Canvas2D render element type
+// TEAM_009: Added FloatingSpace render element
 niri_render_elements! {
     Canvas2DRenderElement<R> => {
         Row = RowRenderElement<R>,
+        Floating = FloatingSpaceRenderElement<R>,
     }
 }
 
@@ -62,9 +65,12 @@ pub struct Canvas2D<W: LayoutElement> {
     /// Currently active row index.
     active_row_idx: i32,
 
-    // TEAM_006: Floating layer will be added when Row is more complete
-    // floating: FloatingSpace<W>,
-    // floating_is_active: bool,
+    /// Floating windows layer.
+    // TEAM_009: Integrated FloatingSpace
+    floating: FloatingSpace<W>,
+
+    /// Whether floating mode is active.
+    floating_is_active: bool,
 
     /// Camera X position (horizontal scroll).
     camera_x: AnimatedValue,
@@ -112,9 +118,20 @@ impl<W: LayoutElement> Canvas2D<W> {
             Row::new(0, view_size, parent_area, scale, clock.clone(), options.clone()),
         );
 
+        // TEAM_009: Create FloatingSpace
+        let floating = FloatingSpace::new(
+            view_size,
+            working_area,
+            scale,
+            clock.clone(),
+            options.clone(),
+        );
+
         Self {
             rows,
             active_row_idx: 0,
+            floating,
+            floating_is_active: false,
             camera_x: AnimatedValue::new(0.),
             camera_y: AnimatedValue::new(0.),
             output,
@@ -137,7 +154,25 @@ impl<W: LayoutElement> Canvas2D<W> {
         self.rows.values().any(|row| !row.is_empty())
     }
 
-    // TEAM_006: floating_is_active will be added when FloatingSpace is integrated
+    /// Returns whether the canvas has any floating windows.
+    pub fn has_floating_windows(&self) -> bool {
+        self.floating.tiles().next().is_some()
+    }
+
+    /// Returns whether floating mode is active.
+    pub fn floating_is_active(&self) -> bool {
+        self.floating_is_active
+    }
+
+    /// Returns a reference to the floating space.
+    pub fn floating(&self) -> &FloatingSpace<W> {
+        &self.floating
+    }
+
+    /// Returns a mutable reference to the floating space.
+    pub fn floating_mut(&mut self) -> &mut FloatingSpace<W> {
+        &mut self.floating
+    }
 
     /// Returns the active row index.
     pub fn active_row_idx(&self) -> i32 {
@@ -330,13 +365,14 @@ impl<W: LayoutElement> Canvas2D<W> {
         for row in self.rows.values_mut() {
             row.advance_animations();
         }
-        // TEAM_006: self.floating.advance_animations() will be added later
+        // TEAM_009: Added floating animation
+        self.floating.advance_animations();
     }
 
     /// Returns whether any animations are ongoing.
     pub fn are_animations_ongoing(&self) -> bool {
         self.rows.values().any(|row| row.are_animations_ongoing())
-            // TEAM_006: || self.floating.are_animations_ongoing()
+            || self.floating.are_animations_ongoing()
             || self.camera_x.is_animation_ongoing()
             || self.camera_y.is_animation_ongoing()
     }
@@ -397,15 +433,28 @@ impl<W: LayoutElement> Canvas2D<W> {
             }
         }
 
-        // Then render active row on top with focus ring
+        // Then render active row on top with focus ring (unless floating is active)
         if let Some(row) = self.rows.get(&active_row_idx) {
-            let row_elements = row.render_elements(renderer, target, focus_ring);
+            let row_focus_ring = focus_ring && !self.floating_is_active;
+            let row_elements = row.render_elements(renderer, target, row_focus_ring);
             for elem in row_elements {
                 rv.push(elem.into());
             }
         }
 
-        // TODO(TEAM_006): Add floating layer rendering
+        // TEAM_009: Render floating layer on top
+        let floating_focus_ring = focus_ring && self.floating_is_active;
+        // Use working_area as the view_rect for floating tiles
+        let view_rect = self.working_area;
+        let floating_elements = self.floating.render_elements(
+            renderer,
+            view_rect,
+            target,
+            floating_focus_ring,
+        );
+        for elem in floating_elements {
+            rv.push(elem.into());
+        }
 
         rv
     }
@@ -413,14 +462,146 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Updates render elements for all rows.
     pub fn update_render_elements(&mut self) {
         let active_row_idx = self.active_row_idx;
+        let floating_is_active = self.floating_is_active;
+        
         for (&row_idx, row) in &mut self.rows {
-            let is_active_row = row_idx == active_row_idx;
+            // Active row is only truly active if floating is not active
+            let is_active_row = row_idx == active_row_idx && !floating_is_active;
             row.update_render_elements(is_active_row);
         }
+        
+        // TEAM_009: Update floating render elements
+        let view_rect = self.working_area;
+        self.floating.update_render_elements(floating_is_active, view_rect);
+    }
+
+    // =========================================================================
+    // Toggle Floating (TEAM_009)
+    // =========================================================================
+
+    /// Toggles the active window between floating and tiled mode.
+    ///
+    /// If floating is active, moves the window to the tiled layer.
+    /// If tiled is active, moves the window to the floating layer.
+    pub fn toggle_floating_window(&mut self) {
+        if self.floating_is_active {
+            // Move window from floating to tiled
+            if let Some(removed) = self.floating.remove_active_tile() {
+                let tile = removed.tile;
+                let width = removed.width;
+                let is_full_width = removed.is_full_width;
+                self.add_tile(tile, true, width, is_full_width);
+                
+                // Switch to tiled mode if floating is now empty
+                if self.floating.is_empty() {
+                    self.floating_is_active = false;
+                }
+            }
+        } else {
+            // Move window from tiled to floating
+            if let Some(row) = self.active_row_mut() {
+                if let Some(removed) = row.remove_active_tile(Transaction::new()) {
+                    let tile = removed.tile;
+                    self.floating.add_tile(tile, true);
+                    self.floating_is_active = true;
+                }
+            }
+        }
+    }
+
+    /// Switches focus between floating and tiled layers.
+    pub fn toggle_floating_focus(&mut self) {
+        if self.floating_is_active {
+            if self.has_tiled_windows() {
+                self.floating_is_active = false;
+            }
+        } else {
+            if self.has_floating_windows() {
+                self.floating_is_active = true;
+            }
+        }
+    }
+
+    // =========================================================================
+    // Window Operations (TEAM_009)
+    // =========================================================================
+
+    /// Adds a window to the canvas.
+    ///
+    /// Routes to floating space if floating, otherwise to the active row.
+    pub fn add_window(
+        &mut self,
+        tile: Tile<W>,
+        activate: bool,
+        is_floating: bool,
+        width: ColumnWidth,
+        is_full_width: bool,
+    ) {
+        if is_floating {
+            self.floating.add_tile(tile, activate);
+            if activate {
+                self.floating_is_active = true;
+            }
+        } else {
+            self.add_tile(tile, activate, width, is_full_width);
+            if activate {
+                self.floating_is_active = false;
+            }
+        }
+    }
+
+    /// Removes a window from the canvas.
+    ///
+    /// Searches both tiled rows and floating space.
+    pub fn remove_window(&mut self, id: &W::Id) -> Option<RemovedTile<W>> {
+        // Check floating first
+        if self.floating.has_window(id) {
+            return Some(self.floating.remove_tile(id));
+        }
+        
+        // Check rows
+        for row in self.rows.values_mut() {
+            if row.contains(id) {
+                return Some(row.remove_tile(id, Transaction::new()));
+            }
+        }
+        
+        None
+    }
+
+    /// Returns whether the canvas contains the given window (tiled or floating).
+    pub fn contains_any(&self, id: &W::Id) -> bool {
+        self.floating.has_window(id) || self.contains(id)
+    }
+
+    /// Starts a close animation for a window.
+    pub fn start_close_animation_for_window(
+        &mut self,
+        renderer: &mut GlesRenderer,
+        id: &W::Id,
+        blocker: TransactionBlocker,
+    ) {
+        // Try floating first
+        if self.floating.has_window(id) {
+            self.floating.start_close_animation_for_window(renderer, id, blocker);
+            return;
+        }
+        
+        // TODO(TEAM_009): Add close animation for tiled windows in rows
+        // For now, tiled windows don't have close animations at the canvas level
+    }
+
+    /// Starts a close animation from a tile snapshot.
+    pub fn start_close_animation_for_tile(
+        &mut self,
+        renderer: &mut GlesRenderer,
+        snapshot: TileRenderSnapshot,
+        tile_size: Size<f64, Logical>,
+        tile_pos: Point<f64, Logical>,
+        blocker: TransactionBlocker,
+    ) {
+        self.floating.start_close_animation_for_tile(
+            renderer, snapshot, tile_size, tile_pos, blocker,
+        );
     }
 }
-
-// TODO(TEAM_006): Integrate FloatingSpace (after Row is complete)
-// TODO(TEAM_006): Add add_window that routes to correct row
-// TODO(TEAM_006): Add remove_window that finds window across rows
-// See docs/2d-canvas-plan/TODO.md for full list
