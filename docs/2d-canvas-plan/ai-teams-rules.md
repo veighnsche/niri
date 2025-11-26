@@ -64,22 +64,40 @@ When you modify code, add your team number:
 
 **Purpose**: Prevent behavioral regressions. Refactored code must produce identical layout positions as original main branch code.
 
+### 🚫 NEVER RUN `cargo insta accept` ON GOLDEN TESTS 🚫
+
+Golden snapshots come from the **`golden-snapshots` branch**, NOT this branch.
+If tests fail, your code is wrong — fix it, don't accept new snapshots.
+
+### Provenance
+
+| Item | Location |
+|------|----------|
+| **Source branch** | `golden-snapshots` (derived from `main`) |
+| **Sync command** | `cargo xtask golden-sync pull` |
+| **Generate command** | `cargo xtask golden-sync generate` |
+| **xtask source** | `xtask/src/golden_sync/mod.rs` |
+
+### If You Need to Change Snapshot Behavior
+
+1. Make the change on `golden-snapshots` branch FIRST
+2. Run `cargo xtask golden-sync pull` to sync to this branch
+3. Never modify `.snap` files directly on refactor branches
+
 ### ⚠️ MANDATORY: If You Touch Layout Logic
 
-**Before ANY refactor that touches these files, you MUST:**
-1. Run `./scripts/verify-golden.sh` — verify permissions and tests pass BEFORE your changes
+**Before ANY refactor that touches layout files, you MUST:**
+1. Run `./scripts/verify-golden.sh` — verify tests pass BEFORE your changes
 2. Make your changes
-3. Run `cargo insta test` again — verify they STILL pass
+3. Run `cargo test --lib golden` — verify they STILL pass
 4. If tests fail → you introduced a regression, fix it
 
 ### Key Files
 - `src/layout/snapshot.rs` — Snapshot types (positions, indices, etc.)
 - `src/layout/tests/golden.rs` — Snapshot comparison tests
-- `src/layout/tests/snapshots/*.snap` — Locked baseline snapshots (chmod 444)
+- `src/layout/tests/snapshots/*.snap` — Baseline snapshots (from `golden-snapshots` branch)
 - `scripts/verify-golden.sh` — Verification script
-
-> ⚠️ Snapshot files are chmod 444 (read-only). **NEVER modify them.**
-> Source commit: `75d5e3b0` — use `git show 75d5e3b0:src/layout/scrolling.rs` to see original code
+- `xtask/src/golden_sync/mod.rs` — Golden sync tool
 
 ### What Snapshots Capture
 - Column X positions and widths
@@ -90,14 +108,15 @@ When you modify code, add your team number:
 
 ### Workflow
 1. Golden code and refactored code both implement `snapshot()` → same types
-2. Tests compare outputs using `insta` (`cargo insta test`)
+2. Tests compare outputs using `insta` (`cargo test --lib golden`)
 3. If snapshots differ → regression found, fix before proceeding
-4. Use `cargo insta review` to inspect diffs (never accept without USER approval)
+4. Use `cargo insta review` to inspect diffs — **NEVER accept on golden tests**
+5. Run `cargo xtask golden-sync clean` to remove `.snap.new` files
 
 ### Adding New Features?
 - New features won't have golden tests (original code didn't have them)
 - But existing behavior MUST still match golden snapshots
-- Create new test scenarios in `tests/golden.rs` for new features
+- To add new golden tests: add them on `golden-snapshots` branch, then sync
 
 ---
 
@@ -222,7 +241,9 @@ Add any new TODOs to: `docs/2d-canvas-plan/TODO.md`
 | Team logs | `.teams/TEAM_XXX_*.md` |
 | Questions for USER | `.questions/TEAM_XXX_*.md` |
 | **Global TODOs** | `TODO.md` |
-| Golden snapshots | `src/layout/tests/snapshots/*.snap` |
+| **Golden snapshots** | `src/layout/tests/snapshots/*.snap` |
+| **Golden source branch** | `golden-snapshots` (NEVER accept on other branches!) |
+| **Golden sync tool** | `cargo xtask golden-sync` |
 | Verification script | `scripts/verify-golden.sh` |
 | Your code comments | `// TEAM_XXX: ...` |
 

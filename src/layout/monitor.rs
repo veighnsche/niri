@@ -15,6 +15,9 @@ use super::insert_hint_element::{InsertHintElement, InsertHintRenderElement};
 use super::column::Column;
 use super::types::ColumnWidth;
 use super::tile::Tile;
+// TEAM_010: Phase 1.5.3 — Replace Workspace with Canvas2D
+use super::canvas::{Canvas2D, Canvas2DRenderElement};
+use super::row::Row;
 use super::workspace::{
     compute_working_area, OutputId, Workspace, WorkspaceAddWindowTarget, WorkspaceId,
     WorkspaceRenderElement,
@@ -46,6 +49,8 @@ const WORKSPACE_GESTURE_RUBBER_BAND: RubberBand = RubberBand {
 /// This constant is tied to the default dnd-edge-workspace-switch max-speed setting.
 const WORKSPACE_DND_EDGE_SCROLL_MOVEMENT: f64 = 1500.;
 
+// TEAM_010: Phase 1.5.3 — Monitor now uses Canvas2D instead of workspaces.
+// Workspaces are REMOVED. One infinite canvas per output.
 #[derive(Debug)]
 pub struct Monitor<W: LayoutElement> {
     /// Output for this monitor.
@@ -63,14 +68,32 @@ pub struct Monitor<W: LayoutElement> {
     // should only consider overlay and top layer-shell surfaces. However, Smithay doesn't easily
     // let you do this at the moment.
     working_area: Rectangle<f64, Logical>,
-    // Must always contain at least one.
+    
+    // =========================================================================
+    // TEAM_010: Canvas2D replaces workspaces
+    // =========================================================================
+    
+    /// The 2D canvas containing all windows on this output.
+    pub(super) canvas: Canvas2D<W>,
+    
+    // =========================================================================
+    // LEGACY: Keep workspaces temporarily for incremental migration
+    // TODO(TEAM_010): Remove after all methods are migrated
+    // =========================================================================
+    
+    /// LEGACY: Workspaces (kept for gradual migration)
     pub(super) workspaces: Vec<Workspace<W>>,
-    /// Index of the currently active workspace.
+    /// LEGACY: Index of the currently active workspace.
     pub(super) active_workspace_idx: usize,
-    /// ID of the previously active workspace.
+    /// LEGACY: ID of the previously active workspace.
     pub(super) previous_workspace_id: Option<WorkspaceId>,
-    /// In-progress switch between workspaces.
+    /// LEGACY: In-progress switch between workspaces.
     pub(super) workspace_switch: Option<WorkspaceSwitch>,
+    
+    // =========================================================================
+    // Shared state
+    // =========================================================================
+    
     /// Indication where an interactively-moved window is about to be placed.
     pub(super) insert_hint: Option<InsertHint>,
     /// Insert hint element for rendering.
@@ -78,8 +101,10 @@ pub struct Monitor<W: LayoutElement> {
     /// Location to render the insert hint element.
     insert_hint_render_loc: Option<InsertHintRenderLoc>,
     /// Whether the overview is open.
+    /// LEGACY: Overview will be removed in Phase 1.5.3
     pub(super) overview_open: bool,
     /// Progress of the overview zoom animation, 1 is fully in overview.
+    /// LEGACY: Overview will be removed in Phase 1.5.3
     overview_progress: Option<OverviewProgress>,
     /// Clock for driving animations.
     pub(super) clock: Clock,
@@ -323,12 +348,26 @@ impl<W: LayoutElement> Monitor<W> {
         let ws = Workspace::new(output.clone(), clock.clone(), options.clone());
         workspaces.push(ws);
 
+        // TEAM_010: Create Canvas2D for 2D layout mode
+        let canvas = Canvas2D::new(
+            Some(output.clone()),
+            view_size,
+            working_area, // parent_area = working_area
+            working_area,
+            scale.fractional_scale(),
+            clock.clone(),
+            options.clone(),
+        );
+
         Self {
             output_name: output.name(),
             output,
             scale,
             view_size,
             working_area,
+            // TEAM_010: Canvas2D is the new layout primitive
+            canvas,
+            // LEGACY: Keep workspaces for gradual migration
             workspaces,
             active_workspace_idx,
             previous_workspace_id: None,
@@ -362,6 +401,24 @@ impl<W: LayoutElement> Monitor<W> {
     pub fn output_name(&self) -> &String {
         &self.output_name
     }
+
+    // =========================================================================
+    // TEAM_010: Canvas2D accessors
+    // =========================================================================
+
+    /// Returns a reference to the canvas.
+    pub fn canvas(&self) -> &Canvas2D<W> {
+        &self.canvas
+    }
+
+    /// Returns a mutable reference to the canvas.
+    pub fn canvas_mut(&mut self) -> &mut Canvas2D<W> {
+        &mut self.canvas
+    }
+
+    // =========================================================================
+    // LEGACY: Workspace accessors (kept for gradual migration)
+    // =========================================================================
 
     pub fn active_workspace_idx(&self) -> usize {
         self.active_workspace_idx

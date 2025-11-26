@@ -240,4 +240,32 @@ impl<W: LayoutElement> Canvas2D<W> {
             || self.camera_x.is_animation_ongoing()
             || self.camera_y.is_animation_ongoing()
     }
+
+    // =========================================================================
+    // Golden Snapshot Testing
+    // TEAM_010: Added for test compatibility after Monitor refactor
+    // =========================================================================
+
+    /// Creates a snapshot of the active row's layout state for golden testing.
+    ///
+    /// This delegates to the active row's snapshot() method to ensure golden
+    /// tests produce the same output as they did when going through
+    /// Workspace → ScrollingSpace.
+    #[cfg(test)]
+    pub fn snapshot(&self) -> crate::layout::snapshot::ScrollingSnapshot {
+        if let Some(row) = self.active_row() {
+            row.snapshot()
+        } else {
+            // Return empty snapshot if no active row
+            use crate::layout::snapshot::{RectSnapshot, ScrollingSnapshot, SizeSnapshot};
+            ScrollingSnapshot {
+                columns: Vec::new(),
+                active_column_idx: 0,
+                view_offset: 0.0,
+                working_area: RectSnapshot::from(self.working_area),
+                view_size: SizeSnapshot::from(self.view_size),
+                animations: Vec::new(),
+            }
+        }
+    }
 }

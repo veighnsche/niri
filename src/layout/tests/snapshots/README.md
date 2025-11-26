@@ -1,53 +1,42 @@
-# Golden Snapshots — READ BEFORE MODIFYING
+# Golden Snapshots
 
-## ⚠️ STOP — DO NOT MODIFY THESE FILES
+## ⚠️ AI AGENTS: READ THIS FIRST ⚠️
 
-These `.snap` files are **locked baselines** (chmod 444) created from the original
-`main` branch code. They represent the "golden standard" that refactored code
-must match.
+These snapshots come from the `golden-snapshots` branch, NOT this branch.
+**NEVER run `cargo insta accept` on golden tests.**
 
-## Source
+If you need to update snapshot behavior:
+1. The change MUST be made on the `golden-snapshots` branch FIRST
+2. Then run `cargo xtask golden-sync pull` to sync to this branch
+3. Never modify `.snap` files directly on refactor branches
 
-- **Commit**: `75d5e3b0`
-- **Date**: 2024-11-26
-- **Original code**: `git show 75d5e3b0:src/layout/scrolling.rs`
+## Provenance
+
+- **Source branch**: `golden-snapshots` (derived from `main`)
+- **Sync command**: `cargo xtask golden-sync pull`
+- **Generate command**: `cargo xtask golden-sync generate`
 
 ## If Tests Fail
 
-1. **DO NOT** run `cargo insta accept`
-2. **DO NOT** modify snapshot files
-3. **FIX YOUR CODE** — your refactor changed behavior
-4. Run `cargo insta review` to see what changed
-5. Compare with original: `git show 75d5e3b0:src/layout/scrolling.rs`
+1. **DO NOT** run `cargo insta accept` — this corrupts the baseline
+2. **FIX YOUR CODE** — your refactor changed behavior
+3. Run `cargo insta review` to see what changed
+4. Run `cargo xtask golden-sync clean` to remove `.snap.new` files
 
-## If You MUST Update Snapshots
-
-Only with **explicit USER approval**:
+## Commands
 
 ```bash
-# 1. Get permission from USER first!
-# 2. Unlock the file
-chmod 644 src/layout/tests/snapshots/THE_FILE.snap
-
-# 3. Update
-cargo insta accept
-
-# 4. Re-lock
-chmod 444 src/layout/tests/snapshots/THE_FILE.snap
-```
-
-## Verification
-
-Run before any layout refactor:
-```bash
-./scripts/verify-golden.sh
+cargo xtask golden-sync status   # Check sync status
+cargo xtask golden-sync pull     # Pull from golden-snapshots branch
+cargo xtask golden-sync clean    # Remove .snap.new files
+cargo test --lib golden          # Run golden tests
 ```
 
 ## Documentation
 
 - **Rules**: `docs/2d-canvas-plan/ai-teams-rules.md` (Rule 4)
-- **Phase plan**: `docs/2d-canvas-plan/phases/phase-0.5-golden-snapshots-v2.md`
+- **xtask source**: `xtask/src/golden_sync/mod.rs`
 
 ---
 
-*Created by TEAM_004. 58 snapshots covering Groups A-W.*
+*TEAM_004: Initial. TEAM_010: Added provenance and AI agent instructions.*

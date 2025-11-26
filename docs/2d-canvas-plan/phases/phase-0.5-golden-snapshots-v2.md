@@ -5,9 +5,11 @@
 ## Design Goals
 
 1. **Provable correctness**: Golden snapshots MUST come from main branch code
-2. **Tamper-proof**: All golden files read-only (chmod 444)
-3. **Side-by-side comparison**: Both golden and refactored code run, outputs compared
-4. **Reproducible**: Anyone can regenerate golden snapshots from main branch
+2. **Side-by-side comparison**: Both golden and refactored code run, outputs compared
+3. **Reproducible**: Anyone can regenerate golden snapshots from main branch
+
+> Note: TEAM_010 removed chmod 444 protection — git doesn't preserve file permissions,
+> so this forced manual workarounds. The tests themselves are the protection.
 
 ---
 
@@ -170,12 +172,11 @@ Once golden code is set up:
 ## Success Criteria
 
 1. [x] Golden source code extracted from main branch
-2. [x] All golden files are chmod 444
-3. [x] All golden directories are chmod 555
-4. [x] All snapshot files are chmod 444
-5. [x] Verification script created (`scripts/verify-golden.sh`)
-6. [x] 58 golden tests pass
-7. [x] Documentation explains the system (`golden/VERIFICATION.md`)
+2. [x] Verification script created (`scripts/verify-golden.sh`)
+3. [x] 91 golden tests pass (was 58, expanded by later teams)
+4. [x] Documentation explains the system
+
+> Note: chmod 444 criteria removed by TEAM_010 — git doesn't preserve permissions.
 
 ## Current Implementation (Pragmatic Approach)
 

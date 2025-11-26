@@ -85,26 +85,21 @@ Execute Phase 0.5.A and 0.5.B: Set up golden snapshot testing infrastructure.
 
 ### Key Files
 - `src/layout/tests/golden.rs` — Test file with prominent warning header
-- `src/layout/tests/snapshots/*.snap` — 58 locked baseline snapshots (chmod 444)
-- `src/layout/tests/snapshots/README.md` — Instructions for future teams (chmod 444)
+- `src/layout/tests/snapshots/*.snap` — Baseline snapshots
+- `src/layout/tests/snapshots/README.md` — Instructions for future teams
 - `scripts/verify-golden.sh` — Verification script
 
 ### Source Commit
 - **Commit**: `75d5e3b0` (before TEAM_005 AnimatedValue refactor)
 - **View original**: `git show 75d5e3b0:src/layout/scrolling.rs`
 
-### File Permissions (Tamper-Proof)
-- `src/layout/tests/snapshots/*.snap` — chmod 444 (read-only)
-- `src/layout/tests/snapshots/README.md` — chmod 444 (read-only)
-
 ### Verification
 ```bash
 ./scripts/verify-golden.sh
+# or: cargo test --lib golden
 ```
-Checks:
-1. README exists and is read-only
-2. All .snap files are read-only
-3. All 58 golden tests pass
+
+> Note: TEAM_010 removed chmod 444 checks — git doesn't preserve permissions.
 
 ## Handoff
 - [x] Code compiles (`cargo check` passes)
