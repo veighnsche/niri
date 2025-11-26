@@ -19,6 +19,8 @@ use super::tile::{Tile, TileRenderElement, TileRenderSnapshot};
 use super::types::{ColumnWidth, InsertPosition, InteractiveResize, ResolvedSize};
 // Re-export ScrollDirection for backwards compatibility
 pub use super::types::ScrollDirection;
+// TEAM_005: Import AnimatedValue and ViewGesture from animated_value module
+use super::animated_value::{AnimatedValue, ViewGesture};
 use super::{ConfigureIntent, HitType, InteractiveResizeData, LayoutElement, Options, RemovedTile};
 use crate::animation::{Animation, Clock};
 use crate::input::swipe_tracker::SwipeTracker;
@@ -53,7 +55,8 @@ pub struct ScrollingSpace<W: LayoutElement> {
     /// Any gaps, including left padding from work area left exclusive zone, is handled
     /// with this view offset (rather than added as a constant elsewhere in the code). This allows
     /// for natural handling of fullscreen windows, which must ignore work area padding.
-    view_offset: ViewOffset,
+    // TEAM_005: Renamed from ViewOffset to use AnimatedValue abstraction
+    view_offset: AnimatedValue,
 
     /// Whether to activate the previous, rather than the next, column upon column removal.
     ///
@@ -112,38 +115,9 @@ struct ColumnData {
     width: f64,
 }
 
-#[derive(Debug)]
-pub(super) enum ViewOffset {
-    /// The view offset is static.
-    Static(f64),
-    /// The view offset is animating.
-    Animation(Animation),
-    /// The view offset is controlled by the ongoing gesture.
-    Gesture(ViewGesture),
-}
-
-#[derive(Debug)]
-pub(super) struct ViewGesture {
-    current_view_offset: f64,
-    /// Animation for the extra offset to the current position.
-    ///
-    /// For example, when we need to activate a specific window during a DnD scroll.
-    animation: Option<Animation>,
-    tracker: SwipeTracker,
-    delta_from_tracker: f64,
-    // The view offset we'll use if needed for activate_prev_column_on_removal.
-    stationary_view_offset: f64,
-    /// Whether the gesture is controlled by the touchpad.
-    is_touchpad: bool,
-
-    // If this gesture is for drag-and-drop scrolling, this is the last event's unadjusted
-    // timestamp.
-    dnd_last_event_time: Option<Duration>,
-    // Time when the drag-and-drop scroll delta became non-zero, used for debouncing.
-    //
-    // If `None` then the scroll delta is currently zero.
-    dnd_nonzero_start_time: Option<Duration>,
-}
+// TEAM_005: ViewOffset and ViewGesture moved to animated_value module
+// ViewOffset replaced with AnimatedValue
+// ViewGesture is now in animated_value/gesture.rs
 
 // TEAM_002: Column, ColumnWidth, WindowHeight, TileData, MoveAnimation moved to column module
 // TEAM_003: ScrollDirection moved to types module
@@ -163,7 +137,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
             data: Vec::new(),
             active_column_idx: 0,
             interactive_resize: None,
-            view_offset: ViewOffset::Static(0.),
+            view_offset: AnimatedValue::new(0.),
             activate_prev_column_on_removal: None,
             view_offset_to_restore: None,
             closing_windows: Vec::new(),
@@ -209,13 +183,13 @@ impl<W: LayoutElement> ScrollingSpace<W> {
     }
 
     pub fn advance_animations(&mut self) {
-        if let ViewOffset::Animation(anim) = &self.view_offset {
+        if let AnimatedValue::Animation(anim) = &self.view_offset {
             if anim.is_done() {
-                self.view_offset = ViewOffset::Static(anim.to());
+                self.view_offset = AnimatedValue::Static(anim.to());
             }
         }
 
-        if let ViewOffset::Gesture(gesture) = &mut self.view_offset {
+        if let AnimatedValue::Gesture(gesture) = &mut self.view_offset {
             // Make sure the last event time doesn't go too much out of date (for
             // workspaces not under cursor), causing sudden jumps.
             //
@@ -574,7 +548,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
         }
 
         match &mut self.view_offset {
-            ViewOffset::Gesture(gesture) if gesture.dnd_last_event_time.is_some() => {
+            AnimatedValue::Gesture(gesture) if gesture.dnd_last_event_time.is_some() => {
                 gesture.stationary_view_offset = new_view_offset;
 
                 let current_pos = gesture.current_view_offset - gesture.delta_from_tracker;
@@ -586,7 +560,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
             }
             _ => {
                 // FIXME: also compute and use current velocity.
-                self.view_offset = ViewOffset::Animation(Animation::new(
+                self.view_offset = AnimatedValue::Animation(Animation::new(
                     self.clock.clone(),
                     self.view_offset.current(),
                     new_view_offset,
@@ -857,9 +831,9 @@ impl<W: LayoutElement> ScrollingSpace<W> {
             // If this is the first window on an empty workspace, remove the effect of whatever
             // view_offset was left over and skip the animation.
             if was_empty {
-                self.view_offset = ViewOffset::Static(0.);
+                self.view_offset = AnimatedValue::Static(0.);
                 self.view_offset =
-                    ViewOffset::Static(self.compute_new_view_offset_for_column(None, idx, None));
+                    AnimatedValue::Static(self.compute_new_view_offset_for_column(None, idx, None));
             }
 
             let prev_offset = (!was_empty && idx == self.active_column_idx + 1)
@@ -2894,11 +2868,11 @@ impl<W: LayoutElement> ScrollingSpace<W> {
             dnd_last_event_time: None,
             dnd_nonzero_start_time: None,
         };
-        self.view_offset = ViewOffset::Gesture(gesture);
+        self.view_offset = AnimatedValue::Gesture(gesture);
     }
 
     pub fn dnd_scroll_gesture_begin(&mut self) {
-        if let ViewOffset::Gesture(ViewGesture {
+        if let AnimatedValue::Gesture(ViewGesture {
             dnd_last_event_time: Some(_),
             ..
         }) = &self.view_offset
@@ -2917,7 +2891,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
             dnd_last_event_time: Some(self.clock.now_unadjusted()),
             dnd_nonzero_start_time: None,
         };
-        self.view_offset = ViewOffset::Gesture(gesture);
+        self.view_offset = AnimatedValue::Gesture(gesture);
 
         self.interactive_resize = None;
     }
@@ -2928,7 +2902,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
         timestamp: Duration,
         is_touchpad: bool,
     ) -> Option<bool> {
-        let ViewOffset::Gesture(gesture) = &mut self.view_offset else {
+        let AnimatedValue::Gesture(gesture) = &mut self.view_offset else {
             return None;
         };
 
@@ -2951,7 +2925,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
     }
 
     pub fn dnd_scroll_gesture_scroll(&mut self, delta: f64) -> bool {
-        let ViewOffset::Gesture(gesture) = &mut self.view_offset else {
+        let AnimatedValue::Gesture(gesture) = &mut self.view_offset else {
             return false;
         };
 
@@ -3025,7 +2999,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
     }
 
     pub fn view_offset_gesture_end(&mut self, is_touchpad: Option<bool>) -> bool {
-        let ViewOffset::Gesture(gesture) = &mut self.view_offset else {
+        let AnimatedValue::Gesture(gesture) = &mut self.view_offset else {
             return false;
         };
 
@@ -3052,7 +3026,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
         let current_view_offset = pos + gesture.delta_from_tracker;
 
         if self.columns.is_empty() {
-            self.view_offset = ViewOffset::Static(current_view_offset);
+            self.view_offset = AnimatedValue::Static(current_view_offset);
             return true;
         }
 
@@ -3338,7 +3312,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
 
         let target_view_offset = target_snap.view_pos - new_col_x;
 
-        self.view_offset = ViewOffset::Animation(Animation::new(
+        self.view_offset = AnimatedValue::Animation(Animation::new(
             self.clock.clone(),
             current_view_offset + delta,
             target_view_offset,
@@ -3353,14 +3327,14 @@ impl<W: LayoutElement> ScrollingSpace<W> {
     }
 
     pub fn dnd_scroll_gesture_end(&mut self) {
-        let ViewOffset::Gesture(gesture) = &mut self.view_offset else {
+        let AnimatedValue::Gesture(gesture) = &mut self.view_offset else {
             return;
         };
 
         if gesture.dnd_last_event_time.is_some() && gesture.tracker.pos() == 0. {
             // DnD didn't scroll anything, so preserve the current view position (rather than
             // snapping the window).
-            self.view_offset = ViewOffset::Static(gesture.delta_from_tracker);
+            self.view_offset = AnimatedValue::Static(gesture.delta_from_tracker);
 
             if !self.columns.is_empty() {
                 // Just in case, make sure the active window remains on screen.
@@ -3597,7 +3571,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
     }
 
     #[cfg(test)]
-    pub(super) fn view_offset(&self) -> &ViewOffset {
+    pub(super) fn view_offset(&self) -> &AnimatedValue {
         &self.view_offset
     }
 
@@ -3674,90 +3648,8 @@ impl<W: LayoutElement> ScrollingSpace<W> {
     }
 }
 
-impl ViewOffset {
-    /// Returns the current view offset.
-    pub fn current(&self) -> f64 {
-        match self {
-            ViewOffset::Static(offset) => *offset,
-            ViewOffset::Animation(anim) => anim.value(),
-            ViewOffset::Gesture(gesture) => {
-                gesture.current_view_offset
-                    + gesture.animation.as_ref().map_or(0., |anim| anim.value())
-            }
-        }
-    }
-
-    /// Returns the target view offset suitable for computing the new view offset.
-    pub fn target(&self) -> f64 {
-        match self {
-            ViewOffset::Static(offset) => *offset,
-            ViewOffset::Animation(anim) => anim.to(),
-            // This can be used for example if a gesture is interrupted.
-            ViewOffset::Gesture(gesture) => gesture.current_view_offset,
-        }
-    }
-
-    /// Returns a view offset value suitable for saving and later restoration.
-    ///
-    /// This means that it shouldn't return an in-progress animation or gesture value.
-    fn stationary(&self) -> f64 {
-        match self {
-            ViewOffset::Static(offset) => *offset,
-            // For animations we can return the final value.
-            ViewOffset::Animation(anim) => anim.to(),
-            ViewOffset::Gesture(gesture) => gesture.stationary_view_offset,
-        }
-    }
-
-    pub fn is_static(&self) -> bool {
-        matches!(self, Self::Static(_))
-    }
-
-    pub fn is_gesture(&self) -> bool {
-        matches!(self, Self::Gesture(_))
-    }
-
-    pub fn is_dnd_scroll(&self) -> bool {
-        matches!(&self, ViewOffset::Gesture(gesture) if gesture.dnd_last_event_time.is_some())
-    }
-
-    pub fn is_animation_ongoing(&self) -> bool {
-        match self {
-            ViewOffset::Static(_) => false,
-            ViewOffset::Animation(_) => true,
-            ViewOffset::Gesture(gesture) => gesture.animation.is_some(),
-        }
-    }
-
-    pub fn offset(&mut self, delta: f64) {
-        match self {
-            ViewOffset::Static(offset) => *offset += delta,
-            ViewOffset::Animation(anim) => anim.offset(delta),
-            ViewOffset::Gesture(gesture) => {
-                gesture.stationary_view_offset += delta;
-                gesture.delta_from_tracker += delta;
-                gesture.current_view_offset += delta;
-            }
-        }
-    }
-
-    pub fn cancel_gesture(&mut self) {
-        if let ViewOffset::Gesture(gesture) = self {
-            *self = ViewOffset::Static(gesture.current_view_offset);
-        }
-    }
-
-    pub fn stop_anim_and_gesture(&mut self) {
-        *self = ViewOffset::Static(self.current());
-    }
-}
-
-impl ViewGesture {
-    fn animate_from(&mut self, from: f64, clock: Clock, config: niri_config::Animation) {
-        let current = self.animation.as_ref().map_or(0., Animation::value);
-        self.animation = Some(Animation::new(clock, from + current, 0., 0., config));
-    }
-}
+// TEAM_005: ViewOffset impl block removed - methods now on AnimatedValue in animated_value module
+// TEAM_005: ViewGesture impl block removed - methods now in animated_value/gesture.rs
 
 impl ColumnData {
     pub fn new<W: LayoutElement>(column: &Column<W>) -> Self {

@@ -69,7 +69,50 @@ ROW 1   |             | Column B' |                                 |
 | **Row Span** | Window spans 1, 2, or more rows vertically |
 | **Camera** | Position `(x, y)` + `zoom` factor (modular, owns its state) |
 | **Origin** | Fixed (0,0) determines leading/trailing edge behavior |
-| **Navigation** | Geometric — finds nearest window in direction |
+| **Navigation** | Geometric — finds nearest window in direction (crosses rows) |
+
+---
+
+## Keyboard Shortcuts (2D Canvas)
+
+### Navigation
+| Shortcut | Action |
+|----------|--------|
+| `Mod+Left/Right` | Focus column left/right (within row) |
+| `Mod+Up/Down` | Navigate up/down (geometric, crosses rows at edges) |
+| `Mod+Shift+Up/Down` | Move window/column to row above/below |
+
+### Row Spanning
+| Shortcut | Action |
+|----------|--------|
+| `Mod+Ctrl+Plus/Minus` | Increase/decrease row span |
+| `Mod+Ctrl+1/2/3` | Set row span to 1/2/3 rows |
+
+### Camera/Zoom
+| Shortcut | Action |
+|----------|--------|
+| `Mod+Scroll` | Zoom in/out |
+| `Mod+0` | Reset zoom to 100% |
+| `Mod+=` | Zoom to fit focused window |
+| `Mod+Shift+=` | Zoom to fit all visible |
+
+### Camera Bookmarks (replaces workspaces)
+| Shortcut | Action |
+|----------|--------|
+| `Mod+1/2/3...` | Jump to saved camera position |
+| `Mod+Shift+1/2/3...` | Save current camera position |
+
+### Preserved from 1D
+| Shortcut | Action |
+|----------|--------|
+| `Mod+Shift+Left/Right` | Move column left/right |
+| `Mod+R` | Cycle preset widths |
+| `Mod+F` | Maximize column |
+| `Mod+Shift+F` | Fullscreen |
+| `Mod+C` | Center column |
+| `Mod+[/]` | Consume/expel window |
+
+> **Note**: Workspaces are **removed**. One infinite canvas per output. Camera bookmarks replace workspace switching.
 
 ---
 
@@ -139,12 +182,15 @@ src/layout/
 ### Phase 0: Preparation (~1 week)
 - [x] Step 0.1: Extract Column from scrolling.rs → layout/column/ module (TEAM_002 - COMPLETE)
 - [x] Step 0.3: Clean up ScrollingSpace dependencies (TEAM_003 - COMPLETE)
-- [ ] **Step 0.5: Golden snapshot infrastructure** — MUST complete before continuing
-  - [ ] 0.5.A: Infrastructure setup (insta, types)
-  - [ ] 0.5.B: Golden code extraction, snapshot() methods
-  - [ ] 0.5.C: Core golden tests (Groups A-L)
-  - [ ] 0.5.D: Advanced golden tests (Groups M-W)
-- [ ] Step 0.2: Create AnimatedValue abstraction for view offset (1 day)
+- [x] **Step 0.5: Golden snapshot infrastructure** (TEAM_004 - COMPLETE)
+  - [x] 0.5.A: Infrastructure setup (insta, types)
+  - [x] 0.5.B: Golden code extraction, snapshot() methods
+  - [x] 0.5.C: Core golden tests (Groups A-L) — 30 tests
+  - [x] 0.5.D: Advanced golden tests (Groups M-W) — 28 tests (58 total)
+- [x] **Step 0.2: Create AnimatedValue abstraction** (TEAM_005 - COMPLETE)
+  - [x] AnimatedValue enum (Static/Animation/Gesture)
+  - [x] AnimatedPoint for 2D (Camera prep)
+  - [x] ViewGesture extracted to animated_value/gesture.rs
 
 ### Phase 1: Row + Canvas2D
 - [ ] Step 1.1: Create Row module
@@ -170,11 +216,12 @@ src/layout/
 - [ ] Step 4.4: Animation configs
 
 ### Phase 5: Integration
-- [ ] Step 5.1: Replace workspaces
-- [ ] Step 5.2: Replace overview
-- [ ] Step 5.3: Update IPC
-- [ ] Step 5.4: Testing
-- [ ] Step 5.5: Documentation
+- [ ] Step 5.1: Replace workspaces with infinite canvas (BREAKING CHANGE)
+- [ ] Step 5.2: Replace overview with zoom-out view
+- [ ] Step 5.3: Update IPC (remove workspace APIs, add canvas APIs)
+- [ ] Step 5.4: Implement camera bookmarks (`Mod+1/2/3` to jump, `Mod+Shift+1/2/3` to save)
+- [ ] Step 5.5: Testing
+- [ ] Step 5.6: Documentation
 
 ---
 

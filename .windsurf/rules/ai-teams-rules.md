@@ -179,9 +179,15 @@ If a single task takes > 1 hour or touches > 3 files: split it into sub-task fil
 ## Current Project State
 
 **Branch**: `2d-canvas`  
-**Phase**: 0.5 (Golden Snapshots) → then 0.2 (AnimatedValue)  
-**Completed**: Phase 0.1, 0.3, 0.5.A, 0.5.B (20 golden tests)  
-**Next Step**: `phases/phase-0.5c-core-golden-tests.md` (Groups H-L) or `phases/phase-0.5d-advanced-golden-tests.md`
+**Phase**: 0.5 COMPLETE → Next: 0.2 (AnimatedValue) or Phase 1 (Row + Canvas2D)  
+**Completed**: Phase 0.1, 0.3, 0.5 (58 golden tests across Groups A-W)  
+**Next Step**: `phases/phase-0.2-animated-value.md` or `phases/phase-1-row-and-canvas.md`
+
+**Key Decisions (TEAM_004)**:
+- Workspaces **removed** — one infinite canvas per output
+- `Mod+Up/Down` uses geometric navigation (crosses rows)
+- `Mod+1/2/3` repurposed for camera bookmarks
+- Always enabled (breaking change, no opt-in)
 
 ---
 

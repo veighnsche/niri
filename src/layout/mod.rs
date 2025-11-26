@@ -88,6 +88,8 @@ pub mod tab_indicator;
 pub mod tile;
 // TEAM_003: Shared types for layout modules
 pub mod types;
+// TEAM_005: AnimatedValue abstraction for view offset and camera
+pub mod animated_value;
 pub mod workspace;
 
 // TEAM_004: Golden snapshot infrastructure
