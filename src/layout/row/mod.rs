@@ -78,6 +78,11 @@ pub struct Row<W: LayoutElement> {
     /// Y offset from canvas origin, computed as `row_index * row_height`.
     y_offset: f64,
 
+    /// Optional name for this row (replaces workspace naming).
+    /// 
+    /// Used for user-identifiable rows in the 2D canvas.
+    name: Option<String>,
+
     // =========================================================================
     // Column management (from ScrollingSpace)
     // =========================================================================
@@ -150,6 +155,7 @@ impl<W: LayoutElement> Row<W> {
             // Row-specific
             row_index,
             y_offset,
+            name: None,  // Rows start unnamed
             
             // Column management
             columns: Vec::new(),
@@ -190,6 +196,26 @@ impl<W: LayoutElement> Row<W> {
     /// Returns the row height (same as view height).
     pub fn row_height(&self) -> f64 {
         self.view_size.h
+    }
+
+    /// Returns the row's name, if any.
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    /// Sets the row's name.
+    pub fn set_name(&mut self, name: Option<String>) {
+        self.name = name;
+    }
+
+    /// Sets the row index (used internally by canvas for reordering).
+    pub(crate) fn set_row_index(&mut self, row_index: i32) {
+        self.row_index = row_index;
+    }
+
+    /// Sets the Y offset (used internally by canvas for reordering).
+    pub(crate) fn set_y_offset(&mut self, y_offset: f64) {
+        self.y_offset = y_offset;
     }
 
     // =========================================================================

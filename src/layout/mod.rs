@@ -2120,19 +2120,21 @@ impl<W: LayoutElement> Layout<W> {
     }
 
     // TEAM_012: Renamed from move_column_to_workspace_up
+    // TEAM_018: Now calls canvas instead of workspace code
     pub fn move_column_to_row_up(&mut self, activate: bool) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
-        monitor.move_column_to_workspace_up(activate);
+        monitor.canvas_mut().move_column_to_row_up(activate);
     }
 
     // TEAM_012: Renamed from move_column_to_workspace_down
+    // TEAM_018: Now calls canvas instead of workspace code
     pub fn move_column_to_row_down(&mut self, activate: bool) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
-        monitor.move_column_to_workspace_down(activate);
+        monitor.canvas_mut().move_column_to_row_down(activate);
     }
 
     // TEAM_012: Renamed from move_column_to_workspace
@@ -2144,19 +2146,21 @@ impl<W: LayoutElement> Layout<W> {
     }
 
     // TEAM_012: Renamed from switch_workspace_up
+    // TEAM_018: Now calls canvas instead of workspace code
     pub fn focus_row_up(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
-        monitor.switch_workspace_up();
+        monitor.canvas_mut().focus_row_up();
     }
 
     // TEAM_012: Renamed from switch_workspace_down
+    // TEAM_018: Now calls canvas instead of workspace code
     pub fn focus_row_down(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
-        monitor.switch_workspace_down();
+        monitor.canvas_mut().focus_row_down();
     }
 
     // TEAM_012: Renamed from switch_workspace
@@ -4334,19 +4338,21 @@ impl<W: LayoutElement> Layout<W> {
     }
 
     // TEAM_012: Renamed from move_workspace_down
+    // TEAM_018: Now calls canvas instead of workspace code
     pub fn move_row_down(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
-        monitor.move_workspace_down();
+        monitor.canvas_mut().move_row_down();
     }
 
     // TEAM_012: Renamed from move_workspace_up
+    // TEAM_018: Now calls canvas instead of workspace code
     pub fn move_row_up(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
-        monitor.move_workspace_up();
+        monitor.canvas_mut().move_row_up();
     }
 
     // TEAM_012: Renamed from move_workspace_to_idx
@@ -4382,59 +4388,23 @@ impl<W: LayoutElement> Layout<W> {
     }
 
     // TEAM_012: Renamed from set_workspace_name, simplified to not take reference
+    // TEAM_018: Now calls canvas instead of workspace code
     pub fn set_row_name(&mut self, name: String) {
-        // ignore the request if the name is already used by another row
-        if self.find_workspace_by_name(&name).is_some() {
-            return;
-        }
-
-        let Some(ws) = self.active_workspace_mut() else {
+        // TODO(TEAM_018): implement proper duplicate name checking for canvas rows
+        // For now, just set the name on the active row
+        let Some(monitor) = self.active_monitor() else {
             return;
         };
-
-        ws.name.replace(name);
-
-        let wsid = ws.id();
-
-        // if `empty_workspace_above_first` is set and `ws` is the first
-        // workspace on a monitor, another empty workspace needs to
-        // be added before.
-        // Conversely, if `ws` was the last workspace on a monitor, an
-        // empty workspace needs to be added after.
-
-        if let MonitorSet::Normal {
-            monitors,
-            active_monitor_idx,
-            ..
-        } = &mut self.monitor_set
-        {
-            let monitor = &mut monitors[*active_monitor_idx];
-            if monitor.options.layout.empty_workspace_above_first
-                && monitor
-                    .workspaces
-                    .first()
-                    .is_some_and(|first| first.id() == wsid)
-            {
-                monitor.add_workspace_top();
-            }
-            if monitor
-                .workspaces
-                .last()
-                .is_some_and(|last| last.id() == wsid)
-            {
-                monitor.add_workspace_bottom();
-            }
-        }
+        monitor.canvas_mut().set_row_name(Some(name));
     }
 
     // TEAM_012: Renamed from unset_workspace_name, simplified to not take reference
+    // TEAM_018: Now calls canvas instead of workspace code
     pub fn unset_row_name(&mut self) {
-        let Some(ws) = self.active_workspace_mut() else {
+        let Some(monitor) = self.active_monitor() else {
             return;
         };
-        let id = ws.id();
-
-        self.unname_workspace_by_id(id);
+        monitor.canvas_mut().unset_row_name();
     }
 
     // TEAM_014: Removed set_monitors_overview_state, toggle_overview, open_overview,
