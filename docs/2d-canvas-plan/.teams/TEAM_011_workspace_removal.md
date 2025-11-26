@@ -1,4 +1,4 @@
-# TEAM_011: Workspace Removal — Phase 1.5.3 Planning
+# TEAM_011: Workspace → Row Transformation + Monitor Refactor
 
 ## Status: PLANNING COMPLETE
 
@@ -80,6 +80,24 @@ Key decisions from USER:
 - **Cross-monitor** — Yes, `MoveRowToMonitor` (shrinks spanning windows)
 - **Row naming** — Yes, rows can be named
 - **Row-spanning edge case** — Window's 0,0 determines home row; shrinks to 1 span when row moves
+
+### Monitor Refactoring Strategy (USER requested)
+
+**USER request**: Refactor monitor.rs monolith during workspace removal. Follow Row/Column pattern.
+
+```
+Current: monitor.rs (2255 lines monolith)
+Target:  monitor/ (~800 lines modular)
+         ├── mod.rs          - Core struct, canvas accessors
+         ├── operations.rs   - Window operations (add_window, add_tile)
+         ├── navigation.rs   - Row navigation (NEW: focus_row_*, move_to_row_*)
+         ├── render.rs       - Rendering (render_elements)
+         ├── hit_test.rs     - Geometry (window_under, resize_edges_under)
+         ├── config.rs       - Config updates
+         └── insert_hint.rs  - Insert hint types/rendering
+```
+
+**Key insight**: Workspace code simply doesn't get migrated to the new modules.
 
 ## Handoff Notes
 
