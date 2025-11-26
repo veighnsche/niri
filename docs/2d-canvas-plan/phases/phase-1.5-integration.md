@@ -24,16 +24,32 @@ Phase 1.5 bridges the gap between "modules exist" and "modules are usable."
 ```
 src/layout/
 ├── row/
-│   ├── mod.rs          (305 lines) - Core struct, accessors, animation
+│   ├── mod.rs          (305 lines) - Core struct, accessors, animation ✓
 │   ├── view_offset.rs  (324 lines) - View offset calculation & animation ✓
 │   ├── render.rs       (199 lines) - Rendering + render_above_top_layer ✓
-│   ├── operations.rs   (692 lines) - Full add/remove/consume/expel ✓
+│   ├── operations/     (refactored by TEAM_008 - was 692 lines)
+│   │   ├── mod.rs      (22 lines)  - Submodule declarations
+│   │   ├── add.rs      (159 lines) - Add tile/column
+│   │   ├── remove.rs   (261 lines) - Remove tile/column + remove_active_tile
+│   │   ├── move_col.rs (50 lines)  - Move column left/right
+│   │   └── consume.rs  (250 lines) - Consume/expel window
 │   ├── layout.rs       (77 lines)  - Tile positions, config update ✓
 │   ├── navigation.rs   (83 lines)  - Focus + activate_column ✓
 │   ├── gesture.rs      (445 lines) - Gesture handling ✓
 │   └── resize.rs       (151 lines) - Interactive resize ✓
-├── canvas/
-│   └── mod.rs          (608 lines) - Canvas2D with FloatingSpace ✓
+├── canvas/             (refactored by TEAM_008 - was 607 lines)
+│   ├── mod.rs          (243 lines) - Core struct + accessors ✓
+│   ├── navigation.rs   (91 lines)  - Focus up/down/left/right ✓
+│   ├── operations.rs   (103 lines) - Add/remove/find windows ✓
+│   ├── render.rs       (85 lines)  - Rendering ✓
+│   └── floating.rs     (142 lines) - Floating window operations ✓
+├── column/
+│   └── sizing/         (refactored by TEAM_008 - was 566 lines)
+│       ├── mod.rs      (22 lines)
+│       ├── tile_sizes.rs (276 lines)
+│       ├── width.rs    (123 lines)
+│       ├── height.rs   (160 lines)
+│       └── display.rs  (80 lines)
 └── animated_value/
     ├── mod.rs          (212 lines) - AnimatedValue enum ✓
     └── gesture.rs      (73 lines)  - ViewGesture ✓
@@ -41,10 +57,11 @@ src/layout/
 
 ### What's Still Missing
 1. ~~**FloatingSpace**~~ — ✅ Integrated by TEAM_009
-2. **Feature flag** — `canvas-2d` feature not created
-3. **Monitor integration** — Canvas2D not wired into compositor
-4. **Camera offset** — Deferred to Phase 3 (Camera System)
-5. **Config** — `vertical_view_movement` deferred to Phase 3
+2. ~~**Large file refactoring**~~ — ✅ All files < 500 lines (TEAM_008)
+3. **Feature flag** — `canvas-2d` feature not created
+4. **Monitor integration** — Canvas2D not wired into compositor
+5. **Camera offset** — Deferred to Phase 3 (Camera System)
+6. **Config** — `vertical_view_movement` deferred to Phase 3
 
 ---
 
@@ -137,7 +154,8 @@ pub struct Monitor<W: LayoutElement> {
 
 - [x] All gesture handling works in Row (TEAM_007)
 - [x] Interactive resize works in Row (TEAM_007)
-- [ ] FloatingSpace integrated into Canvas2D
+- [x] FloatingSpace integrated into Canvas2D (TEAM_009)
+- [x] All files < 500 lines (TEAM_008 refactoring)
 - [ ] Feature flag compiles both ways
 - [ ] With `canvas-2d` feature: can open windows, navigate, resize
 - [ ] Without feature: existing behavior unchanged

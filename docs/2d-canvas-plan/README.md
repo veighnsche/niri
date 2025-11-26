@@ -22,7 +22,12 @@ Target:
   │   ├── mod.rs        (struct + public interface)
   │   ├── layout.rs     (tile positioning)
   │   ├── operations.rs (add/remove/focus)
-  │   └── sizing.rs     (width/height)
+  │   └── sizing/       (width/height - refactored by TEAM_008)
+  │       ├── mod.rs
+  │       ├── tile_sizes.rs
+  │       ├── width.rs
+  │       ├── height.rs
+  │       └── display.rs
   ├── scrolling.rs      (ScrollingSpace only, uses column/)
   ├── row/              (NEW in Phase 1)
   └── canvas/           (NEW in Phase 1)
@@ -173,12 +178,12 @@ src/layout/
 │   ├── resize.rs             # Interactive resize
 │   └── render.rs             # Rendering
 │
-├── canvas/                   # Canvas2D module (NEW)
-│   ├── mod.rs                # Canvas2D struct + public interface
-│   ├── layout.rs             # Row positioning
-│   ├── navigation.rs         # Up/down/geometric focus
-│   ├── spanning.rs           # Row-span coordination
-│   └── operations.rs         # Add/remove rows/windows
+├── canvas/                   # Canvas2D module (NEW) ✅ COMPLETE (TEAM_009)
+│   ├── mod.rs                # Canvas2D struct + accessors
+│   ├── navigation.rs         # Up/down/left/right focus (refactored by TEAM_008)
+│   ├── operations.rs         # Add/remove/find windows
+│   ├── render.rs             # Rendering
+│   └── floating.rs           # Floating window operations
 │
 ├── camera/                   # Camera module (NEW)
 │   ├── mod.rs                # Camera struct + public interface
@@ -228,9 +233,11 @@ src/layout/
   - [x] Interactive resize (resize.rs)
   - [x] Window operations (add/remove/consume/expel)
   - [x] render_above_top_layer
-- [x] Step 1.5.2: Complete Canvas2D (TEAM_009)
+  - [x] Refactored operations.rs into submodules (TEAM_008)
+- [x] Step 1.5.2: Complete Canvas2D (TEAM_009, TEAM_008)
   - [x] FloatingSpace integration
   - [x] Window operations (add_window, remove_window, toggle_floating)
+  - [x] Refactored mod.rs into submodules (TEAM_008)
   - [ ] Camera offset (deferred to Phase 3)
 - [ ] Step 1.5.3: Feature flag (canvas-2d)
 - [ ] Step 1.5.4: Monitor integration

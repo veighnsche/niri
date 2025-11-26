@@ -265,11 +265,11 @@ src/layout/animated_value/
 
 ### Tasks
 
-- [ ] **0.2.1**: Create `src/layout/animated_value/mod.rs` with `AnimatedValue<f64>` enum
-- [ ] **0.2.2**: Move `ViewGesture` to `animated_value/gesture.rs`
-- [ ] **0.2.3**: Create `AnimatedPoint` for 2D (x, y) — used by Camera later
-- [ ] **0.2.4**: Replace `ViewOffset` in scrolling.rs with `AnimatedValue<f64>`
-- [ ] **0.2.5**: Verify all gesture/animation behavior unchanged
+- [x] **0.2.1**: Create `src/layout/animated_value/mod.rs` with `AnimatedValue<f64>` enum (TEAM_005)
+- [x] **0.2.2**: Move `ViewGesture` to `animated_value/gesture.rs` (TEAM_005)
+- [x] **0.2.3**: Create `AnimatedPoint` for 2D (x, y) — used by Camera later (TEAM_005)
+- [x] **0.2.4**: Replace `ViewOffset` in scrolling.rs with `AnimatedValue<f64>` (TEAM_005)
+- [x] **0.2.5**: Verify all gesture/animation behavior unchanged (TEAM_005)
 
 ### Interface Design
 
@@ -298,10 +298,10 @@ pub struct AnimatedPoint {
 }
 ```
 
-### Success Criteria
-- [ ] `AnimatedValue` works for f64
-- [ ] Existing view offset behavior unchanged
-- [ ] Ready to extend for Camera (x, y, zoom)
+### Success Criteria ✅ ALL MET
+- [x] `AnimatedValue` works for f64
+- [x] Existing view offset behavior unchanged
+- [x] Ready to extend for Camera (x, y, zoom)
 
 ---
 
@@ -434,12 +434,12 @@ src/layout/
 - [x] Update scrolling.rs to use new column module
 - [x] All tests pass (189 tests)
 
-### Step 0.2: AnimatedValue (Estimated: 1 day)
-- [ ] Create `layout/animated_value/` module
-- [ ] Create `AnimatedValue<f64>` enum
-- [ ] Move ViewGesture to gesture.rs
-- [ ] Replace ViewOffset with AnimatedValue
-- [ ] Create AnimatedPoint for 2D (Camera prep)
+### Step 0.2: AnimatedValue ✅ COMPLETE (TEAM_005)
+- [x] Create `layout/animated_value/` module
+- [x] Create `AnimatedValue<f64>` enum
+- [x] Move ViewGesture to gesture.rs
+- [x] Replace ViewOffset with AnimatedValue
+- [x] Create AnimatedPoint for 2D (Camera prep)
 
 ### Step 0.3: Clean ScrollingSpace ✅ COMPLETE (TEAM_003)
 - [x] Update all imports to use `column::` directly

@@ -58,6 +58,12 @@ Per user request:
   - `sizing/width.rs` (123 lines)
   - `sizing/display.rs` (80 lines)
   - `sizing/mod.rs` (22 lines)
+- [x] Split `canvas/mod.rs` (607 lines) into submodules:
+  - `mod.rs` (243 lines) - Core struct and accessors
+  - `floating.rs` (142 lines) - Floating window operations
+  - `operations.rs` (103 lines) - Add/remove/find windows
+  - `navigation.rs` (91 lines) - Row/column focus
+  - `render.rs` (85 lines) - Rendering
 - [x] All files now under 500 lines ✅
 
 ## Changes Made
@@ -68,6 +74,7 @@ Per user request:
 - `src/layout/row/navigation.rs` — Added `activate_column`
 - `src/layout/row/render.rs` — Added `render_above_top_layer`
 - `src/layout/column/sizing/` — Refactored into submodules (was 566 lines, now 5 files < 280 lines each)
+- `src/layout/canvas/` — Refactored into submodules (was 607 lines, now 5 files < 250 lines each)
 - `src/layout/mod.rs` — Added `RemovedTile::new` constructor and getters
 - `docs/2d-canvas-plan/.teams/TEAM_007_phase1_continuation.md` — Completed team file
 - `docs/2d-canvas-plan/TODO.md` — Updated with completed items

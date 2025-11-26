@@ -1,0 +1,85 @@
+// TEAM_008: Rendering split from mod.rs
+//!
+//! This module handles rendering the canvas and its elements.
+
+use smithay::utils::Scale;
+
+use crate::layout::canvas::{Canvas2D, Canvas2DRenderElement};
+use crate::layout::LayoutElement;
+use crate::render_helpers::renderer::NiriRenderer;
+use crate::render_helpers::RenderTarget;
+
+impl<W: LayoutElement> Canvas2D<W> {
+    // TEAM_007: Added render_elements method
+
+    /// Renders all elements in the canvas.
+    ///
+    /// Returns render elements for all visible rows, with camera offset applied.
+    pub fn render_elements<R: NiriRenderer>(
+        &self,
+        renderer: &mut R,
+        target: RenderTarget,
+        focus_ring: bool,
+    ) -> Vec<Canvas2DRenderElement<R>> {
+        let mut rv = vec![];
+        // TODO(TEAM_007): Apply camera offset to render elements for proper scrolling
+        let _camera = self.camera_position();
+        let _scale = Scale::from(self.scale);
+
+        // Render rows in order (active row last so it appears on top)
+        let active_row_idx = self.active_row_idx;
+
+        // First render non-active rows
+        for (&row_idx, row) in &self.rows {
+            if row_idx == active_row_idx {
+                continue;
+            }
+
+            let row_elements = row.render_elements(renderer, target, false);
+            for elem in row_elements {
+                // Apply camera offset to each element
+                // Note: Row elements are already at row.y_offset, we just apply camera
+                rv.push(elem.into());
+            }
+        }
+
+        // Then render active row on top with focus ring (unless floating is active)
+        if let Some(row) = self.rows.get(&active_row_idx) {
+            let row_focus_ring = focus_ring && !self.floating_is_active;
+            let row_elements = row.render_elements(renderer, target, row_focus_ring);
+            for elem in row_elements {
+                rv.push(elem.into());
+            }
+        }
+
+        // TEAM_009: Render floating layer on top
+        let floating_focus_ring = focus_ring && self.floating_is_active;
+        // Use working_area as the view_rect for floating tiles
+        let view_rect = self.working_area;
+        let floating_elements =
+            self.floating
+                .render_elements(renderer, view_rect, target, floating_focus_ring);
+        for elem in floating_elements {
+            rv.push(elem.into());
+        }
+
+        rv
+    }
+
+    /// Updates render elements for all rows.
+    pub fn update_render_elements(&mut self) {
+        let active_row_idx = self.active_row_idx;
+        let floating_is_active = self.floating_is_active;
+
+        for (&row_idx, row) in &mut self.rows {
+            // Active row is only truly active if floating is not active
+            let is_active_row = row_idx == active_row_idx && !floating_is_active;
+            row.update_render_elements(is_active_row);
+        }
+
+        // TEAM_009: Update floating render elements
+        let view_rect = self.working_area;
+        self.floating
+            .update_render_elements(floating_is_active, view_rect);
+    }
+}
