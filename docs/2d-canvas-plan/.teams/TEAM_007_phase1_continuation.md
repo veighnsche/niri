@@ -38,7 +38,9 @@ row/
 ├── operations.rs   (162 lines) - Add/remove/move columns
 ├── navigation.rs   (57 lines)  - Focus left/right/column
 ├── layout.rs       (76 lines)  - Tile positions, config update
-└── render.rs       (170 lines) - Rendering
+├── render.rs       (170 lines) - Rendering
+├── gesture.rs      (446 lines) - Gesture-based scrolling
+└── resize.rs       (152 lines) - Interactive resize
 ```
 
 ### Priority 3: Rendering ✅
@@ -51,6 +53,21 @@ row/
 - [x] Add `render_elements` to Canvas2D
 - [x] Add `update_render_elements` to Canvas2D
 
+### Priority 4: Gesture Handling ✅
+- [x] Create `row/gesture.rs` module
+- [x] Port `view_offset_gesture_begin` from ScrollingSpace
+- [x] Port `view_offset_gesture_update` from ScrollingSpace
+- [x] Port `view_offset_gesture_end` from ScrollingSpace
+- [x] Port `dnd_scroll_gesture_begin/scroll/end` from ScrollingSpace
+- [x] Port `compute_gesture_snap` helper logic
+
+### Priority 5: Interactive Resize ✅
+- [x] Create `row/resize.rs` module
+- [x] Port `interactive_resize_begin` from ScrollingSpace
+- [x] Port `interactive_resize_update` from ScrollingSpace
+- [x] Port `interactive_resize_end` from ScrollingSpace
+- [x] Add `interactive_resize_data` and `interactive_resize_window` accessors
+
 ## Changes Made
 
 ### New Files (Modular Refactor)
@@ -59,6 +76,8 @@ row/
 - `src/layout/row/operations.rs` — Column add/remove/move operations
 - `src/layout/row/layout.rs` — Tile position queries and config update
 - `src/layout/row/render.rs` — Rendering with RowRenderElement
+- `src/layout/row/gesture.rs` — Gesture-based scrolling
+- `src/layout/row/resize.rs` — Interactive resize
 
 ### Modified Files
 - `src/layout/row/mod.rs` — Refactored from 858 → 303 lines
@@ -83,15 +102,11 @@ row/
 
 ## Remaining Work for Next Team
 
-### Priority 4: Interactive Resize
-- [ ] Port `interactive_resize_begin/update/end`
-
-### Priority 5: Feature Flag
+### Priority 6: Feature Flag
 - [ ] Add `canvas-2d` feature to Cargo.toml
 - [ ] Conditional code in Monitor
 
 ### Other
-- [ ] Port gesture handling (`view_offset_gesture_begin`, etc.)
 - [ ] Port consume/expel operations
 - [ ] Add `vertical_view_movement` config to niri-config
 - [ ] Apply camera offset to Canvas2D render elements

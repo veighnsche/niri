@@ -18,7 +18,9 @@
 //! ├── navigation.rs   - Focus left/right/column
 //! ├── operations.rs   - Add/remove/move columns
 //! ├── layout.rs       - Tile positions, config update
-//! └── render.rs       - Rendering
+//! ├── render.rs       - Rendering
+//! ├── gesture.rs      - Gesture-based scrolling
+//! └── resize.rs       - Interactive resize
 //! ```
 
 mod gesture;
@@ -303,7 +305,4 @@ pub(crate) fn compute_working_area(
 // TODO(TEAM_006): Port add_window from ScrollingSpace
 // TODO(TEAM_006): Port remove_window from ScrollingSpace
 // TODO(TEAM_006): Port consume_or_expel_window_left/right from ScrollingSpace
-// TODO(TEAM_006): Port gesture handling (view_offset_gesture_begin, etc.)
-// TODO(TEAM_006): Port render_elements from ScrollingSpace
-// TODO(TEAM_006): Port interactive_resize_begin/update/end from ScrollingSpace
 // See docs/2d-canvas-plan/TODO.md for full list
