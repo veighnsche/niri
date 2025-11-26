@@ -582,9 +582,9 @@ impl WindowMru {
         for (mon, ws_idx, ws) in niri.layout.workspaces() {
             let mon = mon.expect("an active output exists so all workspaces have a monitor");
             let on_current_output = mon.output() == output;
-            let on_current_workspace = on_current_output && mon.active_workspace_idx() == ws_idx;
+            let on_current_workspace = on_current_output && mon.active_workspace_idx() == ws_idx as usize;
 
-            for mapped in ws.windows() {
+            for mapped in ws.tiles().map(|tile| tile.window()) {
                 let mut thumbnail = Thumbnail::from_mapped(mapped, niri.clock.clone(), config);
                 thumbnail.on_current_output = on_current_output;
                 thumbnail.on_current_workspace = on_current_workspace;

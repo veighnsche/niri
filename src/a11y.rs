@@ -117,13 +117,21 @@ impl Niri {
         let _span = tracy_client::span!("refresh_a11y");
 
         let mut announcement = None;
-        let ws_id = self.layout.active_workspace().map(|ws| ws.id());
+        let ws_id = self.layout.active_workspace().map(|ws| {
+            // Generate a WorkspaceId from the row - for now we'll use a simple approach
+            // TODO: TEAM_023: Implement proper row ID generation
+            crate::layout::workspace_types::WorkspaceId::specific(0)
+        });
         if let Some(ws_id) = ws_id {
             if self.a11y.workspace_id != Some(ws_id) {
                 let (_, idx, ws) = self
                     .layout
                     .workspaces()
-                    .find(|(_, _, ws)| ws.id() == ws_id)
+                    .find(|(_, _, ws)| {
+                        // Generate the same ID for comparison
+                        let generated_id = crate::layout::workspace_types::WorkspaceId::specific(0);
+                        generated_id == ws_id
+                    })
                     .unwrap();
 
                 let mut buf = format!("Workspace {}", idx + 1);

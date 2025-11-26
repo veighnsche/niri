@@ -16,24 +16,32 @@ impl<W: LayoutElement> Monitor<W> {
     pub fn workspace_under(
         &self,
         pos_within_output: Point<f64, Logical>,
-    ) -> Option<(&crate::layout::workspace_types::Workspace<W>, Rectangle<f64, Logical>)> {
-        let (ws, geo) = self.workspaces_with_render_geo().find_map(|(ws, geo)| {
+    ) -> Option<(&crate::layout::row::Row<W>, Rectangle<f64, Logical>)> {
+        let (row, geo) = self.canvas.workspaces().find_map(|(_, row)| {
+            // Get the row geometry - this is a simplified approach
+            // TODO: TEAM_023: Implement proper row geometry calculation
+            let geo = Rectangle::from_loc_and_size((0., 0.), self.view_size);
+            
             // Extend width to entire output.
             let loc = Point::from((0., geo.loc.y));
             let size = Size::from((self.view_size.w, geo.size.h));
             let bounds = Rectangle::new(loc, size);
 
-            bounds.contains(pos_within_output).then_some((ws, geo))
+            bounds.contains(pos_within_output).then_some((row, geo))
         })?;
-        Some((ws, geo))
+        Some((row, geo))
     }
 
     pub fn workspace_under_narrow(
         &self,
         pos_within_output: Point<f64, Logical>,
-    ) -> Option<&crate::layout::workspace_types::Workspace<W>> {
-        self.workspaces_with_render_geo()
-            .find_map(|(ws, geo)| geo.contains(pos_within_output).then_some(ws))
+    ) -> Option<&crate::layout::row::Row<W>> {
+        self.canvas.workspaces()
+            .find_map(|(_, row)| {
+                // Simplified geometry check - TODO: TEAM_023: Implement proper row geometry
+                let geo = Rectangle::from_loc_and_size((0., 0.), self.view_size);
+                geo.contains(pos_within_output).then_some(row)
+            })
     }
 
     // =========================================================================

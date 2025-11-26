@@ -29,7 +29,7 @@ use smithay::reexports::wayland_server::{
 use wayland_backend::server::ClientId;
 
 use crate::layout::monitor::Monitor;
-use crate::layout::workspace_types::{Workspace, WorkspaceId};
+use crate::layout::workspace_types::{WorkspaceId};
 use crate::niri::State;
 use crate::window::Mapped;
 
@@ -90,9 +90,10 @@ pub fn refresh(state: &mut State) {
 
     // Remove workspaces that no longer exist (sending workspace_leave to workspace groups).
     let mut seen_workspaces = HashMap::new();
-    for (mon, _, ws) in state.niri.layout.workspaces() {
+    for (mon, ws_idx, ws) in state.niri.layout.workspaces() {
         let output = mon.map(|mon| mon.output());
-        seen_workspaces.insert(ws.id(), output);
+        let ws_id = row_workspace_id(ws_idx as usize, ws);
+        seen_workspaces.insert(ws_id, output);
     }
 
     protocol_state.workspaces.retain(|id, workspace| {
@@ -133,7 +134,7 @@ pub fn refresh(state: &mut State) {
 
     // Update existing workspaces and create new ones.
     for (mon, ws_idx, ws) in state.niri.layout.workspaces() {
-        changed |= refresh_workspace(protocol_state, mon, ws_idx, ws);
+        changed |= refresh_workspace(protocol_state, mon, ws_idx as usize, ws);
     }
 
     // Update workspace groups and create new ones, sending workspace_enter events as needed.
@@ -250,30 +251,40 @@ fn remove_workspace_instances(
     }
 }
 
-fn build_name(ws: &Workspace<Mapped>, ws_idx: usize) -> String {
-    ws.name().cloned().unwrap_or_else(|| {
+fn build_name(ws: &crate::layout::row::Row<Mapped>, ws_idx: usize) -> String {
+    ws.name().map(|s| s.to_string()).unwrap_or_else(|| {
         // Add 1 since this is a human-readable name, and our action indexing is 1-based.
         (ws_idx + 1).to_string()
     })
+}
+
+/// Generate a WorkspaceId for a row based on its index or name
+fn row_workspace_id(row_idx: usize, ws: &crate::layout::row::Row<Mapped>) -> WorkspaceId {
+    // Use the row index as the primary ID for consistency
+    WorkspaceId::specific(row_idx as u64)
 }
 
 fn refresh_workspace(
     protocol_state: &mut ExtWorkspaceManagerState,
     mon: Option<&Monitor<Mapped>>,
     ws_idx: usize,
-    ws: &Workspace<Mapped>,
+    ws: &crate::layout::row::Row<Mapped>,
 ) -> bool {
     let mut state = ext_workspace_handle_v1::State::empty();
     if mon.is_some_and(|mon| mon.active_workspace_idx() == ws_idx) {
         state |= ext_workspace_handle_v1::State::Active;
     }
-    if ws.is_urgent() {
+    
+    // Check if any window in the row is urgent
+    let is_urgent = ws.tiles().any(|tile| tile.window().is_urgent());
+    if is_urgent {
         state |= ext_workspace_handle_v1::State::Urgent;
     }
 
     let output = mon.map(|mon| mon.output());
 
-    match protocol_state.workspaces.entry(ws.id()) {
+    let ws_id = row_workspace_id(ws_idx, ws);
+    match protocol_state.workspaces.entry(ws_id) {
         Entry::Occupied(entry) => {
             // Existing workspace, check if anything changed.
             let data = entry.into_mut();
@@ -281,13 +292,13 @@ fn refresh_workspace(
             let mut id_set = false;
             let mut recreate = false;
             let id = ws.name();
-            if data.id.as_ref() != id {
+            if data.id.as_ref().map(|s| s.as_str()) != id {
                 if data.id.is_some() {
                     recreate = true;
                 } else {
                     id_set = true;
                 }
-                data.id = id.cloned();
+                data.id = id.map(|s| s.to_string());
             }
 
             let mut coordinates_changed = false;
@@ -377,7 +388,7 @@ fn refresh_workspace(
         Entry::Vacant(entry) => {
             // New workspace, start tracking it.
             let mut data = ExtWorkspaceData {
-                id: ws.name().cloned(),
+                id: ws.name().map(|s| s.to_string()),
                 name: build_name(ws, ws_idx),
                 coordinates: ArrayVec::from([0, ws_idx as u32]),
                 state,

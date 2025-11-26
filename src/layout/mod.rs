@@ -52,7 +52,7 @@ use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point, Rectangle, Scale, Serial, Size, Transform};
 use tile::{Tile, TileRenderElement};
 // TEAM_021: Use minimal workspace types after Canvas2D migration
-use workspace_types::{WorkspaceAddWindowTarget, WorkspaceId, OutputId, compute_working_area, Workspace};
+use workspace_types::{WorkspaceAddWindowTarget, WorkspaceId, OutputId, compute_working_area};
 
 pub use self::monitor::MonitorRenderElement;
 use self::monitor::{Monitor, WorkspaceSwitch};
@@ -337,10 +337,10 @@ enum MonitorSet<W: LayoutElement> {
         /// Index of the active monitor.
         active_monitor_idx: usize,
     },
-    /// No outputs are connected, and these are the workspaces.
+    /// No outputs are connected, and this is the canvas.
     NoOutputs {
-        /// The workspaces.
-        workspaces: Vec<Workspace<W>>,
+        /// The canvas.
+        canvas: crate::layout::canvas::Canvas2D<W>,
     },
 }
 
@@ -679,16 +679,28 @@ impl<W: LayoutElement> Layout<W> {
     fn with_options_and_workspaces(clock: Clock, config: &Config, options: Options) -> Self {
         let opts = Rc::new(options);
 
-        let workspaces = config
-            .workspaces
-            .iter()
-            .map(|ws| {
-                Workspace::new_with_config_no_outputs(Some(ws.clone()), clock.clone(), opts.clone())
-            })
-            .collect();
+        // Create a Canvas2D for the NoOutputs variant
+        // Since there's no output, we use default sizes
+        let view_size = Size::from((1920.0, 1080.0)); // Default size
+        let parent_area = Rectangle::from_loc_and_size((0.0, 0.0), view_size);
+        let working_area = parent_area;
+        let scale = 1.0;
 
-        Self {
-            monitor_set: MonitorSet::NoOutputs { workspaces },
+        let canvas = crate::layout::canvas::Canvas2D::new(
+            None,
+            view_size,
+            parent_area,
+            working_area,
+            scale,
+            clock.clone(),
+            opts.clone(),
+        );
+
+        // TODO: TEAM_023: Apply workspace config to canvas rows if needed
+        // For now, we just create the default canvas with origin row
+
+        Layout {
+            monitor_set: MonitorSet::NoOutputs { canvas },
             is_active: true,
             last_active_workspace_id: HashMap::new(),
             interactive_move: None,
@@ -993,32 +1005,28 @@ impl<W: LayoutElement> Layout<W> {
                 // Set the default height for scrolling windows.
                 if !is_floating {
                     if let Some(change) = scrolling_height {
-                        let ws = mon
-                            .workspaces
-                            .iter_mut()
-                            .find(|ws| ws.has_window(&id))
-                            .unwrap();
-                        ws.set_window_height(Some(&id), change);
+                        // Find the window in the canvas and set its height
+                        if let Some((_, _, tile)) = mon.canvas.find_window(&id) {
+                            let window = tile.window();
+                            // TODO: TEAM_023: Implement window height setting on canvas/row
+                            // For now, we'll skip this as the API needs to be adapted
+                        }
                     }
                 }
 
                 Some(&mon.output)
             }
-            MonitorSet::NoOutputs { workspaces } => {
+            MonitorSet::NoOutputs { canvas } => {
                 let (ws_idx, target) = match target {
                     AddWindowTarget::Auto => {
-                        if workspaces.is_empty() {
-                            workspaces.push(Workspace::new_no_outputs(
-                                self.clock.clone(),
-                                self.options.clone(),
-                            ));
-                        }
-
+                        // In Canvas2D, we always add to the active row (row 0 by default)
                         (0, WorkspaceAddWindowTarget::Auto)
                     }
                     AddWindowTarget::Output(_) => panic!(),
                     AddWindowTarget::Workspace(ws_id) => {
-                        let ws_idx = workspaces.iter().position(|ws| ws.id() == ws_id).unwrap();
+                        // Find the row with the given workspace ID
+                        // TODO: TEAM_023: Implement proper workspace ID to row mapping
+                        let ws_idx = 0; // Default to origin row for now
                         (ws_idx, WorkspaceAddWindowTarget::Auto)
                     }
                     AddWindowTarget::NextTo(next_to) => {
@@ -1037,24 +1045,21 @@ impl<W: LayoutElement> Layout<W> {
                         {
                             // The next_to window is being interactively moved. If there are no
                             // other windows, we may have no workspaces at all.
-                            if workspaces.is_empty() {
-                                workspaces.push(Workspace::new_no_outputs(
-                                    self.clock.clone(),
-                                    self.options.clone(),
-                                ));
-                            }
-
+                            // In Canvas2D, we always have at least the origin row
                             (0, WorkspaceAddWindowTarget::Auto)
                         } else {
-                            let ws_idx = workspaces
-                                .iter()
-                                .position(|ws| ws.has_window(next_to))
-                                .unwrap();
+                            // Find the row that contains the next_to window
+                            let ws_idx = if let Some((row_idx, _, _)) = canvas.find_window(next_to) {
+                                row_idx
+                            } else {
+                                0 // Default to origin row if not found
+                            };
                             (ws_idx, WorkspaceAddWindowTarget::NextTo(next_to))
                         }
                     }
                 };
-                let ws = &mut workspaces[ws_idx];
+                // Get the row from the canvas
+                let ws = canvas.ensure_row(ws_idx);
 
                 let scrolling_width = ws.resolve_scrolling_width(&window, width);
 
@@ -1227,25 +1232,24 @@ impl<W: LayoutElement> Layout<W> {
         }
     }
 
-    pub fn find_workspace_by_id(&self, id: WorkspaceId) -> Option<(usize, &Workspace<W>)> {
+    pub fn find_workspace_by_id(&self, id: WorkspaceId) -> Option<(i32, &crate::layout::row::Row<W>)> {
         match &self.monitor_set {
             MonitorSet::Normal { ref monitors, .. } => {
                 for mon in monitors {
-                    if let Some((index, workspace)) = mon
-                        .workspaces
-                        .iter()
-                        .enumerate()
+                    if let Some((row_idx, row)) = mon
+                        .canvas
+                        .workspaces()
                         .find(|(_, w)| w.id() == id)
                     {
-                        return Some((index, workspace));
+                        return Some((row_idx, row));
                     }
                 }
             }
-            MonitorSet::NoOutputs { workspaces } => {
-                if let Some((index, workspace)) =
-                    workspaces.iter().enumerate().find(|(_, w)| w.id() == id)
+            MonitorSet::NoOutputs { canvas } => {
+                if let Some((row_idx, row)) =
+                    canvas.workspaces().find(|(_, w)| w.id() == id)
                 {
-                    return Some((index, workspace));
+                    return Some((row_idx, row));
                 }
             }
         }
@@ -1253,28 +1257,28 @@ impl<W: LayoutElement> Layout<W> {
         None
     }
 
-    pub fn find_workspace_by_name(&self, workspace_name: &str) -> Option<(usize, &Workspace<W>)> {
+    pub fn find_workspace_by_name(&self, workspace_name: &str) -> Option<(i32, &crate::layout::row::Row<W>)> {
         match &self.monitor_set {
             MonitorSet::Normal { ref monitors, .. } => {
                 for mon in monitors {
-                    if let Some((index, workspace)) =
-                        mon.workspaces.iter().enumerate().find(|(_, w)| {
-                            w.name
+                    if let Some((row_idx, row)) =
+                        mon.canvas.workspaces().find(|(_, w)| {
+                            w.name()
                                 .as_ref()
                                 .is_some_and(|name| name.eq_ignore_ascii_case(workspace_name))
                         })
                     {
-                        return Some((index, workspace));
+                        return Some((row_idx, row));
                     }
                 }
             }
-            MonitorSet::NoOutputs { workspaces } => {
-                if let Some((index, workspace)) = workspaces.iter().enumerate().find(|(_, w)| {
-                    w.name
+            MonitorSet::NoOutputs { canvas } => {
+                if let Some((row_idx, row)) = canvas.workspaces().find(|(_, w)| {
+                    w.name()
                         .as_ref()
                         .is_some_and(|name| name.eq_ignore_ascii_case(workspace_name))
                 }) {
-                    return Some((index, workspace));
+                    return Some((row_idx, row));
                 }
             }
         }
@@ -1285,21 +1289,29 @@ impl<W: LayoutElement> Layout<W> {
     pub fn find_workspace_by_ref(
         &mut self,
         reference: WorkspaceReference,
-    ) -> Option<&mut Workspace<W>> {
+    ) -> Option<&mut crate::layout::row::Row<W>> {
         if let WorkspaceReference::Index(index) = reference {
-            self.active_monitor().and_then(|m| {
-                let index = index.saturating_sub(1) as usize;
-                m.workspaces.get_mut(index)
+            self.active_monitor_mut().and_then(|m| {
+                let row_idx = index.saturating_sub(1) as i32;
+                m.canvas.rows_mut().find(|row| row.idx() == row_idx)
             })
         } else {
-            self.workspaces_mut().find(|ws| match &reference {
-                WorkspaceReference::Name(ref_name) => ws
-                    .name
-                    .as_ref()
-                    .is_some_and(|name| name.eq_ignore_ascii_case(ref_name)),
-                WorkspaceReference::Id(id) => ws.id().get() == *id,
-                WorkspaceReference::Index(_) => unreachable!(),
-            })
+            // Find the workspace by name or id across all monitors
+            for monitor in self.monitors_mut() {
+                if let Some(row) = monitor.canvas.rows_mut().find(|row| {
+                    match &reference {
+                        WorkspaceReference::Name(ref_name) => row
+                            .name()
+                            .as_ref()
+                            .is_some_and(|name| name.eq_ignore_ascii_case(ref_name)),
+                        WorkspaceReference::Id(id) => row.id().get() == *id,
+                        WorkspaceReference::Index(_) => unreachable!(),
+                    }
+                }) {
+                    return Some(row);
+                }
+            }
+            None
         }
     }
 
@@ -1583,7 +1595,7 @@ impl<W: LayoutElement> Layout<W> {
         Some(&monitors[*active_monitor_idx].output)
     }
 
-    pub fn active_workspace(&self) -> Option<&Workspace<W>> {
+    pub fn active_workspace(&self) -> Option<&crate::layout::row::Row<W>> {
         let MonitorSet::Normal {
             monitors,
             active_monitor_idx,
@@ -1594,10 +1606,10 @@ impl<W: LayoutElement> Layout<W> {
         };
 
         let mon = &monitors[*active_monitor_idx];
-        Some(&mon.workspaces[mon.active_workspace_idx])
+        mon.canvas.active_workspace()
     }
 
-    pub fn active_workspace_mut(&mut self) -> Option<&mut Workspace<W>> {
+    pub fn active_workspace_mut(&mut self) -> Option<&mut crate::layout::row::Row<W>> {
         let MonitorSet::Normal {
             monitors,
             active_monitor_idx,
@@ -1608,7 +1620,7 @@ impl<W: LayoutElement> Layout<W> {
         };
 
         let mon = &mut monitors[*active_monitor_idx];
-        Some(&mut mon.workspaces[mon.active_workspace_idx])
+        mon.canvas.active_workspace_mut()
     }
 
     pub fn windows_for_output(&self, output: &Output) -> impl Iterator<Item = &W> + '_ {
@@ -2341,7 +2353,7 @@ impl<W: LayoutElement> Layout<W> {
         extended_bounds: bool,
         output: &Output,
         pos_within_output: Point<f64, Logical>,
-    ) -> Option<&Workspace<W>> {
+    ) -> Option<&crate::layout::row::Row<W>> {
         if self
             .interactive_moved_window_under(output, pos_within_output)
             .is_some()
@@ -4763,9 +4775,10 @@ impl<W: LayoutElement> Layout<W> {
                         }
                     } else {
                         // Fallback to workspace iteration for compatibility
-                        for (ws_idx, ws) in mon.workspaces.iter_mut().enumerate() {
-                            let is_focused = is_active && ws_idx == mon.active_workspace_idx;
-                            ws.refresh(is_active, is_focused);
+                        for (ws_idx, ws) in mon.canvas.workspaces_mut() {
+                            let is_focused = is_active && ws_idx == mon.active_workspace_idx() as i32;
+                            // TODO: TEAM_023: Implement refresh equivalent for Row
+                            // ws.refresh(is_active, is_focused);
 
                             if let Some(is_scrolling) = ongoing_scrolling_dnd {
                                 // Lock or unlock the view for scrolling interactive move.
@@ -4777,46 +4790,44 @@ impl<W: LayoutElement> Layout<W> {
                             } else {
                                 // Cancel the view offset gesture after workspace switches, moves, etc.
                                 // DEPRECATED(overview): Removed overview_open check
-                                if ws_idx != mon.active_workspace_idx {
+                                if ws_idx != mon.active_workspace_idx() as i32 {
                                     ws.view_offset_gesture_end(None);
                                 }
                             }
                         }
-                    }
-                }
             }
-            MonitorSet::NoOutputs { workspaces, .. } => {
-                for ws in workspaces {
-                    ws.refresh(false, false);
+            MonitorSet::NoOutputs { canvas, .. } => {
+                for (_, ws) in canvas.workspaces() {
+                    // TODO: TEAM_023: Implement refresh equivalent for Row
+                    // ws.refresh(false, false); // Commented out since Row doesn't have this method
                     ws.view_offset_gesture_end(None);
                 }
             }
         }
     }
+    }
 
     pub fn workspaces(
         &self,
-    ) -> impl Iterator<Item = (Option<&Monitor<W>>, usize, &Workspace<W>)> + '_ {
+    ) -> impl Iterator<Item = (Option<&Monitor<W>>, i32, &crate::layout::row::Row<W>)> + '_ {
         let iter_normal;
         let iter_no_outputs;
 
         match &self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 let it = monitors.iter().flat_map(|mon| {
-                    mon.workspaces
-                        .iter()
-                        .enumerate()
-                        .map(move |(idx, ws)| (Some(mon), idx, ws))
+                    mon.canvas
+                        .workspaces()
+                        .map(move |(row_idx, row)| (Some(mon), row_idx, row))
                 });
 
                 iter_normal = Some(it);
                 iter_no_outputs = None;
             }
-            MonitorSet::NoOutputs { workspaces } => {
-                let it = workspaces
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, ws)| (None, idx, ws));
+            MonitorSet::NoOutputs { canvas } => {
+                let it = canvas
+                    .workspaces()
+                    .map(|(row_idx, row)| (None, row_idx, row));
 
                 iter_normal = None;
                 iter_no_outputs = Some(it);
@@ -4828,7 +4839,7 @@ impl<W: LayoutElement> Layout<W> {
         iter_normal.chain(iter_no_outputs)
     }
 
-    pub fn workspaces_mut(&mut self) -> impl Iterator<Item = &mut Workspace<W>> + '_ {
+    pub fn workspaces_mut(&mut self) -> impl Iterator<Item = &mut crate::layout::row::Row<W>> + '_ {
         let iter_normal;
         let iter_no_outputs;
 
@@ -4836,13 +4847,13 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::Normal { monitors, .. } => {
                 let it = monitors
                     .iter_mut()
-                    .flat_map(|mon| mon.workspaces.iter_mut());
+                    .flat_map(|mon| mon.canvas.workspaces_mut());
 
                 iter_normal = Some(it);
                 iter_no_outputs = None;
             }
-            MonitorSet::NoOutputs { workspaces } => {
-                let it = workspaces.iter_mut();
+            MonitorSet::NoOutputs { canvas } => {
+                let it = canvas.workspaces_mut();
 
                 iter_normal = None;
                 iter_no_outputs = Some(it);
@@ -4868,6 +4879,7 @@ impl<W: LayoutElement> Layout<W> {
 
         moving_window.chain(rest)
     }
+    }
 
     pub fn has_window(&self, window: &W::Id) -> bool {
         self.windows().any(|(_, win)| win.id() == window)
@@ -4878,7 +4890,24 @@ impl<W: LayoutElement> Layout<W> {
 
 impl<W: LayoutElement> Default for MonitorSet<W> {
     fn default() -> Self {
-        Self::NoOutputs { workspaces: vec![] }
+        // Create a default Canvas2D for NoOutputs
+        let view_size = Size::from((1920.0, 1080.0));
+        let parent_area = Rectangle::new(Point::from((0.0, 0.0)), view_size);
+        let working_area = parent_area;
+        let clock = Clock::with_time(Duration::ZERO);
+        let options = Rc::new(Options::default());
+        
+        let canvas = crate::layout::canvas::Canvas2D::new(
+            None,
+            view_size,
+            parent_area,
+            working_area,
+            1.0,
+            clock,
+            options,
+        );
+        
+        Self::NoOutputs { canvas }
     }
 }
 

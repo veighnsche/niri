@@ -140,7 +140,7 @@ use crate::ipc::server::IpcServer;
 use crate::layer::mapped::LayerSurfaceRenderElement;
 use crate::layer::MappedLayer;
 use crate::layout::tile::TileRenderElement;
-use crate::layout::workspace_types::{Workspace, WorkspaceId};
+use crate::layout::workspace_types::WorkspaceId;
 use crate::layout::{HitType, Layout, LayoutElement as _, MonitorRenderElement};
 use crate::niri_render_elements;
 use crate::protocols::ext_workspace::{self, ExtWorkspaceManagerState};
@@ -3403,7 +3403,7 @@ impl Niri {
         &self,
         extended_bounds: bool,
         pos: Point<f64, Logical>,
-    ) -> Option<(Output, &Workspace<Mapped>)> {
+    ) -> Option<(Output, &crate::layout::row::Row<Mapped>)> {
         if self.exit_confirm_dialog.is_open() || self.is_locked() || self.screenshot_ui.is_open() {
             return None;
         }
@@ -3427,7 +3427,7 @@ impl Niri {
     pub fn workspace_under_cursor(
         &self,
         extended_bounds: bool,
-    ) -> Option<(Output, &Workspace<Mapped>)> {
+    ) -> Option<(Output, &crate::layout::row::Row<Mapped>)> {
         let pos = self.seat.get_pointer().unwrap().current_location();
         self.workspace_under(extended_bounds, pos)
     }
@@ -3794,8 +3794,8 @@ impl Niri {
             }
         };
 
-        let target_output = target_workspace.current_output();
-        Some((target_output.cloned(), target_workspace_index))
+        let target_output = None; // TODO: TEAM_023: Get output from monitor when workspace methods return monitor info
+        Some((target_output, target_workspace_index as usize))
     }
 
     pub fn find_window_by_id(&self, id: MappedId) -> Option<Window> {
@@ -4438,10 +4438,7 @@ impl Niri {
         let mon = self.layout.monitor_for_output(output).unwrap();
         // Overview mode has been removed, zoom is always 1.0
         let zoom = 1.0;
-        let monitor_elements = Vec::from_iter(
-            mon.render_elements(renderer, target, focus_ring)
-                .map(|(geo, bg, iter)| (geo, bg, Vec::from_iter(iter))),
-        );
+        let monitor_elements = mon.render_elements(renderer, target, focus_ring);
         // render_workspace_shadows removed - workspace shadows no longer exist
         let insert_hint_elements = mon.render_insert_hint_between_workspaces(renderer);
         let int_move_elements: Vec<_> = self
@@ -4486,13 +4483,11 @@ impl Niri {
             );
 
             let mut ws_background = None;
+            // TODO: TEAM_023: Update render elements handling for Canvas2D
+            // The old workspace-based render elements need to be adapted
             elements.extend(
                 monitor_elements
                     .into_iter()
-                    .flat_map(|(_ws_geo, ws_bg, iter)| {
-                        ws_background = Some(ws_bg);
-                        iter
-                    })
                     .map(OutputRenderElements::from),
             );
 
@@ -4519,12 +4514,17 @@ impl Niri {
                     .map(OutputRenderElements::from),
             );
 
-            for (ws_geo, ws_background, ws_elements) in monitor_elements {
+            // TODO: TEAM_023: Update workspace-specific rendering for Canvas2D
+            // The old workspace-based iteration needs to be adapted
+            for _element in &monitor_elements {
                 // Collect all other layer-shell elements.
                 let mut layer_elems = SplitElements::default();
                 extend_from_layer(&mut layer_elems, Layer::Bottom, false);
                 extend_from_layer(&mut layer_elems, Layer::Background, false);
 
+                // TODO: TEAM_023: Fix workspace-specific element rendering
+                // These need to be adapted for Canvas2D layout
+                /*
                 elements.extend(
                     layer_elems
                         .popups
@@ -4544,6 +4544,7 @@ impl Niri {
                 );
 
                 elements.push(OutputRenderElements::from(ws_background));
+                */
             }
 
         // workspace_shadow_elements removed - no longer exist
@@ -6519,7 +6520,7 @@ impl Niri {
         if let Some(window) = self
             .layout
             .workspaces_mut()
-            .flat_map(|ws| ws.windows_mut())
+            .flat_map(|ws| ws.tiles_mut().map(|tile| tile.window_mut()))
             .find(|w| w.id() == pending.id)
         {
             window.set_focus_timestamp(pending.stamp);

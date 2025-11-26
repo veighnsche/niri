@@ -1172,7 +1172,7 @@ impl State {
             floating_height,
             is_full_width,
             output,
-            workspace_name: ws.and_then(|w| w.name().cloned()),
+            workspace_name: ws.and_then(|w| w.name().map(|s| s.to_string())),
             is_pending_maximized,
         };
 
