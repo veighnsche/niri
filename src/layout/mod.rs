@@ -1866,14 +1866,16 @@ impl<W: LayoutElement> Layout<W> {
         workspace.move_up();
     }
 
-    pub fn move_down_or_to_workspace_down(&mut self) {
+    // TEAM_012: Renamed from move_down_or_to_workspace_down
+    pub fn move_down_or_to_row_down(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
         monitor.move_down_or_to_workspace_down();
     }
 
-    pub fn move_up_or_to_workspace_up(&mut self) {
+    // TEAM_012: Renamed from move_up_or_to_workspace_up
+    pub fn move_up_or_to_row_up(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
@@ -2068,14 +2070,16 @@ impl<W: LayoutElement> Layout<W> {
         workspace.focus_up_or_right();
     }
 
-    pub fn focus_window_or_workspace_down(&mut self) {
+    // TEAM_012: Renamed from focus_window_or_workspace_down
+    pub fn focus_window_or_row_down(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
         monitor.focus_window_or_workspace_down();
     }
 
-    pub fn focus_window_or_workspace_up(&mut self) {
+    // TEAM_012: Renamed from focus_window_or_workspace_up
+    pub fn focus_window_or_row_up(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
@@ -2110,14 +2114,16 @@ impl<W: LayoutElement> Layout<W> {
         workspace.focus_window_up_or_bottom();
     }
 
-    pub fn move_to_workspace_up(&mut self, focus: bool) {
+    // TEAM_012: Renamed from move_to_workspace_up
+    pub fn move_to_row_up(&mut self, focus: bool) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
         monitor.move_to_workspace_up(focus);
     }
 
-    pub fn move_to_workspace_down(&mut self, focus: bool) {
+    // TEAM_012: Renamed from move_to_workspace_down
+    pub fn move_to_row_down(&mut self, focus: bool) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
@@ -2155,56 +2161,64 @@ impl<W: LayoutElement> Layout<W> {
         monitor.move_to_workspace(window, idx, activate);
     }
 
-    pub fn move_column_to_workspace_up(&mut self, activate: bool) {
+    // TEAM_012: Renamed from move_column_to_workspace_up
+    pub fn move_column_to_row_up(&mut self, activate: bool) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
         monitor.move_column_to_workspace_up(activate);
     }
 
-    pub fn move_column_to_workspace_down(&mut self, activate: bool) {
+    // TEAM_012: Renamed from move_column_to_workspace_down
+    pub fn move_column_to_row_down(&mut self, activate: bool) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
         monitor.move_column_to_workspace_down(activate);
     }
 
-    pub fn move_column_to_workspace(&mut self, idx: usize, activate: bool) {
+    // TEAM_012: Renamed from move_column_to_workspace
+    pub fn move_column_to_row(&mut self, idx: usize, activate: bool) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
         monitor.move_column_to_workspace(idx, activate);
     }
 
-    pub fn switch_workspace_up(&mut self) {
+    // TEAM_012: Renamed from switch_workspace_up
+    pub fn focus_row_up(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
         monitor.switch_workspace_up();
     }
 
-    pub fn switch_workspace_down(&mut self) {
+    // TEAM_012: Renamed from switch_workspace_down
+    pub fn focus_row_down(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
         monitor.switch_workspace_down();
     }
 
-    pub fn switch_workspace(&mut self, idx: usize) {
+    // TEAM_012: Renamed from switch_workspace
+    pub fn focus_row(&mut self, idx: usize) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
         monitor.switch_workspace(idx);
     }
 
-    pub fn switch_workspace_auto_back_and_forth(&mut self, idx: usize) {
+    // TEAM_012: Renamed from switch_workspace_auto_back_and_forth
+    pub fn focus_row_auto_back_and_forth(&mut self, idx: usize) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
         monitor.switch_workspace_auto_back_and_forth(idx);
     }
 
-    pub fn switch_workspace_previous(&mut self) {
+    // TEAM_012: Renamed from switch_workspace_previous
+    pub fn focus_previous_position(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
@@ -4467,21 +4481,24 @@ impl<W: LayoutElement> Layout<W> {
         }
     }
 
-    pub fn move_workspace_down(&mut self) {
+    // TEAM_012: Renamed from move_workspace_down
+    pub fn move_row_down(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
         monitor.move_workspace_down();
     }
 
-    pub fn move_workspace_up(&mut self) {
+    // TEAM_012: Renamed from move_workspace_up
+    pub fn move_row_up(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
         monitor.move_workspace_up();
     }
 
-    pub fn move_workspace_to_idx(
+    // TEAM_012: Renamed from move_workspace_to_idx
+    pub fn move_row_to_index(
         &mut self,
         reference: Option<(Option<Output>, usize)>,
         new_idx: usize,
@@ -4493,7 +4510,7 @@ impl<W: LayoutElement> Layout<W> {
                 };
                 monitor
             } else {
-                // In case a numbered workspace reference is used, assume the active monitor
+                // In case a numbered row reference is used, assume the active monitor
                 let Some(monitor) = self.active_monitor() else {
                     return;
                 };
@@ -4512,18 +4529,14 @@ impl<W: LayoutElement> Layout<W> {
         monitor.move_workspace_to_idx(old_idx, new_idx);
     }
 
-    pub fn set_workspace_name(&mut self, name: String, reference: Option<WorkspaceReference>) {
-        // ignore the request if the name is already used by another workspace
+    // TEAM_012: Renamed from set_workspace_name, simplified to not take reference
+    pub fn set_row_name(&mut self, name: String) {
+        // ignore the request if the name is already used by another row
         if self.find_workspace_by_name(&name).is_some() {
             return;
         }
 
-        let ws = if let Some(reference) = reference {
-            self.find_workspace_by_ref(reference)
-        } else {
-            self.active_workspace_mut()
-        };
-        let Some(ws) = ws else {
+        let Some(ws) = self.active_workspace_mut() else {
             return;
         };
 
@@ -4562,13 +4575,9 @@ impl<W: LayoutElement> Layout<W> {
         }
     }
 
-    pub fn unset_workspace_name(&mut self, reference: Option<WorkspaceReference>) {
-        let ws = if let Some(reference) = reference {
-            self.find_workspace_by_ref(reference)
-        } else {
-            self.active_workspace_mut()
-        };
-        let Some(ws) = ws else {
+    // TEAM_012: Renamed from unset_workspace_name, simplified to not take reference
+    pub fn unset_row_name(&mut self) {
+        let Some(ws) = self.active_workspace_mut() else {
             return;
         };
         let id = ws.id();

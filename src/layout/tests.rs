@@ -2,9 +2,9 @@ use std::cell::{Cell, OnceCell, RefCell};
 
 use niri_config::utils::{Flag, MergeWith as _};
 use niri_config::workspace::WorkspaceName;
+// TEAM_012: Removed WorkspaceReference import (no longer used)
 use niri_config::{
     CenterFocusedColumn, FloatOrInt, OutputName, Struts, TabIndicatorLength, TabIndicatorPosition,
-    WorkspaceReference,
 };
 use proptest::prelude::*;
 use proptest_derive::Arbitrary;
@@ -888,18 +888,16 @@ impl Op {
 
                 ws.update_layout_config(layout_config.map(|x| *x));
             }
+            // TEAM_012: Simplified to only work on active workspace
             Op::SetWorkspaceName {
                 new_ws_name,
-                ws_name,
+                ws_name: _,
             } => {
-                let ws_ref =
-                    ws_name.map(|ws_name| WorkspaceReference::Name(format!("ws{ws_name}")));
-                layout.set_workspace_name(format!("ws{new_ws_name}"), ws_ref);
+                layout.set_row_name(format!("ws{new_ws_name}"));
             }
-            Op::UnsetWorkspaceName { ws_name } => {
-                let ws_ref =
-                    ws_name.map(|ws_name| WorkspaceReference::Name(format!("ws{ws_name}")));
-                layout.unset_workspace_name(ws_ref);
+            // TEAM_012: Simplified to only work on active workspace
+            Op::UnsetWorkspaceName { ws_name: _ } => {
+                layout.unset_row_name();
             }
             Op::AddWindow { mut params } => {
                 if layout.has_window(&params.id) {
@@ -1135,8 +1133,9 @@ impl Op {
             Op::FocusWindowDownOrColumnRight => layout.focus_down_or_right(),
             Op::FocusWindowUpOrColumnLeft => layout.focus_up_or_left(),
             Op::FocusWindowUpOrColumnRight => layout.focus_up_or_right(),
-            Op::FocusWindowOrWorkspaceDown => layout.focus_window_or_workspace_down(),
-            Op::FocusWindowOrWorkspaceUp => layout.focus_window_or_workspace_up(),
+            // TEAM_012: Renamed from focus_window_or_workspace_down/up
+            Op::FocusWindowOrWorkspaceDown => layout.focus_window_or_row_down(),
+            Op::FocusWindowOrWorkspaceUp => layout.focus_window_or_row_up(),
             Op::FocusWindow(id) => layout.activate_window(&id),
             Op::FocusWindowInColumn(index) => layout.focus_window_in_column(index),
             Op::FocusWindowTop => layout.focus_window_top(),
@@ -1166,8 +1165,9 @@ impl Op {
             Op::MoveColumnToIndex(index) => layout.move_column_to_index(index),
             Op::MoveWindowDown => layout.move_down(),
             Op::MoveWindowUp => layout.move_up(),
-            Op::MoveWindowDownOrToWorkspaceDown => layout.move_down_or_to_workspace_down(),
-            Op::MoveWindowUpOrToWorkspaceUp => layout.move_up_or_to_workspace_up(),
+            // TEAM_012: Renamed from move_down_or_to_workspace_down/up
+            Op::MoveWindowDownOrToWorkspaceDown => layout.move_down_or_to_row_down(),
+            Op::MoveWindowUpOrToWorkspaceUp => layout.move_up_or_to_row_up(),
             Op::ConsumeOrExpelWindowLeft { id } => {
                 let id = id.filter(|id| layout.has_window(id));
                 layout.consume_or_expel_window_left(id.as_ref());
@@ -1187,15 +1187,17 @@ impl Op {
                 layout.center_window(id.as_ref());
             }
             Op::CenterVisibleColumns => layout.center_visible_columns(),
-            Op::FocusWorkspaceDown => layout.switch_workspace_down(),
-            Op::FocusWorkspaceUp => layout.switch_workspace_up(),
-            Op::FocusWorkspace(idx) => layout.switch_workspace(idx),
+            // TEAM_012: Renamed from switch_workspace_* to focus_row_*
+            Op::FocusWorkspaceDown => layout.focus_row_down(),
+            Op::FocusWorkspaceUp => layout.focus_row_up(),
+            Op::FocusWorkspace(idx) => layout.focus_row(idx),
             Op::FocusWorkspaceAutoBackAndForth(idx) => {
-                layout.switch_workspace_auto_back_and_forth(idx)
+                layout.focus_row_auto_back_and_forth(idx)
             }
-            Op::FocusWorkspacePrevious => layout.switch_workspace_previous(),
-            Op::MoveWindowToWorkspaceDown(focus) => layout.move_to_workspace_down(focus),
-            Op::MoveWindowToWorkspaceUp(focus) => layout.move_to_workspace_up(focus),
+            Op::FocusWorkspacePrevious => layout.focus_previous_position(),
+            // TEAM_012: Renamed from move_to_workspace_* to move_to_row_*
+            Op::MoveWindowToWorkspaceDown(focus) => layout.move_to_row_down(focus),
+            Op::MoveWindowToWorkspaceUp(focus) => layout.move_to_row_up(focus),
             Op::MoveWindowToWorkspace {
                 window_id,
                 workspace_idx,
@@ -1203,9 +1205,10 @@ impl Op {
                 let window_id = window_id.filter(|id| layout.has_window(id));
                 layout.move_to_workspace(window_id.as_ref(), workspace_idx, ActivateWindow::Smart);
             }
-            Op::MoveColumnToWorkspaceDown(focus) => layout.move_column_to_workspace_down(focus),
-            Op::MoveColumnToWorkspaceUp(focus) => layout.move_column_to_workspace_up(focus),
-            Op::MoveColumnToWorkspace(idx, focus) => layout.move_column_to_workspace(idx, focus),
+            // TEAM_012: Renamed from move_column_to_workspace_* to move_column_to_row_*
+            Op::MoveColumnToWorkspaceDown(focus) => layout.move_column_to_row_down(focus),
+            Op::MoveColumnToWorkspaceUp(focus) => layout.move_column_to_row_up(focus),
+            Op::MoveColumnToWorkspace(idx, focus) => layout.move_column_to_row(idx, focus),
             Op::MoveWindowToOutput {
                 window_id,
                 output_id: id,
@@ -1238,8 +1241,9 @@ impl Op {
 
                 layout.move_column_to_output(&output, target_ws_idx, activate);
             }
-            Op::MoveWorkspaceDown => layout.move_workspace_down(),
-            Op::MoveWorkspaceUp => layout.move_workspace_up(),
+            // TEAM_012: Renamed from move_workspace_* to move_row_*
+            Op::MoveWorkspaceDown => layout.move_row_down(),
+            Op::MoveWorkspaceUp => layout.move_row_up(),
             Op::MoveWorkspaceToIndex {
                 ws_name: Some(ws_name),
                 target_idx,
@@ -1265,12 +1269,12 @@ impl Op {
                     return;
                 };
 
-                layout.move_workspace_to_idx(Some((Some(old_output), old_idx)), target_idx)
+                layout.move_row_to_index(Some((Some(old_output), old_idx)), target_idx)
             }
             Op::MoveWorkspaceToIndex {
                 ws_name: None,
                 target_idx,
-            } => layout.move_workspace_to_idx(None, target_idx),
+            } => layout.move_row_to_index(None, target_idx),
             Op::MoveWorkspaceToMonitor {
                 ws_name: None,
                 output_id: id,

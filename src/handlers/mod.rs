@@ -584,7 +584,8 @@ impl ExtWorkspaceHandler for State {
             if let Some(output) = output {
                 self.niri.layout.focus_output(&output);
             }
-            self.niri.layout.switch_workspace(index);
+            // TEAM_012: Renamed from switch_workspace
+            self.niri.layout.focus_row(index);
             // No mouse warp: assuming the layer-shell bar workspaces use-case.
 
             // FIXME: granular

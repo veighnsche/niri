@@ -982,7 +982,7 @@ impl State {
                 if self.niri.screenshot_ui.is_open() {
                     self.niri.screenshot_ui.move_down();
                 } else {
-                    self.niri.layout.move_down_or_to_workspace_down();
+                    self.niri.layout.move_down_or_to_row_down();
                 }
                 self.maybe_warp_cursor_to_focus();
                 // FIXME: granular
@@ -993,7 +993,7 @@ impl State {
                 if self.niri.screenshot_ui.is_open() {
                     self.niri.screenshot_ui.move_up();
                 } else {
-                    self.niri.layout.move_up_or_to_workspace_up();
+                    self.niri.layout.move_up_or_to_row_up();
                 }
                 self.maybe_warp_cursor_to_focus();
                 // FIXME: granular
@@ -1224,7 +1224,7 @@ impl State {
             }
             // TEAM_012: Replaced FocusWindowOrWorkspaceDown with FocusWindowOrRowDown
             Action::FocusWindowOrRowDown => {
-                self.niri.layout.focus_window_or_workspace_down();
+                self.niri.layout.focus_window_or_row_down();
                 self.maybe_warp_cursor_to_focus();
                 self.niri.layer_shell_on_demand_focus = None;
                 // FIXME: granular
@@ -1232,7 +1232,7 @@ impl State {
             }
             // TEAM_012: Replaced FocusWindowOrWorkspaceUp with FocusWindowOrRowUp
             Action::FocusWindowOrRowUp => {
-                self.niri.layout.focus_window_or_workspace_up();
+                self.niri.layout.focus_window_or_row_up();
                 self.maybe_warp_cursor_to_focus();
                 self.niri.layer_shell_on_demand_focus = None;
                 // FIXME: granular
@@ -1268,28 +1268,28 @@ impl State {
             }
             // TEAM_012: Replaced MoveWindowToWorkspaceDown with MoveWindowToRowDown
             Action::MoveWindowToRowDown(focus) => {
-                self.niri.layout.move_to_workspace_down(focus);
+                self.niri.layout.move_to_row_down(focus);
                 self.maybe_warp_cursor_to_focus();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             // TEAM_012: Replaced MoveWindowToWorkspaceUp with MoveWindowToRowUp
             Action::MoveWindowToRowUp(focus) => {
-                self.niri.layout.move_to_workspace_up(focus);
+                self.niri.layout.move_to_row_up(focus);
                 self.maybe_warp_cursor_to_focus();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             // TEAM_012: Replaced MoveColumnToWorkspaceDown with MoveColumnToRowDown
             Action::MoveColumnToRowDown(focus) => {
-                self.niri.layout.move_column_to_workspace_down(focus);
+                self.niri.layout.move_column_to_row_down(focus);
                 self.maybe_warp_cursor_to_focus();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             // TEAM_012: Replaced MoveColumnToWorkspaceUp with MoveColumnToRowUp
             Action::MoveColumnToRowUp(focus) => {
-                self.niri.layout.move_column_to_workspace_up(focus);
+                self.niri.layout.move_column_to_row_up(focus);
                 self.maybe_warp_cursor_to_focus();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
@@ -1302,7 +1302,7 @@ impl State {
             }
             // TEAM_012: Replaced FocusWorkspaceDown with FocusRowDown
             Action::FocusRowDown => {
-                self.niri.layout.switch_workspace_down();
+                self.niri.layout.focus_row_down();
                 self.maybe_warp_cursor_to_focus();
                 self.niri.layer_shell_on_demand_focus = None;
                 // FIXME: granular
@@ -1321,7 +1321,7 @@ impl State {
             }
             // TEAM_012: Replaced FocusWorkspaceUp with FocusRowUp
             Action::FocusRowUp => {
-                self.niri.layout.switch_workspace_up();
+                self.niri.layout.focus_row_up();
                 self.maybe_warp_cursor_to_focus();
                 self.niri.layer_shell_on_demand_focus = None;
                 // FIXME: granular
@@ -1340,7 +1340,7 @@ impl State {
             }
             // TEAM_012: Replaced FocusWorkspacePrevious with FocusPreviousPosition
             Action::FocusPreviousPosition => {
-                self.niri.layout.switch_workspace_previous();
+                self.niri.layout.focus_previous_position();
                 self.maybe_warp_cursor_to_focus();
                 self.niri.layer_shell_on_demand_focus = None;
                 // FIXME: granular
@@ -1348,30 +1348,30 @@ impl State {
             }
             // TEAM_012: Replaced MoveWorkspaceDown with MoveRowDown
             Action::MoveRowDown => {
-                self.niri.layout.move_workspace_down();
+                self.niri.layout.move_row_down();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             // TEAM_012: Replaced MoveWorkspaceUp with MoveRowUp
             Action::MoveRowUp => {
-                self.niri.layout.move_workspace_up();
+                self.niri.layout.move_row_up();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             // TEAM_012: Replaced MoveWorkspaceToIndex with MoveRowToIndex
             Action::MoveRowToIndex(new_idx) => {
                 let new_idx = new_idx.saturating_sub(1);
-                self.niri.layout.move_workspace_to_idx(None, new_idx);
+                self.niri.layout.move_row_to_index(None, new_idx);
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             // TEAM_012: Replaced SetWorkspaceName with SetRowName
             Action::SetRowName(name) => {
-                self.niri.layout.set_workspace_name(name, None);
+                self.niri.layout.set_row_name(name);
             }
             // TEAM_012: Replaced UnsetWorkspaceName with UnsetRowName
             Action::UnsetRowName => {
-                self.niri.layout.unset_workspace_name(None);
+                self.niri.layout.unset_row_name();
             }
             Action::ConsumeWindowIntoColumn => {
                 self.niri.layout.consume_into_column();

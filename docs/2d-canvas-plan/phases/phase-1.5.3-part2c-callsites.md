@@ -13,6 +13,21 @@ that need to be renamed for the Workspace → Row transformation.
 
 **Scope**: ~600 workspace references in layout/mod.rs
 
+**IMPORTANT**: Part 2C and Part 2D must be done together because:
+- Layout methods delegate to Monitor methods with the same names
+- Renaming one without the other breaks compilation
+- The method renames should be done as a single atomic operation
+
+---
+
+## Execution Strategy
+
+1. **Rename layout methods** (this file)
+2. **Rename monitor methods** (Part 2D) - AT THE SAME TIME
+3. **Update all callers** (input/mod.rs, tests.rs, etc.)
+4. **Verify compilation**
+5. **Then** do the modular refactoring of monitor.rs
+
 ---
 
 ## 1. Public Methods to Rename
