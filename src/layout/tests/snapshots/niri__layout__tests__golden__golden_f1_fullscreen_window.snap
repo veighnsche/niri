@@ -1,6 +1,6 @@
 ---
 source: src/layout/tests/golden.rs
-expression: snapshot
+expression: "snapshot([Op::AddOutput(1), win(1), win(2), Op::FocusColumnFirst,\nOp::FullscreenWindow(1),])"
 ---
 columns:
   - x: 0
