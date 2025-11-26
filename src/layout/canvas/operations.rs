@@ -4,6 +4,7 @@
 
 use std::rc::Rc;
 
+use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use crate::layout::canvas::Canvas2D;
 use crate::layout::row::Row;
 use crate::layout::tile::Tile;
@@ -396,5 +397,124 @@ impl<W: LayoutElement> Canvas2D<W> {
                     (tile, pos, is_active)
                 })
         })
+    }
+
+    // =========================================================================
+    // TEAM_020: Workspace Replacement Methods
+    // Methods to replace workspace functionality for migration
+    // =========================================================================
+
+    /// Workspace equivalent: check if any window exists (like workspace.has_windows())
+    pub fn has_windows(&self) -> bool {
+        self.tiled_tiles().next().is_some() || self.floating.tiles().next().is_some()
+    }
+
+    /// Workspace equivalent: check if has windows or name (for workspace cleanup logic)
+    pub fn has_windows_or_name(&self) -> bool {
+        self.has_windows() || self.rows.values().any(|row| row.name().is_some())
+    }
+
+    /// Workspace equivalent: find window by wl_surface
+    pub fn find_wl_surface(&self, wl_surface: &WlSurface) -> Option<&W> {
+        self.tiled_tiles()
+            .find(|tile| tile.window().is_wl_surface(wl_surface))
+            .map(|tile| tile.window())
+    }
+
+    /// Workspace equivalent: find window by wl_surface (mutable)  
+    pub fn find_wl_surface_mut(&mut self, wl_surface: &WlSurface) -> Option<&mut W> {
+        // Check tiled only for now
+        for row in self.rows.values_mut() {
+            for tile in row.tiles_mut() {
+                if tile.window().is_wl_surface(wl_surface) {
+                    return Some(tile.window_mut());
+                }
+            }
+        }
+        None
+    }
+
+    /// Workspace equivalent: update window in all rows
+    pub fn update_window(&mut self, window: &W, serial: Option<smithay::utils::Serial>) {
+        // TODO(TEAM_020): Implement proper window update
+        // For now, just ensure window exists in canvas
+        let _ = self.find_window(window.id());
+    }
+
+    /// Workspace equivalent: activate window in canvas
+    pub fn activate_window(&mut self, window: &W) -> bool {
+        // Try floating first
+        if self.floating.has_window(window.id()) {
+            self.floating.activate_window(window.id());
+            self.floating_is_active = true;
+            return true;
+        }
+
+        // Then try tiled
+        for (&row_idx, row) in self.rows.iter_mut() {
+            if row.contains(window.id()) {
+                // Find and activate the window in the row
+                for tile in row.tiles_mut() {
+                    if tile.window().id() == window.id() {
+                        // TODO(TEAM_020): Properly activate in row
+                        self.active_row_idx = row_idx;
+                        self.floating_is_active = false;
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// Workspace equivalent: activate window without raising
+    pub fn activate_window_without_raising(&mut self, window: &W) -> bool {
+        // For now, same as activate_window
+        self.activate_window(window)
+    }
+
+    /// Workspace equivalent: set fullscreen for window
+    pub fn set_fullscreen(&mut self, id: &W::Id, is_fullscreen: bool) {
+        // TODO(TEAM_020): Implement fullscreen setting
+    }
+
+    /// Workspace equivalent: toggle fullscreen for window
+    pub fn toggle_fullscreen(&mut self, id: &W::Id) {
+        // TODO(TEAM_020): Implement fullscreen toggle
+    }
+
+    /// Workspace equivalent: set maximized for window
+    pub fn set_maximized(&mut self, id: &W::Id, maximize: bool) {
+        // TODO(TEAM_020): Implement maximized setting
+    }
+
+    /// Workspace equivalent: toggle maximized for window
+    pub fn toggle_maximized(&mut self, id: &W::Id) {
+        // TODO(TEAM_020): Implement maximized toggle
+    }
+
+    /// Workspace equivalent: check if any window is urgent
+    pub fn has_urgent_window(&self) -> bool {
+        self.tiled_tiles().any(|tile| tile.window().is_urgent())
+    }
+
+    /// Workspace equivalent: get scroll amount to activate window
+    pub fn scroll_amount_to_activate(&self, window: &W) -> f64 {
+        // For now, return 0.0 (no scroll needed in canvas)
+        // TODO(TEAM_020): Implement proper scroll calculation if needed
+        0.0
+    }
+
+    /// Workspace equivalent: descendants added check
+    pub fn descendants_added(&self, id: &W::Id) -> bool {
+        // TODO(TEAM_020): Implement descendants check
+        false
+    }
+
+    /// Workspace equivalent: get popup target rect
+    pub fn popup_target_rect(&self, window: &W) -> smithay::utils::Rectangle<f64, smithay::utils::Logical> {
+        // TODO(TEAM_020): Implement popup target rect
+        // Return empty rect for now
+        smithay::utils::Rectangle::from_loc_and_size((0.0, 0.0), (0.0, 0.0))
     }
 }

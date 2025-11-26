@@ -1169,7 +1169,17 @@ impl<W: LayoutElement> Layout<W> {
         None
     }
 
+    /// TEAM_020: Migrated to use canvas instead of workspace iteration
     pub fn descendants_added(&mut self, id: &W::Id) -> bool {
+        // Check canvas rows first
+        for mon in self.monitors_mut() {
+            if mon.canvas.descendants_added(id) {
+                return true;
+            }
+        }
+
+        // TODO(TEAM_020): Eventually remove workspace check entirely
+        // For now, keep workspace check for compatibility
         for ws in self.workspaces_mut() {
             if ws.descendants_added(id) {
                 return true;
@@ -1391,6 +1401,7 @@ impl<W: LayoutElement> Layout<W> {
     /// Computes the window-geometry-relative target rect for popup unconstraining.
     ///
     /// We will try to fit popups inside this rect.
+    /// TEAM_020: Migrated to use canvas instead of workspace iteration
     pub fn popup_target_rect(&self, window: &W::Id) -> Rectangle<f64, Logical> {
         if let Some(InteractiveMoveState::Moving(move_)) = &self.interactive_move {
             if move_.tile.window().id() == window {
@@ -1402,11 +1413,19 @@ impl<W: LayoutElement> Layout<W> {
                 // FIXME: ideally this shouldn't include the tile render offset, but the code
                 // duplication would be a bit annoying for this edge case.
                 target.loc.y -= move_.tile_render_location(1.).y;
-                target.loc.y -= move_.tile.window_loc().y;
                 return target;
             }
         }
 
+        // Try canvas first
+        for mon in self.monitors() {
+            if let Some(window_ref) = mon.canvas.find_window(window) {
+                return mon.canvas.popup_target_rect(window_ref.2.window());
+            }
+        }
+
+        // TODO(TEAM_020): Eventually remove workspace check entirely
+        // For now, keep workspace check for compatibility
         self.workspaces()
             .find_map(|(_, _, ws)| ws.popup_target_rect(window))
             .unwrap()
@@ -2881,7 +2900,16 @@ impl<W: LayoutElement> Layout<W> {
         }
     }
 
+    /// TEAM_020: Migrated to use canvas instead of workspace iteration
     pub fn update_config(&mut self, config: &Config) {
+        // Update canvas config for all monitors
+        let options = Options::from_config(config);
+        for mon in self.monitors_mut() {
+            mon.canvas.update_config(Rc::new(options.clone()));
+        }
+
+        // TODO(TEAM_020): Eventually remove workspace config entirely
+        // For now, keep workspace config for compatibility
         // Update workspace-specific config for all named workspaces.
         for ws in self.workspaces_mut() {
             let Some(name) = ws.name() else { continue };
@@ -3454,6 +3482,16 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
+        // TEAM_020: Try canvas first, then fallback to workspace
+        for mon in self.monitors_mut() {
+            if mon.canvas.has_window(id) {
+                mon.canvas.set_fullscreen(id, is_fullscreen);
+                return;
+            }
+        }
+
+        // TODO(TEAM_020): Eventually remove workspace check entirely
+        // For now, keep workspace check for compatibility
         for ws in self.workspaces_mut() {
             if ws.has_window(id) {
                 ws.set_fullscreen(id, is_fullscreen);
@@ -3469,6 +3507,16 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
+        // TEAM_020: Try canvas first, then fallback to workspace
+        for mon in self.monitors_mut() {
+            if mon.canvas.has_window(id) {
+                mon.canvas.toggle_fullscreen(id);
+                return;
+            }
+        }
+
+        // TODO(TEAM_020): Eventually remove workspace check entirely
+        // For now, keep workspace check for compatibility
         for ws in self.workspaces_mut() {
             if ws.has_window(id) {
                 ws.toggle_fullscreen(id);
@@ -3504,6 +3552,16 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
+        // TEAM_020: Try canvas first, then fallback to workspace
+        for mon in self.monitors_mut() {
+            if mon.canvas.has_window(id) {
+                mon.canvas.set_maximized(id, maximize);
+                return;
+            }
+        }
+
+        // TODO(TEAM_020): Eventually remove workspace check entirely
+        // For now, keep workspace check for compatibility
         for ws in self.workspaces_mut() {
             if ws.has_window(id) {
                 ws.set_maximized(id, maximize);
@@ -3519,6 +3577,16 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
+        // TEAM_020: Try canvas first, then fallback to workspace
+        for mon in self.monitors_mut() {
+            if mon.canvas.has_window(id) {
+                mon.canvas.toggle_maximized(id);
+                return;
+            }
+        }
+
+        // TODO(TEAM_020): Eventually remove workspace check entirely
+        // For now, keep workspace check for compatibility
         for ws in self.workspaces_mut() {
             if ws.has_window(id) {
                 ws.toggle_maximized(id);

@@ -97,9 +97,15 @@ impl<W: LayoutElement> Monitor<W> {
         }
     }
 
+    /// TEAM_020: Updated to use canvas instead of workspace cleanup logic
     pub fn clean_up_workspaces(&mut self) {
         assert!(self.workspace_switch.is_none());
 
+        // Use canvas cleanup instead - remove empty rows except row 0
+        self.canvas.cleanup_empty_rows();
+        
+        // TODO(TEAM_020): Eventually remove workspace cleanup entirely
+        // For now, keep minimal workspace cleanup for compatibility
         let range_start = if self.options.layout.empty_workspace_above_first {
             1
         } else {

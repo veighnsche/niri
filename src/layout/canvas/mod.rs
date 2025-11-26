@@ -228,6 +228,12 @@ impl<W: LayoutElement> Canvas2D<W> {
         self.rows.iter().map(|(&idx, row)| (idx, row))
     }
 
+    /// Returns a mutable iterator over all rows.
+    /// TEAM_020: Added for workspace iteration migration
+    pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut Row<W>> + '_ {
+        self.rows.values_mut()
+    }
+
     /// Returns the current camera position.
     pub fn camera_position(&self) -> Point<f64, Logical> {
         Point::from((self.camera_x.current(), self.camera_y.current()))

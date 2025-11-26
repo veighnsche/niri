@@ -21,6 +21,7 @@ impl<W: LayoutElement> Monitor<W> {
         self.active_workspace_idx
     }
 
+    // TEAM_020: Migrate to canvas - this method should eventually be removed
     pub fn active_workspace_ref(&self) -> &Workspace<W> {
         &self.workspaces[self.active_workspace_idx]
     }
@@ -41,6 +42,7 @@ impl<W: LayoutElement> Monitor<W> {
         })
     }
 
+    // TEAM_020: Migrate to canvas - this method should eventually be removed
     pub fn active_workspace(&mut self) -> &mut Workspace<W> {
         &mut self.workspaces[self.active_workspace_idx]
     }
@@ -56,26 +58,54 @@ impl<W: LayoutElement> Monitor<W> {
     }
 
     // =========================================================================
-    // LEGACY: Window query methods (workspace-based)
-    // TODO(TEAM_013): Replace with canvas-only versions
+    // TEAM_020: Window query methods (migrating to canvas-only)
     // =========================================================================
 
     /// Returns all windows on this monitor (tiled and floating).
+    /// TEAM_020: Now uses canvas only
     pub fn windows(&self) -> impl Iterator<Item = &W> + '_ {
-        let canvas_windows = self.canvas.windows();
-        let workspace_windows = self.workspaces.iter().flat_map(|ws| ws.windows());
-        canvas_windows.chain(workspace_windows)
+        self.canvas.windows()
     }
 
     /// Returns whether this monitor contains the given window.
+    /// TEAM_020: Now uses canvas only
     pub fn has_window(&self, window: &W::Id) -> bool {
-        self.canvas.contains_any(window)
-            || self.workspaces.iter().any(|ws| ws.has_window(window))
+        self.canvas.has_window(window)
     }
 
     /// Returns the active window on this monitor.
+    /// TEAM_020: Now uses canvas instead of workspace
     pub fn active_window(&self) -> Option<&W> {
-        self.active_workspace_ref().active_window()
+        self.canvas.active_window()
+    }
+
+    // =========================================================================
+    // TEAM_020: Canvas workspace iteration methods
+    // These methods replace workspace iteration with canvas iteration
+    // =========================================================================
+
+    /// Canvas equivalent of workspaces() - provides iteration over canvas rows
+    /// TEAM_020: Use this to replace workspaces() calls
+    pub fn canvas_rows(&self) -> impl Iterator<Item = (Option<&Monitor<W>>, i32, &crate::layout::row::Row<W>)> + '_ {
+        self.canvas.rows().map(move |(idx, row)| (Some(self), idx, row))
+    }
+
+    /// Canvas equivalent of workspaces_mut() - provides mutable iteration over canvas rows
+    /// TEAM_020: Use this to replace workspaces_mut() calls
+    pub fn canvas_rows_mut(&mut self) -> impl Iterator<Item = &mut crate::layout::row::Row<W>> + '_ {
+        self.canvas.rows_mut()
+    }
+
+    /// Find window in canvas (replaces workspace.find_window patterns)
+    /// TEAM_020: Use this to replace workspace window finding
+    pub fn canvas_find_window(&self, id: &W::Id) -> Option<(i32, &crate::layout::row::Row<W>, &crate::layout::tile::Tile<W>)> {
+        self.canvas.find_window(id)
+    }
+
+    /// Find window in canvas (mutable, replaces workspace.find_window patterns)
+    /// TEAM_020: Use this to replace workspace window finding
+    pub fn canvas_find_window_mut(&mut self, id: &W::Id) -> Option<(i32, &mut crate::layout::tile::Tile<W>)> {
+        self.canvas.find_window_mut(id)
     }
 
     // =========================================================================
