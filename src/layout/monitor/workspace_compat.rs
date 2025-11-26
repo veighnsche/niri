@@ -47,6 +47,33 @@ impl<W: LayoutElement> Monitor<W> {
         &mut self.workspaces[self.active_workspace_idx]
     }
 
+    // TEAM_021: Canvas-based workspace iteration for migration
+    pub fn workspaces(&self) -> impl Iterator<Item = (usize, &Workspace<W>)> {
+        // For now, return legacy workspaces but also provide canvas iteration
+        self.workspaces.iter().enumerate()
+    }
+
+    pub fn workspaces_mut(&mut self) -> impl Iterator<Item = &mut Workspace<W>> + '_ {
+        self.workspaces.iter_mut()
+    }
+
+    // TEAM_021: Canvas-first methods - try canvas first, fallback to workspace
+    pub fn canvas_workspaces(&self) -> impl Iterator<Item = (i32, &crate::layout::row::Row<W>)> {
+        self.canvas().workspaces()
+    }
+
+    pub fn canvas_workspaces_mut(&mut self) -> impl Iterator<Item = &mut crate::layout::row::Row<W>> + '_ {
+        self.canvas_mut().workspaces_mut()
+    }
+
+    pub fn canvas_active_workspace(&self) -> Option<&crate::layout::row::Row<W>> {
+        self.canvas().active_workspace()
+    }
+
+    pub fn canvas_active_workspace_mut(&mut self) -> Option<&mut crate::layout::row::Row<W>> {
+        self.canvas_mut().active_workspace_mut()
+    }
+
     pub fn into_workspaces(mut self) -> Vec<Workspace<W>> {
         self.workspaces.retain(|ws| ws.has_windows_or_name());
 

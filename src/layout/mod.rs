@@ -759,7 +759,12 @@ impl<W: LayoutElement> Layout<W> {
                     || (primary.options.layout.empty_workspace_above_first
                         && primary.workspaces.len() == 2)
                 {
-                    primary.clean_up_workspaces();
+                    // TEAM_021: Use canvas-first cleanup if possible, fallback to workspace
+                    if primary.canvas().has_windows() {
+                        primary.canvas_mut().clean_up_workspaces();
+                    } else if primary.workspaces.len() == 2 {
+                        primary.clean_up_workspaces();
+                    }
                 }
 
                 workspaces.reverse();
@@ -1094,13 +1099,10 @@ impl<W: LayoutElement> Layout<W> {
                             unreachable!()
                         };
 
+                        // TEAM_021: Use canvas for DND gestures instead of workspace iteration
                         for mon in self.monitors_mut() {
                             mon.dnd_scroll_gesture_end();
-                        }
-
-                        // Unlock the view on the workspaces.
-                        for ws in self.workspaces_mut() {
-                            ws.dnd_scroll_gesture_end();
+                            mon.canvas_mut().dnd_scroll_gesture_end();
                         }
 
                         return Some(RemovedTile {
@@ -3122,9 +3124,9 @@ impl<W: LayoutElement> Layout<W> {
                         self.options.animations.window_movement.0,
                     );
 
-                    // Unlock the view on the workspaces.
-                    for ws in self.workspaces_mut() {
-                        ws.dnd_scroll_gesture_end();
+                    // TEAM_021: Use canvas for DND gestures instead of workspace iteration
+                    for mon in self.monitors_mut() {
+                        mon.canvas_mut().dnd_scroll_gesture_end();
                     }
                 } else {
                     // Animate the tile back to semitransparent.
@@ -3529,6 +3531,15 @@ impl<W: LayoutElement> Layout<W> {
         let (_, window) = self.windows().find(|(_, win)| win.id() == id).unwrap();
         if window.pending_sizing_mode().is_fullscreen() {
             // Remove the real fullscreen.
+            // TEAM_021: Try canvas first, then fallback to workspace
+            for mon in self.monitors_mut() {
+                if mon.canvas.has_window(id) {
+                    mon.canvas.set_fullscreen(id, false);
+                    break;
+                }
+            }
+
+            // Fallback to workspace iteration for compatibility
             for ws in self.workspaces_mut() {
                 if ws.has_window(id) {
                     ws.set_fullscreen(id, false);
@@ -3780,8 +3791,9 @@ impl<W: LayoutElement> Layout<W> {
 
         // Lock the view for scrolling interactive move.
         if !is_floating {
-            for ws in self.workspaces_mut() {
-                ws.dnd_scroll_gesture_begin();
+            // TEAM_021: Use canvas for DND gestures instead of workspace iteration
+            for mon in self.monitors_mut() {
+                mon.canvas_mut().dnd_scroll_gesture_begin();
             }
         }
 
@@ -3920,10 +3932,9 @@ impl<W: LayoutElement> Layout<W> {
                 tile.update_config(view_size, scale, Rc::new(options));
 
                 if is_floating {
-                    // Unlock the view in case we locked it moving a fullscreen window that is
-                    // going to unfullscreen to floating.
-                    for ws in self.workspaces_mut() {
-                        ws.dnd_scroll_gesture_end();
+                    // TEAM_021: Unlock view using canvas instead of workspace iteration
+                    for mon in self.monitors_mut() {
+                        mon.canvas_mut().dnd_scroll_gesture_end();
                     }
                 } else {
                     // Animate to semitransparent.
@@ -4031,10 +4042,23 @@ impl<W: LayoutElement> Layout<W> {
                     unreachable!()
                 };
 
+                // TEAM_021: Use canvas to find and update window instead of workspace iteration
                 for mon in self.monitors_mut() {
                     mon.dnd_scroll_gesture_end();
+                    
+                    // Try canvas first for window operations
+                    if let Some((_row_idx, tile)) = mon.canvas_mut().find_window_mut(&window_id) {
+                        let offset = tile.interactive_move_offset;
+                        tile.interactive_move_offset = Point::from((0., 0.));
+                        tile.animate_move_from(offset);
+                        
+                        // Unlock view
+                        mon.canvas_mut().dnd_scroll_gesture_end();
+                        return;
+                    }
                 }
 
+                // Fallback to workspace iteration for compatibility
                 for ws in self.workspaces_mut() {
                     if let Some(tile) = ws.tiles_mut().find(|tile| *tile.window().id() == window_id)
                     {
@@ -4068,14 +4092,16 @@ impl<W: LayoutElement> Layout<W> {
             unreachable!()
         };
 
+        // TEAM_021: Use canvas for DND gestures instead of workspace iteration
         for mon in self.monitors_mut() {
             mon.dnd_scroll_gesture_end();
         }
 
         // Unlock the view on the workspaces.
         if !move_.is_floating {
-            for ws in self.workspaces_mut() {
-                ws.dnd_scroll_gesture_end();
+            // TEAM_021: Use canvas for DND gestures instead of workspace iteration
+            for mon in self.monitors_mut() {
+                mon.canvas_mut().dnd_scroll_gesture_end();
             }
 
             // Also animate the tile back to opaque.
@@ -4315,12 +4341,14 @@ impl<W: LayoutElement> Layout<W> {
 
         self.dnd = None;
 
+        // TEAM_021: Use canvas for DND gestures instead of workspace iteration
         for mon in self.monitors_mut() {
             mon.dnd_scroll_gesture_end();
         }
 
-        for ws in self.workspaces_mut() {
-            ws.dnd_scroll_gesture_end();
+        // TEAM_021: Use canvas for DND gestures instead of workspace iteration
+        for mon in self.monitors_mut() {
+            mon.canvas_mut().dnd_scroll_gesture_end();
         }
     }
 
@@ -4490,6 +4518,16 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
+        // TEAM_021: Try canvas first, then fallback to workspace
+        for mon in self.monitors_mut() {
+            if mon.canvas.has_window(window) {
+                if mon.canvas.start_open_animation(window) {
+                    return;
+                }
+            }
+        }
+
+        // Fallback to workspace iteration for compatibility
         for ws in self.workspaces_mut() {
             if ws.start_open_animation(window) {
                 return;
@@ -4705,22 +4743,42 @@ impl<W: LayoutElement> Layout<W> {
                     // Overview is no longer supported, so always end DnD scroll gesture
                     mon.dnd_scroll_gesture_end();
 
-                    for (ws_idx, ws) in mon.workspaces.iter_mut().enumerate() {
-                        let is_focused = is_active && ws_idx == mon.active_workspace_idx;
-                        ws.refresh(is_active, is_focused);
-
+                    // TEAM_021: Try canvas-first for workspace operations
+                    if mon.canvas().has_windows() {
+                        // Use canvas operations
+                        let is_focused = is_active && mon.canvas().active_row_idx() == mon.canvas().active_row_idx();
+                        // Note: canvas refresh logic would go here when fully migrated
+                        
                         if let Some(is_scrolling) = ongoing_scrolling_dnd {
                             // Lock or unlock the view for scrolling interactive move.
                             if is_scrolling {
-                                ws.dnd_scroll_gesture_begin();
+                                // Canvas equivalent: dnd_scroll_gesture_begin on active row
+                                if let Some(row) = mon.canvas_mut().active_row_mut() {
+                                    row.dnd_scroll_gesture_begin();
+                                }
                             } else {
-                                ws.dnd_scroll_gesture_end();
+                                mon.canvas_mut().dnd_scroll_gesture_end();
                             }
-                        } else {
-                            // Cancel the view offset gesture after workspace switches, moves, etc.
-                            // DEPRECATED(overview): Removed overview_open check
-                            if ws_idx != mon.active_workspace_idx {
-                                ws.view_offset_gesture_end(None);
+                        }
+                    } else {
+                        // Fallback to workspace iteration for compatibility
+                        for (ws_idx, ws) in mon.workspaces.iter_mut().enumerate() {
+                            let is_focused = is_active && ws_idx == mon.active_workspace_idx;
+                            ws.refresh(is_active, is_focused);
+
+                            if let Some(is_scrolling) = ongoing_scrolling_dnd {
+                                // Lock or unlock the view for scrolling interactive move.
+                                if is_scrolling {
+                                    ws.dnd_scroll_gesture_begin();
+                                } else {
+                                    ws.dnd_scroll_gesture_end();
+                                }
+                            } else {
+                                // Cancel the view offset gesture after workspace switches, moves, etc.
+                                // DEPRECATED(overview): Removed overview_open check
+                                if ws_idx != mon.active_workspace_idx {
+                                    ws.view_offset_gesture_end(None);
+                                }
                             }
                         }
                     }

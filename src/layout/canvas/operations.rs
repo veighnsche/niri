@@ -505,16 +505,73 @@ impl<W: LayoutElement> Canvas2D<W> {
         0.0
     }
 
-    /// Workspace equivalent: descendants added check
-    pub fn descendants_added(&self, id: &W::Id) -> bool {
-        // TODO(TEAM_020): Implement descendants check
-        false
-    }
-
     /// Workspace equivalent: get popup target rect
     pub fn popup_target_rect(&self, window: &W) -> smithay::utils::Rectangle<f64, smithay::utils::Logical> {
-        // TODO(TEAM_020): Implement popup target rect
-        // Return empty rect for now
-        smithay::utils::Rectangle::from_loc_and_size((0.0, 0.0), (0.0, 0.0))
+        // For now, return a simple rectangle based on window size
+        // TODO(TEAM_021): Implement proper popup positioning with row/column offsets
+        let size = window.size();
+        smithay::utils::Rectangle::new((0.0, 0.0).into(), (size.w as f64, size.h as f64).into())
+    }
+
+    /// Workspace equivalent: descendants added check - TEAM_021
+    pub fn descendants_added(&self, id: &W::Id) -> bool {
+        // Find the window and check if it has any descendants
+        if let Some((_, _, tile)) = self.find_window(id) {
+            // For now, return false - descendants logic can be implemented later
+            // This is typically used for popup windows and child surfaces
+            false
+        } else {
+            false
+        }
+    }
+
+    /// Workspace equivalent: clean up all empty rows - TEAM_021
+    pub fn clean_up_workspaces(&mut self) {
+        self.cleanup_empty_rows();
+    }
+
+    /// Workspace equivalent: get all rows for iteration - TEAM_021
+    pub fn workspaces(&self) -> impl Iterator<Item = (i32, &Row<W>)> {
+        self.rows()
+    }
+
+    /// Workspace equivalent: get all rows for mutable iteration - TEAM_021
+    pub fn workspaces_mut(&mut self) -> impl Iterator<Item = &mut Row<W>> + '_ {
+        self.rows_mut()
+    }
+
+    /// Workspace equivalent: get active workspace (row) - TEAM_021
+    pub fn active_workspace(&self) -> Option<&Row<W>> {
+        self.active_row()
+    }
+
+    /// Workspace equivalent: get active workspace (row) mutable - TEAM_021
+    pub fn active_workspace_mut(&mut self) -> Option<&mut Row<W>> {
+        self.active_row_mut()
+    }
+
+    /// Workspace equivalent: end DND scroll gesture on all rows - TEAM_021
+    pub fn dnd_scroll_gesture_end(&mut self) {
+        for row in self.rows_mut() {
+            row.dnd_scroll_gesture_end();
+        }
+    }
+
+    /// Workspace equivalent: begin DND scroll gesture on all rows - TEAM_021
+    pub fn dnd_scroll_gesture_begin(&mut self) {
+        for row in self.rows_mut() {
+            row.dnd_scroll_gesture_begin();
+        }
+    }
+
+    /// Workspace equivalent: start open animation for window - TEAM_021
+    pub fn start_open_animation(&mut self, window: &W::Id) -> bool {
+        // Find the window and start open animation
+        if let Some((_, tile)) = self.find_window_mut(window) {
+            tile.start_open_animation();
+            true
+        } else {
+            false
+        }
     }
 }
