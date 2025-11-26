@@ -1,96 +1,138 @@
-# Phase 1.5.3 Part 4: Remove Workspace Fields from Monitor
+# Phase 1.5.3 Part 4: Remove Workspace Fields
 
-> **Status**: PENDING
-> **Prerequisite**: Parts 1-3 complete
+> **Status**: ⏳ PENDING  
+> **Prerequisite**: Phase 1.5.3 Actual Row Implementation complete
+> **Critical**: Only after row navigation actually works
 
 ---
 
 ## Overview
 
-With all workspace-related functionality removed, we can now remove the workspace
-fields from Monitor. This is the final cleanup step.
+Remove all workspace-related fields, types, and structs from the codebase.
+This is only possible AFTER row navigation is actually implemented.
+
+**WARNING**: If you run this phase before implementing actual row navigation,
+you will break the codebase because "row" methods still call workspace code.
 
 ---
 
-## Step 4.1: Remove Workspace Fields
+## Step 4.1: Remove Workspace Fields from Monitor
 
-| Field | File | Change |
+| Field | File | Action |
 |-------|------|--------|
-| `workspaces: Vec<Workspace<W>>` | `src/layout/monitor.rs` | Remove |
-| `active_workspace_idx: usize` | `src/layout/monitor.rs` | Remove |
-| `previous_workspace_id: Option<WorkspaceId>` | `src/layout/monitor.rs` | Remove |
-| `workspace_switch: Option<WorkspaceSwitch>` | `src/layout/monitor.rs` | Already removed in Part 2 |
+| `workspaces: Vec<Workspace<W>>` | `src/layout/monitor/mod.rs` | Delete field |
+| `active_workspace_idx: usize` | `src/layout/monitor/mod.rs` | Delete field |
+| `previous_workspace_id: Option<WorkspaceId>` | `src/layout/monitor/mod.rs` | Delete field |
+| `workspace_switch: Option<WorkspaceSwitch>` | `src/layout/monitor/mod.rs` | Delete field |
+
+**Replace with:**
+- Canvas-based row management
+- Camera-based view tracking
 
 ---
 
-## Step 4.2: Remove Workspace Methods
+## Step 4.2: Remove Workspace Types
 
-| Method | File | Change |
+| Type | File | Action |
+|------|------|--------|
+| `Workspace<W>` | `src/layout/workspace.rs` | Delete entire file |
+| `WorkspaceId` | `src/layout/workspace.rs` | Delete entire file |
+| `WorkspaceSwitch` | `src/layout/monitor/types.rs` | Delete enum |
+| `WorkspaceSwitchGesture` | `src/layout/monitor/types.rs` | Delete struct |
+| `OutputId` | `src/layout/workspace.rs` | Delete struct |
+
+---
+
+## Step 4.3: Remove Workspace Methods
+
+| Method | File | Action |
 |--------|------|--------|
-| `active_workspace_idx()` | `src/layout/monitor.rs` | Remove |
-| `active_workspace_ref()` | `src/layout/monitor.rs` | Remove |
-| `active_workspace()` | `src/layout/monitor.rs` | Remove |
-| `find_named_workspace()` | `src/layout/monitor.rs` | Remove |
-| `find_named_workspace_index()` | `src/layout/monitor.rs` | Remove |
-| `add_workspace_at()` | `src/layout/monitor.rs` | Remove |
-| `add_workspace_top()` | `src/layout/monitor.rs` | Remove |
-| `add_workspace_bottom()` | `src/layout/monitor.rs` | Remove |
-| `into_workspaces()` | `src/layout/monitor.rs` | Remove |
+| `active_workspace()` | `src/layout/monitor/workspace_compat.rs` | Delete entire file |
+| `find_named_workspace()` | `src/layout/monitor/workspace_compat.rs` | Delete entire file |
+| `into_workspaces()` | `src/layout/monitor/workspace_compat.rs` | Delete entire file |
+| `switch_workspace_up()` | `src/layout/monitor/workspace_ops.rs` | Delete entire file |
+| `switch_workspace_down()` | `src/layout/monitor/workspace_ops.rs` | Delete entire file |
+| All workspace animations | `src/layout/monitor/workspace_compat.rs` | Delete entire file |
 
 ---
 
-## Step 4.3: Update Monitor::new()
+## Step 4.4: Remove Workspace Files
 
-Current signature:
+**Files to delete entirely:**
+- `src/layout/workspace.rs` - Entire workspace system
+- `src/layout/monitor/workspace_compat.rs` - Legacy workspace accessors
+- `src/layout/monitor/workspace_ops.rs` - Workspace operations
+- `src/layout/monitor/navigation.rs` - Workspace navigation
+- `src/layout/monitor/gestures.rs` - Workspace gestures
+
+---
+
+## Step 4.5: Update Monitor Implementation
+
+**Monitor should only contain:**
 ```rust
-pub fn new(
+pub struct Monitor<W> {
+    // Canvas (2D grid)
+    canvas: Canvas<W>,
+    
+    // Camera (view into canvas)
+    camera: Camera,
+    
+    // Output management
     output: Output,
-    workspaces: Vec<Workspace<W>>,  // REMOVE
-    ws_id_to_activate: Option<WorkspaceId>,  // REMOVE
-    clock: Clock,
+    scale: Scale,
+    transform: Transform,
+    view_size: Size<f64, Logical>,
+    working_area: Rectangle<f64, Logical>,
+    
+    // Configuration
     base_options: Rc<Options>,
-    layout_config: Option<LayoutPart>,
-) -> Self
+    options: Rc<Options>,
+    layout_config: Option<niri_config::LayoutPart>,
+    
+    // Animation
+    clock: Clock,
+}
 ```
 
-New signature:
-```rust
-pub fn new(
-    output: Output,
-    clock: Clock,
-    base_options: Rc<Options>,
-    layout_config: Option<LayoutPart>,
-) -> Self
+---
+
+## Verification
+
+### Compilation Tests
+```bash
+cargo check                    # Should compile
+cargo test --lib              # All tests pass  
+cargo insta test              # Golden tests pass
+```
+
+### No Workspace References
+```bash
+# Should return no results
+grep -rn "workspace" src/layout/ | grep -v "row"
+grep -rn "Workspace" src/layout/
+grep -rn "workspace" src/input/ | grep -v "row"
+```
+
+### Row Navigation Works
+```bash
+# These should all work without workspace code
+cargo test focus_row_up
+cargo test move_window_to_row_down  
+cargo test set_row_name
 ```
 
 ---
 
-## Step 4.4: Fix All Call Sites
+## Handoff Criteria
 
-The compiler will show all places that use removed fields/methods.
-Fix each one:
-
-| Call Site | Current | New |
-|-----------|---------|-----|
-| `monitor.active_workspace()` | Returns `&mut Workspace` | Use `monitor.canvas_mut()` |
-| `monitor.workspaces[idx]` | Direct access | Use canvas methods |
-| `Layout::new()` | Passes workspaces | Don't pass workspaces |
-
----
-
-## Step 4.5: Remove Workspace Types (if unused)
-
-After removing from Monitor, check if these are still used:
-
-| Type | File | Check |
-|------|------|-------|
-| `Workspace<W>` | `src/layout/workspace.rs` | May still be used by tests |
-| `WorkspaceId` | `src/layout/workspace.rs` | Check all usages |
-| `WorkspaceAddWindowTarget` | `src/layout/workspace.rs` | Check all usages |
-
-**Note**: Don't remove if still used by tests or other code. Mark as deprecated.
-
----
+- [ ] All workspace fields deleted from Monitor
+- [ ] All workspace types deleted
+- [ ] All workspace files deleted
+- [ ] Monitor only contains Canvas + Camera
+- [ ] Code compiles
+- [ ] All tests pass
+- [ ] No workspace references remain
 
 ## Verification
 
