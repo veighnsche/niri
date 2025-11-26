@@ -24,7 +24,7 @@ use smithay::input::pointer::{
     AxisFrame, ButtonEvent, CursorIcon, CursorImageStatus, Focus, GestureHoldBeginEvent,
     GestureHoldEndEvent, GesturePinchBeginEvent, GesturePinchEndEvent, GesturePinchUpdateEvent,
     GestureSwipeBeginEvent, GestureSwipeEndEvent, GestureSwipeUpdateEvent,
-    GrabStartData as PointerGrabStartData, MotionEvent, PointerGrab, RelativeMotionEvent,
+    GrabStartData as PointerGrabStartData, MotionEvent, RelativeMotionEvent,
 };
 use smithay::input::touch::{
     DownEvent, GrabStartData as TouchGrabStartData, MotionEvent as TouchMotionEvent, UpEvent,
@@ -2196,7 +2196,7 @@ impl State {
     }
 
     fn on_pointer_motion<I: InputBackend>(&mut self, event: I::PointerMotionEvent) {
-        let was_inside_hot_corner = self.niri.pointer_inside_hot_corner;
+        let _was_inside_hot_corner = self.niri.pointer_inside_hot_corner;
         // Any of the early returns here mean that the pointer is not inside the hot corner.
         self.niri.pointer_inside_hot_corner = false;
 
@@ -2416,7 +2416,7 @@ impl State {
         &mut self,
         event: I::PointerMotionAbsoluteEvent,
     ) {
-        let was_inside_hot_corner = self.niri.pointer_inside_hot_corner;
+        let _was_inside_hot_corner = self.niri.pointer_inside_hot_corner;
         // Any of the early returns here mean that the pointer is not inside the hot corner.
         self.niri.pointer_inside_hot_corner = false;
 
@@ -3337,7 +3337,7 @@ impl State {
         let tip_state = event.tip_state();
 
         // Overview mode has been removed, this is always false
-        let is_overview_open = false;
+        let _is_overview_open = false;
 
         match tip_state {
             TabletToolTipState::Down => {
@@ -3519,7 +3519,7 @@ impl State {
             delta_y = libinput_event.dy_unaccelerated();
         }
 
-        let uninverted_delta_y = delta_y;
+        let _uninverted_delta_y = delta_y;
 
         let device = event.device();
         if let Some(device) = (&device as &dyn Any).downcast_ref::<input::Device>() {
@@ -3832,19 +3832,19 @@ impl State {
                 && under.layer.is_none()
                 && under.output.is_some()
             {
-                let (output, pos_within_output) = self.niri.output_under(pos).unwrap();
-                let output = output.clone();
+                let (output, _pos_within_output) = self.niri.output_under(pos).unwrap();
+                let _output = output.clone();
 
-                let mut matched_narrow = true;
+                let mut _matched_narrow = true;
                 let mut ws = self.niri.workspace_under(false, pos);
                 if ws.is_none() {
-                    matched_narrow = false;
+                    _matched_narrow = false;
                     ws = self.niri.workspace_under(true, pos);
                 }
-                let ws_id = ws.map(|(_, ws)| ws.id());
+                let _ws_id = ws.map(|(_, ws)| ws.id());
 
                 let mapped = self.niri.window_under(pos);
-                let window = mapped.map(|mapped| mapped.window.clone());
+                let _window = mapped.map(|mapped| mapped.window.clone());
 
                 // TouchOverviewGrab removed - overview mode is disabled
             } else if let Some((window, _)) = under.window {
@@ -4331,7 +4331,7 @@ fn hardcoded_overview_bind(raw: Keysym, mods: ModifiersState) -> Option<Bind> {
         return None;
     }
 
-    let mut repeat = true;
+    let repeat = true;
     let action = match raw {
         Keysym::Left => Action::FocusColumnLeft,
         Keysym::Right => Action::FocusColumnRight,
@@ -4699,31 +4699,6 @@ pub fn mods_with_finger_scroll_binds(mod_key: ModKey, binds: &Binds) -> HashSet<
             Trigger::TouchpadScrollRight,
         ],
     )
-}
-
-fn grab_allows_hot_corner(grab: &(dyn PointerGrab<State> + 'static)) -> bool {
-    let grab = grab.as_any();
-
-    // We lean on the blocklist approach here since it's not a terribly big deal if hot corner
-    // works where it shouldn't, but it could prevent some workflows if the hot corner doesn't work
-    // when it should.
-    //
-    // Some notable grabs not mentioned here:
-    // - DnDGrab allows hot corner to DnD across workspaces.
-    // - ClickGrab keeps pointer focus on the window, so the hot corner doesn't trigger.
-    // - Touch grabs: touch doesn't trigger the hot corner.
-    if grab.is::<ResizeGrab>() || grab.is::<SpatialMovementGrab>() {
-        return false;
-    }
-
-    if let Some(grab) = grab.downcast_ref::<MoveGrab>() {
-        // Window move allows hot corner to DnD across workspaces.
-        if !grab.is_move() {
-            return false;
-        }
-    }
-
-    true
 }
 
 /// Returns an iterator over bindings.

@@ -551,13 +551,13 @@ enum Op {
     MoveRowUp,
     MoveRowToIndex {
         #[proptest(strategy = "proptest::option::of(1..=5usize)")]
-        ws_name: Option<usize>,
+        _ws_name: Option<usize>,
         #[proptest(strategy = "0..=4usize")]
         target_idx: usize,
     },
     MoveRowToMonitor {
         #[proptest(strategy = "proptest::option::of(1..=5usize)")]
-        ws_name: Option<usize>,
+        _ws_name: Option<usize>,
         #[proptest(strategy = "0..=5usize")]
         output_id: usize,
     },
@@ -566,11 +566,11 @@ enum Op {
         #[proptest(strategy = "1..=5usize")]
         new_ws_name: usize,
         #[proptest(strategy = "proptest::option::of(1..=5usize)")]
-        ws_name: Option<usize>,
+        _ws_name: Option<usize>,
     },
     UnsetRowName {
         #[proptest(strategy = "proptest::option::of(1..=5usize)")]
-        ws_name: Option<usize>,
+        _ws_name: Option<usize>,
     },
     MoveWindowToOutput {
         #[proptest(strategy = "proptest::option::of(1..=5usize)")]
@@ -706,8 +706,8 @@ enum Op {
     OverviewGestureBegin,
     OverviewGestureUpdate {
         #[proptest(strategy = "-400f64..400f64")]
-        delta: f64,
-        timestamp: Duration,
+        _delta: f64,
+        _timestamp: Duration,
     },
     OverviewGestureEnd,
     InteractiveMoveBegin {
@@ -900,11 +900,11 @@ impl Op {
             // TEAM_014: Renamed from SetWorkspaceName/UnsetWorkspaceName
             Op::SetRowName {
                 new_ws_name,
-                ws_name: _,
+                _ws_name: _,
             } => {
                 layout.set_row_name(format!("ws{new_ws_name}"));
             }
-            Op::UnsetRowName { ws_name: _ } => {
+            Op::UnsetRowName { _ws_name: _ } => {
                 layout.unset_row_name();
             }
             Op::AddWindow { mut params } => {
@@ -1253,7 +1253,7 @@ impl Op {
             Op::MoveRowDown => layout.move_row_down(),
             Op::MoveRowUp => layout.move_row_up(),
             Op::MoveRowToIndex {
-                ws_name: Some(ws_name),
+                _ws_name: Some(ws_name),
                 target_idx,
             } => {
                 let MonitorSet::Normal { monitors, .. } = &mut layout.monitor_set else {
@@ -1280,11 +1280,11 @@ impl Op {
                 layout.move_row_to_index(Some((Some(old_output), old_idx)), target_idx)
             }
             Op::MoveRowToIndex {
-                ws_name: None,
+                _ws_name: None,
                 target_idx,
             } => layout.move_row_to_index(None, target_idx),
             Op::MoveRowToMonitor {
-                ws_name: None,
+                _ws_name: None,
                 output_id: id,
             } => {
                 let name = format!("output{id}");
@@ -1294,7 +1294,7 @@ impl Op {
                 layout.move_workspace_to_output(&output);
             }
             Op::MoveRowToMonitor {
-                ws_name: Some(ws_name),
+                _ws_name: Some(ws_name),
                 output_id: id,
             } => {
                 let name = format!("output{id}");
@@ -1576,7 +1576,7 @@ impl Op {
             }
             // DEPRECATED(overview): Overview gestures are now no-ops
             Op::OverviewGestureBegin => {}
-            Op::OverviewGestureUpdate { delta: _, timestamp: _ } => {}
+            Op::OverviewGestureUpdate { _delta: _, _timestamp: _ } => {}
             Op::OverviewGestureEnd => {}
             Op::InteractiveMoveBegin {
                 window,
@@ -2080,7 +2080,7 @@ fn named_workspaces_dont_update_original_output_on_adding_window() {
         Op::AddOutput(1),
         Op::SetRowName {
             new_ws_name: 1,
-            ws_name: None,
+            _ws_name: None,
         },
         Op::AddOutput(2),
         Op::RemoveOutput(1),
@@ -2110,7 +2110,7 @@ fn workspaces_update_original_output_on_moving_to_same_output() {
         Op::AddOutput(1),
         Op::SetRowName {
             new_ws_name: 1,
-            ws_name: None,
+            _ws_name: None,
         },
         Op::AddOutput(2),
         Op::RemoveOutput(1),
@@ -2135,13 +2135,13 @@ fn workspaces_update_original_output_on_moving_to_same_monitor() {
         Op::AddOutput(1),
         Op::SetRowName {
             new_ws_name: 1,
-            ws_name: None,
+            _ws_name: None,
         },
         Op::AddOutput(2),
         Op::RemoveOutput(1),
         Op::FocusRowUp,
         Op::MoveRowToMonitor {
-            ws_name: Some(1),
+            _ws_name: Some(1),
             output_id: 2,
         },
         Op::AddOutput(1),
@@ -3253,7 +3253,7 @@ fn set_first_workspace_name() {
         Op::AddOutput(0),
         Op::SetRowName {
             new_ws_name: 0,
-            ws_name: None,
+            _ws_name: None,
         },
     ];
 
@@ -3266,7 +3266,7 @@ fn set_first_workspace_name_ewaf() {
         Op::AddOutput(0),
         Op::SetRowName {
             new_ws_name: 0,
-            ws_name: None,
+            _ws_name: None,
         },
     ];
 
@@ -3290,7 +3290,7 @@ fn set_last_workspace_name() {
         Op::FocusRowDown,
         Op::SetRowName {
             new_ws_name: 0,
-            ws_name: None,
+            _ws_name: None,
         },
     ];
 
@@ -3303,7 +3303,7 @@ fn move_workspace_to_same_monitor_doesnt_reorder() {
         Op::AddOutput(0),
         Op::SetRowName {
             new_ws_name: 0,
-            ws_name: None,
+            _ws_name: None,
         },
         Op::AddWindow {
             params: TestWindowParams::new(0),
@@ -3316,7 +3316,7 @@ fn move_workspace_to_same_monitor_doesnt_reorder() {
             params: TestWindowParams::new(2),
         },
         Op::MoveRowToMonitor {
-            ws_name: Some(0),
+            _ws_name: Some(0),
             output_id: 0,
         },
     ];
@@ -3434,7 +3434,7 @@ fn move_column_to_workspace_unfocused_with_multiple_monitors() {
         Op::AddOutput(1),
         Op::SetRowName {
             new_ws_name: 101,
-            ws_name: None,
+            _ws_name: None,
         },
         Op::AddWindow {
             params: TestWindowParams::new(1),
@@ -3442,7 +3442,7 @@ fn move_column_to_workspace_unfocused_with_multiple_monitors() {
         Op::FocusRowDown,
         Op::SetRowName {
             new_ws_name: 102,
-            ws_name: None,
+            _ws_name: None,
         },
         Op::AddWindow {
             params: TestWindowParams::new(2),
@@ -3451,7 +3451,7 @@ fn move_column_to_workspace_unfocused_with_multiple_monitors() {
         Op::FocusOutput(2),
         Op::SetRowName {
             new_ws_name: 201,
-            ws_name: None,
+            _ws_name: None,
         },
         Op::AddWindow {
             params: TestWindowParams::new(3),

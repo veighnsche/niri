@@ -196,14 +196,6 @@ impl<W: LayoutElement> Row<W> {
     // View offset animation
     // =========================================================================
 
-    pub(crate) fn animate_view_offset(&mut self, idx: usize, new_view_offset: f64) {
-        self.animate_view_offset_with_config(
-            idx,
-            new_view_offset,
-            self.options.animations.horizontal_view_movement.0,
-        );
-    }
-
     pub(crate) fn animate_view_offset_with_config(
         &mut self,
         idx: usize,
@@ -242,16 +234,6 @@ impl<W: LayoutElement> Row<W> {
                 ));
             }
         }
-    }
-
-    pub(crate) fn animate_view_offset_to_column_centered(
-        &mut self,
-        target_x: Option<f64>,
-        idx: usize,
-        config: niri_config::Animation,
-    ) {
-        let new_view_offset = self.compute_new_view_offset_for_column_centered(target_x, idx);
-        self.animate_view_offset_with_config(idx, new_view_offset, config);
     }
 
     pub(crate) fn animate_view_offset_to_column_with_config(
