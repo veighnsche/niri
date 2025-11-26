@@ -14,7 +14,12 @@
 | Part | Description | Status |
 |------|-------------|--------|
 | [Part 1](phases/phase-1.5.3-part1-monitor-methods.md) | Migrate Monitor methods to Canvas2D | 🔄 IN PROGRESS |
-| [Part 2](phases/phase-1.5.3-part2-remove-workspace-switching.md) | Remove workspace switching | ⏳ Pending |
+| **Part 2: Remove Workspace Switching** | (alphabetical = execution order) | |
+| [Part 2A](phases/phase-1.5.3-part2a-config-workspace-actions.md) | Remove from Config | ⏳ Pending |
+| [Part 2B](phases/phase-1.5.3-part2b-input-workspace-actions.md) | Remove from Input handlers | ⏳ Pending |
+| [Part 2C](phases/phase-1.5.3-part2c-layout-workspace-switching.md) | Remove from Layout | ⏳ Pending |
+| [Part 2D](phases/phase-1.5.3-part2d-monitor-workspace-switching.md) | Remove from Monitor | ⏳ Pending |
+| [Part 2E](phases/phase-1.5.3-part2e-remove-workspace-tests.md) | Remove workspace tests | ⏳ Pending |
 | [Part 3](phases/phase-1.5.3-part3-remove-overview.md) | Remove overview mode | ⏳ Pending |
 | [Part 4](phases/phase-1.5.3-part4-remove-workspace-fields.md) | Remove workspace fields from Monitor | ⏳ Pending |
 | [Part 5](phases/phase-1.5.3-part5-config-and-ipc.md) | Remove workspace config and IPC | ⏳ Pending |

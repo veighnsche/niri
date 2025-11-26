@@ -1,78 +1,50 @@
 # Phase 1.5.3 Part 2: Remove Workspace Switching
 
-> **Status**: PENDING
+> **Status**: PENDING — See detailed sub-parts below
+> **Type**: BREAKING CHANGE — Complete removal, no backwards compatibility
 > **Prerequisite**: Part 1 complete (Monitor methods migrated)
 
 ---
 
 ## Overview
 
-Once Monitor uses Canvas2D for window operations, we can remove workspace switching.
-This is a BREAKING CHANGE — users will lose workspace functionality.
+This is a large task broken into sub-parts. **Complete removal, no no-ops or #[ignore]**.
 
 ---
 
-## Step 2.1: Disable Workspace Keybinds
+## Sub-Parts (in execution order)
 
-| Keybind | Action | File | Change |
-|---------|--------|------|--------|
-| `Mod+1-9` | `focus-workspace N` | `src/input/` | Return early / no-op |
-| `Mod+Shift+1-9` | `move-window-to-workspace N` | `src/input/` | Return early / no-op |
-| `Mod+Page_Up` | `focus-workspace-up` | `src/input/` | Return early / no-op |
-| `Mod+Page_Down` | `focus-workspace-down` | `src/input/` | Return early / no-op |
-| `Mod+Shift+Page_Up` | `move-window-to-workspace-up` | `src/input/` | Return early / no-op |
-| `Mod+Shift+Page_Down` | `move-window-to-workspace-down` | `src/input/` | Return early / no-op |
-
-**Note**: `Mod+1/2/3` will be repurposed for camera bookmarks in Phase 5.
+| Part | Description | Status |
+|------|-------------|--------|
+| [Part 2A](phase-1.5.3-part2a-config-workspace-actions.md) | Remove from Config | ⏳ Pending |
+| [Part 2B](phase-1.5.3-part2b-input-workspace-actions.md) | Remove from Input handlers | ⏳ Pending |
+| [Part 2C](phase-1.5.3-part2c-layout-workspace-switching.md) | Remove from Layout | ⏳ Pending |
+| [Part 2D](phase-1.5.3-part2d-monitor-workspace-switching.md) | Remove from Monitor | ⏳ Pending |
+| [Part 2E](phase-1.5.3-part2e-remove-workspace-tests.md) | Remove workspace tests | ⏳ Pending |
 
 ---
 
-## Step 2.2: Remove Workspace Switch Animation
+## Execution Order
 
-| Item | File | Change |
-|------|------|--------|
-| `WorkspaceSwitch` enum | `src/layout/monitor.rs` | Remove |
-| `WorkspaceSwitchGesture` | `src/layout/monitor.rs` | Remove |
-| `workspace_switch` field | `src/layout/monitor.rs` | Remove |
-| `activate_workspace()` | `src/layout/monitor.rs` | Remove |
-| `activate_workspace_with_anim_config()` | `src/layout/monitor.rs` | Remove |
+**Alphabetical = Execution order** (reverse dependency):
 
----
+1. **Part 2A** (Config) — Remove Action variants from niri-config
+2. **Part 2B** (Input) — Remove Action handlers from input
+3. **Part 2C** (Layout) — Remove methods from Layout
+4. **Part 2D** (Monitor) — Remove methods and types from Monitor
+5. **Part 2E** (Tests) — Remove workspace tests
 
-## Step 2.3: Remove Workspace Gesture
-
-| Item | File | Change |
-|------|------|--------|
-| Touchpad workspace gesture | `src/input/` | Remove |
-| `WORKSPACE_GESTURE_MOVEMENT` | `src/layout/monitor.rs` | Remove |
-| `WORKSPACE_GESTURE_RUBBER_BAND` | `src/layout/monitor.rs` | Remove |
+This order ensures the compiler guides you to all call sites.
 
 ---
 
-## Step 2.4: Remove DnD Workspace Scrolling
+## Principles
 
-| Item | File | Change |
-|------|------|--------|
-| `WORKSPACE_DND_EDGE_SCROLL_MOVEMENT` | `src/layout/monitor.rs` | Remove |
-| DnD edge scrolling logic | `src/layout/monitor.rs` | Remove |
-
----
-
-## Verification
-
-After each step:
-1. `cargo check` — must compile
-2. `cargo test --lib` — tests may fail (expected, fix them)
-3. Keybinds should do nothing (manual test)
+- **No no-ops**: Don't make functions return early — remove them entirely
+- **No #[ignore]**: Don't ignore tests — remove them entirely
+- **Fix call sites**: When removing a function, fix all callers
+- **Breaking > Compatible**: Temporary breakage is fine; backwards compat is forever
 
 ---
 
-## Expected Test Failures
-
-Some tests may reference workspace switching. These need to be:
-1. Updated to use Canvas2D
-2. Or removed if testing workspace-specific behavior
-
----
-
-*TEAM_010: Phase 1.5.3 Part 2*
+*TEAM_011: Phase 1.5.3 Part 2 — Detailed breakdown*
