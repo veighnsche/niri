@@ -74,10 +74,29 @@ See `phases/phase-1.5.3-part2c-callsites.md` for complete analysis.
 - [ ] Update ~50+ call sites in 5 files
 - [ ] Remove WorkspaceReference-dependent methods
 
-### Part 2D: Monitor Refactor (PENDING)
+### Part 2D: Monitor MODULAR Refactor (PENDING)
 See `phases/phase-1.5.3-part2d-callsites.md` for complete analysis.
-- [ ] Rename ~15 public methods
-- [ ] Update ~30+ call sites in 3 files
+
+**This is a FULL MODULAR REFACTOR, not just renames!**
+
+Target: Break `monitor.rs` (2255 lines) into 7 focused modules:
+```
+src/layout/monitor/
+├── mod.rs          - Core struct (~200 lines)
+├── operations.rs   - Window operations (~150 lines)
+├── navigation.rs   - Row navigation (NEW) (~100 lines)
+├── render.rs       - Rendering (~200 lines)
+├── hit_test.rs     - Geometry (~100 lines)
+├── config.rs       - Config (~50 lines)
+└── insert_hint.rs  - Insert hints (~100 lines)
+```
+
+Tasks:
+- [ ] Create 7 new module files
+- [ ] Migrate ~20 methods (kept code)
+- [ ] DELETE ~50 workspace methods (not migrated)
+- [ ] CREATE ~12 new row navigation methods
+- [ ] Remove ~1400 lines of workspace code
 
 ### Part 2E: Tests (PENDING)
 See `phases/phase-1.5.3-part2e-callsites.md` for complete analysis.

@@ -1,189 +1,318 @@
-# Phase 1.5.3 Part 2D: Complete Call Site Analysis - Monitor Methods
+# Phase 1.5.3 Part 2D: Monitor Modular Refactor - Complete Analysis
 
 > **Status**: PENDING
-> **Type**: BREAKING CHANGE — Workspace → Row transformation
+> **Type**: MODULAR REFACTOR + WORKSPACE REMOVAL
 > **Created by**: TEAM_012
 
 ---
 
 ## Overview
 
-This document provides a complete analysis of all monitor methods in `src/layout/monitor.rs`
-that need to be renamed for the Workspace → Row transformation.
+This document provides a complete analysis for refactoring `src/layout/monitor.rs` 
+(2255 lines monolith) into a proper modular structure while removing workspace code.
 
-**Scope**: ~490 workspace references in monitor.rs
+**This is NOT just a rename - it's a full modular refactor.**
 
----
-
-## 1. Public Methods to Rename
-
-### 1.1 Focus/Navigation Methods
-
-| Line | Current Method | New Method | Callers |
-|------|----------------|------------|---------|
-| 846 | `focus_window_or_workspace_down()` | `focus_window_or_row_down()` | layout/mod.rs |
-| 852 | `focus_window_or_workspace_up()` | `focus_window_or_row_up()` | layout/mod.rs |
-| 1053 | `switch_workspace_up()` | `focus_row_up()` | layout/mod.rs, input/mod.rs |
-| 1067 | `switch_workspace_down()` | `focus_row_down()` | layout/mod.rs, input/mod.rs |
-| 1086 | `switch_workspace(idx)` | `focus_row(idx)` | layout/mod.rs |
-| 1090 | `switch_workspace_auto_back_and_forth(idx)` | `focus_row_auto_back_and_forth(idx)` | layout/mod.rs |
-| 1102 | `switch_workspace_previous()` | `focus_previous_position()` | layout/mod.rs |
-
-### 1.2 Move Window/Column Methods
-
-| Line | Current Method | New Method | Callers |
-|------|----------------|------------|---------|
-| 834 | `move_down_or_to_workspace_down()` | `move_down_or_to_row_down()` | layout/mod.rs |
-| 840 | `move_up_or_to_workspace_up()` | `move_up_or_to_row_up()` | layout/mod.rs |
-| 858 | `move_to_workspace_up(focus)` | `move_to_row_up(focus)` | layout/mod.rs |
-| 892 | `move_to_workspace_down(focus)` | `move_to_row_down(focus)` | layout/mod.rs |
-| 926 | `move_to_workspace(window, idx, activate)` | `move_to_row(window, idx, activate)` | layout/mod.rs |
-| 985 | `move_column_to_workspace_up(activate)` | `move_column_to_row_up(activate)` | layout/mod.rs |
-| 1006 | `move_column_to_workspace_down(activate)` | `move_column_to_row_down(activate)` | layout/mod.rs |
-| 1027 | `move_column_to_workspace(idx, activate)` | `move_column_to_row(idx, activate)` | layout/mod.rs |
-
-### 1.3 Reorder Row Methods
-
-| Line | Current Method | New Method | Callers |
-|------|----------------|------------|---------|
-| 1317 | `move_workspace_down()` | `move_row_down()` | layout/mod.rs |
-| 1343 | `move_workspace_up()` | `move_row_up()` | layout/mod.rs |
-| 1369 | `move_workspace_to_idx(old_idx, new_idx)` | `move_row_to_index(old_idx, new_idx)` | layout/mod.rs |
-
-### 1.4 Gesture Methods
-
-| Line | Current Method | New Method | Callers |
-|------|----------------|------------|---------|
-| 1871 | `workspace_switch_gesture_begin(is_touchpad)` | `row_pan_gesture_begin(is_touchpad)` | layout/mod.rs |
-| 1921 | `workspace_switch_gesture_update(delta, timestamp, is_touchpad)` | `row_pan_gesture_update(...)` | layout/mod.rs |
-| 2058 | `workspace_switch_gesture_end(is_touchpad)` | `row_pan_gesture_end(is_touchpad)` | layout/mod.rs |
+**Scope**: 
+- ~490 workspace references to REMOVE (not migrate)
+- ~800 lines of kept code to MODULARIZE into 7 files
+- New row navigation methods to CREATE
 
 ---
 
-## 2. Internal/Helper Methods (KEEP or RENAME)
+## Target Module Structure
 
-### 2.1 Methods to Keep (Internal Use)
-
-These methods work with the Workspace type and may be kept until the type is renamed:
-
-| Line | Current Method | Decision | Notes |
-|------|----------------|----------|-------|
-| 387 | `into_workspaces()` | KEEP | Returns Vec<Workspace> |
-| 423 | `active_workspace_idx()` | KEEP | Returns index |
-| 427 | `active_workspace_ref()` | KEEP | Returns &Workspace |
-| 431 | `find_named_workspace(name)` | KEEP | Returns Option<&Workspace> |
-| 439 | `find_named_workspace_index(name)` | KEEP | Returns Option<usize> |
-| 447 | `active_workspace()` | KEEP | Returns &mut Workspace |
-| 474 | `add_workspace_at(idx)` | KEEP | Creates Workspace |
-| 493 | `add_workspace_top()` | KEEP | Creates Workspace |
-| 497 | `add_workspace_bottom()` | KEEP | Creates Workspace |
-| 501 | `activate_workspace(idx)` | KEEP | Internal |
-| 505 | `activate_workspace_with_anim_config(...)` | KEEP | Internal |
-| 610 | `add_column(workspace_idx, column, activate)` | KEEP | Internal |
-| 698 | `clean_up_workspaces()` | KEEP | Internal |
-| 729 | `unname_workspace(id)` | KEEP | Internal |
-| 743 | `remove_workspace_by_idx(idx)` | KEEP | Internal |
-| 768 | `insert_workspace(ws, idx, activate)` | KEEP | Internal |
-| 797 | `append_workspaces(workspaces)` | KEEP | Internal |
-| 1474 | `workspace_render_idx()` | KEEP | Rendering |
-| 1549 | `workspaces_render_geo()` | KEEP | Rendering |
-| 1573 | `workspaces_with_render_geo()` | KEEP | Rendering |
-| 1584 | `workspaces_with_render_geo_idx()` | KEEP | Rendering |
-| 1595 | `workspaces_with_render_geo_mut()` | KEEP | Rendering |
-| 1607 | `workspace_under(point)` | KEEP | Hit testing |
-| 1622 | `workspace_under_narrow(point)` | KEEP | Hit testing |
-| 1714 | `render_insert_hint_between_workspaces(...)` | KEEP | Rendering |
-| 1841 | `render_workspace_shadows(...)` | KEEP | Rendering |
+```
+src/layout/monitor/
+├── mod.rs          - Core struct, new(), output/canvas accessors (~200 lines)
+├── operations.rs   - Window operations: add_window, add_tile (~150 lines)
+├── navigation.rs   - Row navigation (NEW: focus_row_down/up, move_to_row) (~100 lines)
+├── render.rs       - Rendering: render_elements (~200 lines)
+├── hit_test.rs     - Geometry: window_under, resize_edges_under (~100 lines)
+├── config.rs       - Config: update_config, update_output_size (~50 lines)
+└── insert_hint.rs  - Insert hint types and rendering (~100 lines)
+```
 
 ---
 
-## 3. Callers to Update
+## 1. What Gets MIGRATED (to new modules)
 
-### 3.1 src/layout/mod.rs (Primary Caller)
+### 1.1 Core Struct Fields → mod.rs
 
-| Line | Current Call | New Call |
-|------|--------------|----------|
-| ~1873 | `monitor.move_down_or_to_workspace_down()` | `monitor.move_down_or_to_row_down()` |
-| ~1880 | `monitor.move_up_or_to_workspace_up()` | `monitor.move_up_or_to_row_up()` |
-| ~2075 | `monitor.focus_window_or_workspace_down()` | `monitor.focus_window_or_row_down()` |
-| ~2082 | `monitor.focus_window_or_workspace_up()` | `monitor.focus_window_or_row_up()` |
-| ~2117 | `monitor.move_to_workspace_up(focus)` | `monitor.move_to_row_up(focus)` |
-| ~2124 | `monitor.move_to_workspace_down(focus)` | `monitor.move_to_row_down(focus)` |
-| ~2155 | `monitor.move_to_workspace(...)` | `monitor.move_to_row(...)` |
-| ~2162 | `monitor.move_column_to_workspace_up(activate)` | `monitor.move_column_to_row_up(activate)` |
-| ~2169 | `monitor.move_column_to_workspace_down(activate)` | `monitor.move_column_to_row_down(activate)` |
-| ~2176 | `monitor.move_column_to_workspace(idx, activate)` | `monitor.move_column_to_row(idx, activate)` |
-| ~2183 | `monitor.switch_workspace_up()` | `monitor.focus_row_up()` |
-| ~2190 | `monitor.switch_workspace_down()` | `monitor.focus_row_down()` |
-| ~2197 | `monitor.switch_workspace(idx)` | `monitor.focus_row(idx)` |
-| ~2204 | `monitor.switch_workspace_auto_back_and_forth(idx)` | `monitor.focus_row_auto_back_and_forth(idx)` |
-| ~2211 | `monitor.switch_workspace_previous()` | `monitor.focus_previous_position()` |
-| ~4474 | `monitor.move_workspace_down()` | `monitor.move_row_down()` |
-| ~4481 | `monitor.move_workspace_up()` | `monitor.move_row_up()` |
-| ~4512 | `monitor.move_workspace_to_idx(old_idx, new_idx)` | `monitor.move_row_to_index(old_idx, new_idx)` |
-| ~3588 | `monitor.workspace_switch_gesture_begin(is_touchpad)` | `monitor.row_pan_gesture_begin(is_touchpad)` |
-| ~3605 | `monitor.workspace_switch_gesture_update(...)` | `monitor.row_pan_gesture_update(...)` |
-| ~3631 | `monitor.workspace_switch_gesture_end(is_touchpad)` | `monitor.row_pan_gesture_end(is_touchpad)` |
+| Field | Notes |
+|-------|-------|
+| `output: Output` | Output reference |
+| `output_name: String` | Cached name |
+| `scale: Scale` | Output scale |
+| `view_size: Size` | View dimensions |
+| `working_area: Rectangle` | Usable area |
+| `canvas: Canvas2D<W>` | **Primary layout primitive** |
+| `clock: Clock` | Animation clock |
+| `base_options: Rc<Options>` | Base config |
+| `options: Rc<Options>` | Current config |
+| `layout_config: Option<LayoutPart>` | Layout config |
+| `insert_hint` | Insert hint state |
+| `insert_hint_element` | Cached hint element |
 
-### 3.2 src/input/mod.rs (Direct Monitor Calls)
+### 1.2 Methods → mod.rs
 
-| Line | Current Call | New Call |
-|------|--------------|----------|
-| ~1311 | `mon.switch_workspace_down()` | `mon.focus_row_down()` |
-| ~1330 | `mon.switch_workspace_up()` | `mon.focus_row_up()` |
+| Method | Notes |
+|--------|-------|
+| `new()` | Simplified (no workspaces) |
+| `output()`, `output_name()` | Accessors |
+| `canvas()`, `canvas_mut()` | Canvas accessors |
+| `scale()`, `view_size()`, `working_area()` | Geometry accessors |
+| `windows()`, `has_window()` | Delegates to canvas |
+| `advance_animations()` | Simplified |
+| `are_animations_ongoing()` | Simplified |
+
+### 1.3 Methods → operations.rs
+
+| Method | Notes |
+|--------|-------|
+| `add_window()` | Window placement |
+| `add_tile()` | Tile placement |
+| `add_column()` | Column placement |
+| `remove_window()` | Window removal |
+
+### 1.4 Methods → navigation.rs (NEW)
+
+| New Method | Replaces | Notes |
+|------------|----------|-------|
+| `focus_row_down()` | `switch_workspace_down()` | Navigate to row below |
+| `focus_row_up()` | `switch_workspace_up()` | Navigate to row above |
+| `focus_row(idx)` | `switch_workspace(idx)` | Focus specific row |
+| `focus_previous_position()` | `switch_workspace_previous()` | Browser-like back |
+| `move_window_to_row_down(focus)` | `move_to_workspace_down()` | Move window down |
+| `move_window_to_row_up(focus)` | `move_to_workspace_up()` | Move window up |
+| `move_column_to_row_down(activate)` | `move_column_to_workspace_down()` | Move column down |
+| `move_column_to_row_up(activate)` | `move_column_to_workspace_up()` | Move column up |
+| `move_row_down()` | `move_workspace_down()` | Reorder row down |
+| `move_row_up()` | `move_workspace_up()` | Reorder row up |
+| `move_row_to_index(idx)` | `move_workspace_to_idx()` | Move row to index |
+
+### 1.5 Methods → render.rs
+
+| Method | Notes |
+|--------|-------|
+| `render_elements()` | Simplified (no workspace switching) |
+| `render_above_top_layer()` | Above layer rendering |
+
+### 1.6 Methods → hit_test.rs
+
+| Method | Notes |
+|--------|-------|
+| `window_under()` | Window hit testing |
+| `resize_edges_under()` | Resize edge detection |
+
+### 1.7 Methods → config.rs
+
+| Method | Notes |
+|--------|-------|
+| `update_config()` | Config updates |
+| `update_output_size()` | Output resize handling |
+| `set_scale()` | Scale changes |
+
+### 1.8 Types/Methods → insert_hint.rs
+
+| Item | Notes |
+|------|-------|
+| `InsertHint` struct | Without workspace variant |
+| `InsertPosition` enum | Simplified |
+| Insert hint rendering | |
 
 ---
 
-## 4. Internal Method Calls (Within monitor.rs)
+## 2. What Gets REMOVED (NOT migrated)
 
-These are internal calls within monitor.rs that need to be updated:
+### 2.1 Types to DELETE
 
-| Line | Current Call | New Call |
-|------|--------------|----------|
-| ~836 | `self.move_to_workspace_down(true)` | `self.move_to_row_down(true)` |
-| ~842 | `self.move_to_workspace_up(true)` | `self.move_to_row_up(true)` |
-| ~848 | `self.switch_workspace_down()` | `self.focus_row_down()` |
-| ~854 | `self.switch_workspace_up()` | `self.focus_row_up()` |
-| ~1055-1065 | Internal workspace switching logic | Update method names |
-| ~1069-1084 | Internal workspace switching logic | Update method names |
-| ~1092-1100 | Auto back-and-forth logic | Update method names |
-| ~1104 | `self.switch_workspace(idx)` | `self.focus_row(idx)` |
+| Type | Line | Notes |
+|------|------|-------|
+| `WorkspaceSwitch` | ~50 | Workspace animation enum |
+| `WorkspaceSwitchGesture` | ~80 | Gesture tracking struct |
+| `InsertWorkspace` | ~120 | Workspace-based insert enum |
+| `OverviewProgress` | ~140 | Overview mode enum |
+
+### 2.2 Constants to DELETE
+
+| Constant | Notes |
+|----------|-------|
+| `WORKSPACE_GESTURE_MOVEMENT` | Gesture threshold |
+| `WORKSPACE_GESTURE_RUBBER_BAND` | Rubber band factor |
+| `WORKSPACE_DND_EDGE_SCROLL_MOVEMENT` | DnD scroll threshold |
+
+### 2.3 Fields to DELETE from Monitor struct
+
+| Field | Notes |
+|-------|-------|
+| `workspaces: Vec<Workspace<W>>` | **Primary removal target** |
+| `active_workspace_idx: usize` | No longer needed |
+| `previous_workspace_id: Option<WorkspaceId>` | No longer needed |
+| `workspace_switch: Option<WorkspaceSwitch>` | No longer needed |
+| `overview_open: bool` | Overview removed |
+| `overview_progress: Option<OverviewProgress>` | Overview removed |
+
+### 2.4 Methods to DELETE (50+ methods)
+
+#### Workspace Accessors (DELETE)
+| Method | Line |
+|--------|------|
+| `into_workspaces()` | 387 |
+| `active_workspace_idx()` | 423 |
+| `active_workspace_ref()` | 427 |
+| `active_workspace()` | 447 |
+| `find_named_workspace()` | 431 |
+| `find_named_workspace_index()` | 439 |
+
+#### Workspace Management (DELETE)
+| Method | Line |
+|--------|------|
+| `add_workspace_at()` | 474 |
+| `add_workspace_top()` | 493 |
+| `add_workspace_bottom()` | 497 |
+| `activate_workspace()` | 501 |
+| `activate_workspace_with_anim_config()` | 505 |
+| `clean_up_workspaces()` | 698 |
+| `unname_workspace()` | 729 |
+| `remove_workspace_by_idx()` | 743 |
+| `insert_workspace()` | 768 |
+| `append_workspaces()` | 797 |
+
+#### Workspace Navigation (DELETE - replaced by row navigation)
+| Method | Line |
+|--------|------|
+| `move_down_or_to_workspace_down()` | 834 |
+| `move_up_or_to_workspace_up()` | 840 |
+| `focus_window_or_workspace_down()` | 846 |
+| `focus_window_or_workspace_up()` | 852 |
+| `move_to_workspace_up()` | 858 |
+| `move_to_workspace_down()` | 892 |
+| `move_to_workspace()` | 926 |
+| `move_column_to_workspace_up()` | 985 |
+| `move_column_to_workspace_down()` | 1006 |
+| `move_column_to_workspace()` | 1027 |
+| `switch_workspace_up()` | 1053 |
+| `switch_workspace_down()` | 1067 |
+| `switch_workspace()` | 1086 |
+| `switch_workspace_auto_back_and_forth()` | 1090 |
+| `switch_workspace_previous()` | 1102 |
+| `move_workspace_down()` | 1317 |
+| `move_workspace_up()` | 1343 |
+| `move_workspace_to_idx()` | 1369 |
+
+#### Workspace Rendering (DELETE)
+| Method | Line |
+|--------|------|
+| `workspace_render_idx()` | 1474 |
+| `workspaces_render_geo()` | 1549 |
+| `workspaces_with_render_geo()` | 1573 |
+| `workspaces_with_render_geo_idx()` | 1584 |
+| `workspaces_with_render_geo_mut()` | 1595 |
+| `workspace_under()` | 1607 |
+| `workspace_under_narrow()` | 1622 |
+| `render_insert_hint_between_workspaces()` | 1714 |
+| `render_workspace_shadows()` | 1841 |
+
+#### Workspace Gestures (DELETE)
+| Method | Line |
+|--------|------|
+| `workspace_switch_gesture_begin()` | 1871 |
+| `workspace_switch_gesture_update()` | 1921 |
+| `workspace_switch_gesture_end()` | 2058 |
+| `dnd_scroll_gesture_begin()` | ~2100 |
+| `dnd_scroll_gesture_update()` | ~2120 |
+| `dnd_scroll_gesture_end()` | ~2140 |
 
 ---
 
-## 5. Fields and Types (KEEP FOR NOW)
+## 3. Execution Steps
 
-These are struct fields and type references that will be renamed in a future phase
-when the Workspace type itself is renamed to Row:
+### Step 1: Create module structure
+```bash
+mkdir -p src/layout/monitor
+touch src/layout/monitor/{mod.rs,operations.rs,navigation.rs,render.rs,hit_test.rs,config.rs,insert_hint.rs}
+```
 
-| Location | Current | Future | Notes |
-|----------|---------|--------|-------|
-| struct Monitor | `workspaces: Vec<Workspace<W>>` | `rows: Vec<Row<W>>` | Major refactor |
-| struct Monitor | `active_workspace_idx: usize` | `active_row_idx: usize` | Field rename |
-| struct Monitor | `previous_workspace_id: Option<WorkspaceId>` | `previous_row_id: Option<RowId>` | Type rename |
-| struct Monitor | `workspace_switch: Option<WorkspaceSwitch>` | `row_switch: Option<RowSwitch>` | Type rename |
+### Step 2: Create mod.rs with core struct
+1. Define `Monitor` struct with ONLY kept fields
+2. Move `new()` - simplified without workspace initialization
+3. Move output/canvas accessors
+4. Add `pub mod` declarations for submodules
+
+### Step 3: Create operations.rs
+1. Move `add_window()`, `add_tile()`, `add_column()`
+2. Update to use canvas directly (no workspace indirection)
+
+### Step 4: Create navigation.rs (NEW CODE)
+1. Create new row navigation methods
+2. Delegate to `Canvas2D` for actual row operations
+3. This is NEW code, not migrated code
+
+### Step 5: Create render.rs
+1. Move `render_elements()` - simplified for single canvas
+2. Remove workspace switching visual effects
+3. Remove overview rendering
+
+### Step 6: Create hit_test.rs
+1. Move `window_under()`, `resize_edges_under()`
+2. Simplify (no workspace selection)
+
+### Step 7: Create config.rs
+1. Move `update_config()`, `update_output_size()`, `set_scale()`
+
+### Step 8: Create insert_hint.rs
+1. Move `InsertHint` struct (without workspace variant)
+2. Move `InsertPosition` enum (simplified)
+3. Move insert hint rendering
+
+### Step 9: Update src/layout/mod.rs
+1. Change `mod monitor;` to use new module
+2. Update all imports
+
+### Step 10: Delete old monitor.rs
+1. Verify all needed code migrated
+2. Delete the 2255-line monolith
 
 ---
 
-## 6. Execution Plan
+## 4. Callers to Update
 
-### Step 1: Rename Public Methods in monitor.rs
-1. Rename all methods listed in Section 1
-2. Update internal calls within monitor.rs
+### 4.1 src/layout/mod.rs
 
-### Step 2: Update Callers in layout/mod.rs
-1. Update all delegation calls to Monitor methods
+All calls to Monitor methods need to be updated to use new method names:
 
-### Step 3: Update Callers in input/mod.rs
-1. Update direct Monitor method calls
+| Old Call | New Call |
+|----------|----------|
+| `monitor.switch_workspace_down()` | `monitor.focus_row_down()` |
+| `monitor.switch_workspace_up()` | `monitor.focus_row_up()` |
+| `monitor.move_to_workspace_down(focus)` | `monitor.move_window_to_row_down(focus)` |
+| `monitor.move_to_workspace_up(focus)` | `monitor.move_window_to_row_up(focus)` |
+| `monitor.move_column_to_workspace_down(act)` | `monitor.move_column_to_row_down(act)` |
+| `monitor.move_column_to_workspace_up(act)` | `monitor.move_column_to_row_up(act)` |
+| `monitor.move_workspace_down()` | `monitor.move_row_down()` |
+| `monitor.move_workspace_up()` | `monitor.move_row_up()` |
+| ... | ... |
 
-### Step 4: Verify
-1. `cargo check` - must compile
-2. Continue to Part 2E (Tests)
+### 4.2 src/input/mod.rs
+
+| Old Call | New Call |
+|----------|----------|
+| `mon.switch_workspace_down()` | `mon.focus_row_down()` |
+| `mon.switch_workspace_up()` | `mon.focus_row_up()` |
 
 ---
 
-## 7. Dependencies
+## 5. Verification
+
+After each step:
+1. `cargo check` — must compile
+2. After Step 10: `cargo test` — tests must pass
+3. After Step 10: `./scripts/verify-golden.sh` — golden tests must pass
+
+---
+
+## 6. Dependencies
 
 ### Must Complete First:
 - Part 2C (Layout methods) - because layout/mod.rs calls monitor methods
@@ -195,14 +324,15 @@ when the Workspace type itself is renamed to Row:
 
 ## Summary
 
-### Total Methods to Rename: ~15
-### Total Call Sites to Update: ~30+
-### Files Affected: 3
-
-1. `src/layout/monitor.rs` - Method definitions
-2. `src/layout/mod.rs` - Delegation calls
-3. `src/input/mod.rs` - Direct monitor calls
+| Category | Count |
+|----------|-------|
+| New module files | 7 |
+| Methods to migrate | ~20 |
+| Methods to DELETE | ~50 |
+| New methods to CREATE | ~12 |
+| Lines removed | ~1400 |
+| Lines remaining | ~800 |
 
 ---
 
-*TEAM_012: Phase 1.5.3 Part 2D Call Site Analysis*
+*TEAM_012: Phase 1.5.3 Part 2D — Modular Refactor Analysis*
