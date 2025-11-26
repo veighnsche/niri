@@ -1754,31 +1754,27 @@ impl<W: LayoutElement> Layout<W> {
     }
 
     pub fn move_left(&mut self) {
-        let Some(workspace) = self.active_workspace_mut() else {
-            return;
-        };
-        workspace.move_left();
+        if let Some(monitor) = self.active_monitor() {
+            monitor.canvas_mut().move_left();
+        }
     }
 
     pub fn move_right(&mut self) {
-        let Some(workspace) = self.active_workspace_mut() else {
-            return;
-        };
-        workspace.move_right();
+        if let Some(monitor) = self.active_monitor() {
+            monitor.canvas_mut().move_right();
+        }
     }
 
     pub fn move_column_to_first(&mut self) {
-        let Some(workspace) = self.active_workspace_mut() else {
-            return;
-        };
-        workspace.move_column_to_first();
+        if let Some(monitor) = self.active_monitor() {
+            monitor.canvas_mut().move_column_to_first();
+        }
     }
 
     pub fn move_column_to_last(&mut self) {
-        let Some(workspace) = self.active_workspace_mut() else {
-            return;
-        };
-        workspace.move_column_to_last();
+        if let Some(monitor) = self.active_monitor() {
+            monitor.canvas_mut().move_column_to_last();
+        }
     }
 
     pub fn move_column_left_or_to_output(&mut self, output: &Output) -> bool {
@@ -2236,16 +2232,20 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        let workspace = if let Some(id) = id {
-            Some(self.workspaces_mut().find(|ws| ws.has_window(id)).unwrap())
+        // Find the monitor that contains the window and call canvas.center_window
+        if let Some(id) = id {
+            for monitor in self.monitors_mut() {
+                if monitor.canvas().has_window(id) {
+                    monitor.canvas_mut().center_window(Some(id));
+                    break;
+                }
+            }
         } else {
-            self.active_workspace_mut()
-        };
-
-        let Some(workspace) = workspace else {
-            return;
-        };
-        workspace.center_window(id);
+            // Center active window on active monitor
+            if let Some(monitor) = self.active_monitor() {
+                monitor.canvas_mut().center_window(None);
+            }
+        }
     }
 
     pub fn center_visible_columns(&mut self) {
@@ -3188,16 +3188,20 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        let workspace = if let Some(id) = id {
-            Some(self.workspaces_mut().find(|ws| ws.has_window(id)).unwrap())
+        // Find the monitor that contains the window and call canvas.move_floating_window
+        if let Some(id) = id {
+            for monitor in self.monitors_mut() {
+                if monitor.canvas().has_window(id) {
+                    monitor.canvas_mut().move_floating_window(Some(id), x, y, animate);
+                    break;
+                }
+            }
         } else {
-            self.active_workspace_mut()
-        };
-
-        let Some(workspace) = workspace else {
-            return;
-        };
-        workspace.move_floating_window(id, x, y, animate);
+            // Move active floating window on active monitor
+            if let Some(monitor) = self.active_monitor() {
+                monitor.canvas_mut().move_floating_window(None, x, y, animate);
+            }
+        }
     }
 
     pub fn focus_output(&mut self, output: &Output) {

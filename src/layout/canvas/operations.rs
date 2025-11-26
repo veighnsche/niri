@@ -2,11 +2,14 @@
 //!
 //! This module handles adding, removing, and finding windows in the canvas.
 
+use std::rc::Rc;
+
 use crate::layout::canvas::Canvas2D;
 use crate::layout::row::Row;
 use crate::layout::tile::Tile;
 use crate::layout::types::ColumnWidth;
-use crate::layout::LayoutElement;
+use crate::layout::{LayoutElement, Options};
+use niri_ipc::PositionChange;
 
 impl<W: LayoutElement> Canvas2D<W> {
     // =========================================================================
@@ -48,6 +51,288 @@ impl<W: LayoutElement> Canvas2D<W> {
         row.add_tile(None, tile, activate, width, is_full_width);
     }
 
+    // =========================================================================
+    // Workspace Replacement Methods
+    // TEAM_019: Replace workspace iteration patterns
+    // =========================================================================
+
+    /// Find a window across all rows in the canvas.
+    pub fn find_window(&self, id: &W::Id) -> Option<(i32, &Row<W>, &Tile<W>)> {
+        for (&row_idx, row) in &self.rows {
+            if let Some(tile) = row.tiles().find(|tile| tile.window().id() == id) {
+                return Some((row_idx, row, tile));
+            }
+        }
+        None
+    }
+
+    /// Find a window across all rows in the canvas (mutable).
+    /// Returns the row index and a mutable reference to the tile.
+    pub fn find_window_mut(&mut self, id: &W::Id) -> Option<(i32, &mut Tile<W>)> {
+        for (&row_idx, row) in &mut self.rows {
+            if row.contains(id) {
+                // Find the tile index first
+                let tile_idx = row.tiles().position(|tile| tile.window().id() == id)?;
+                // Then get mutable access to the specific tile
+                if let Some(column) = row.active_column_mut() {
+                    if let Some(tile) = column.tiles_iter_mut().nth(tile_idx) {
+                        return Some((row_idx, tile));
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Check if any row in the canvas contains the window.
+    pub fn has_window(&self, id: &W::Id) -> bool {
+        self.rows.values().any(|row| row.contains(id)) || self.floating.has_window(id)
+    }
+
+    /// Get the active window in the canvas (tiled or floating).
+    pub fn active_window(&self) -> Option<&W> {
+        if self.floating_is_active {
+            self.floating.active_window()
+        } else if let Some(row) = self.active_row() {
+            // For now, just get the first tile from the active column
+            // TODO(TEAM_019): Implement proper active window handling for Row
+            row.active_column()
+                .and_then(|col| col.tiles_iter().next())
+                .map(|tile| tile.window())
+        } else {
+            None
+        }
+    }
+
+    /// Get the active window in the canvas (mutable).
+    pub fn active_window_mut(&mut self) -> Option<&mut W> {
+        if self.floating_is_active {
+            self.floating.active_window_mut()
+        } else if let Some(row) = self.active_row_mut() {
+            // For now, just get the first tile from the active column
+            // TODO(TEAM_019): Implement proper active window handling for Row
+            row.active_column_mut()
+                .and_then(|col| col.tiles_iter_mut().next())
+                .map(|tile| tile.window_mut())
+        } else {
+            None
+        }
+    }
+
+    /// Get all windows in the canvas (tiled + floating).
+    pub fn windows(&self) -> impl Iterator<Item = &W> + '_ {
+        let tiled = self.rows.values().flat_map(|row| row.tiles());
+        let floating = self.floating.tiles();
+        tiled.chain(floating).map(|tile| tile.window())
+    }
+
+    /// Get all windows in the canvas (mutable).
+    pub fn windows_mut(&mut self) -> impl Iterator<Item = &mut W> + '_ {
+        let tiled = self.rows.values_mut().flat_map(|row| row.tiles_mut());
+        let floating = self.floating.tiles_mut();
+        tiled.chain(floating).map(|tile| tile.window_mut())
+    }
+
+    /// Get all tiles in the canvas (tiled + floating).
+    pub fn tiles(&self) -> impl Iterator<Item = &Tile<W>> + '_ {
+        let tiled = self.rows.values().flat_map(|row| row.tiles());
+        let floating = self.floating.tiles();
+        tiled.chain(floating)
+    }
+
+    /// Get all tiles in the canvas (mutable).
+    pub fn tiles_mut(&mut self) -> impl Iterator<Item = &mut Tile<W>> + '_ {
+        let tiled = self.rows.values_mut().flat_map(|row| row.tiles_mut());
+        let floating = self.floating.tiles_mut();
+        tiled.chain(floating)
+    }
+
+    // =========================================================================
+    // Workspace Management Methods
+    // TEAM_019: Replace workspace lifecycle operations
+    // =========================================================================
+
+    /// Update canvas configuration for all rows.
+    pub fn update_config(&mut self, options: Rc<Options>) {
+        self.options = options.clone();
+        
+        // Update all rows with correct parameters
+        for row in self.rows.values_mut() {
+            row.update_config(
+                self.view_size,
+                self.parent_area,
+                self.scale,
+                options.clone(),
+            );
+        }
+        
+        // Update floating space
+        self.floating.update_config(
+            self.view_size,
+            self.working_area,
+            self.scale,
+            options,
+        );
+    }
+
+    /// Update layout configuration for a specific row (by name).
+    pub fn update_row_layout_config(&mut self, row_name: &str, _layout_config: Option<niri_config::LayoutPart>) {
+        // Find row by name and update its config
+        for row in self.rows.values_mut() {
+            if let Some(name) = row.name() {
+                if name == row_name {
+                    // TODO(TEAM_019): Implement layout_config for Row
+                    // For now, just update with current options
+                    row.update_config(
+                        self.view_size,
+                        self.parent_area,
+                        self.scale,
+                        self.options.clone(),
+                    );
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Start open animation for a window.
+    pub fn start_window_open_animation(&mut self, id: &W::Id) -> bool {
+        // Check floating windows first
+        if self.floating.start_open_animation(id) {
+            return true;
+        }
+        
+        // Check tiled windows
+        for row in self.rows.values_mut() {
+            // TODO(TEAM_019): Implement start_open_animation for Row
+            // For now, just check if window exists
+            if row.contains(id) {
+                return true;
+            }
+        }
+        
+        false
+    }
+
+    /// Check if a window is floating.
+    pub fn is_window_floating(&self, id: &W::Id) -> bool {
+        self.floating.has_window(id)
+    }
+
+    // =========================================================================
+    // Workspace Operation Replacements
+    // TEAM_019: Replace workspace method calls
+    // =========================================================================
+
+    /// Center a window (replaces workspace.center_window).
+    pub fn center_window(&mut self, id: Option<&W::Id>) {
+        // For now, delegate to floating space since centering is primarily a floating operation
+        // TODO(TEAM_019): Implement proper centering for tiled windows
+        if let Some(id) = id {
+            if self.floating.has_window(id) {
+                self.floating.center_window(Some(id));
+            }
+        } else {
+            // Center active window
+            if self.floating_is_active {
+                self.floating.center_window(None);
+            }
+        }
+    }
+
+    /// Move a floating window (replaces workspace.move_floating_window).
+    pub fn move_floating_window(
+        &mut self,
+        id: Option<&W::Id>,
+        x: PositionChange,
+        y: PositionChange,
+        animate: bool,
+    ) {
+        // Only floating windows can be moved this way
+        if let Some(id) = id {
+            if self.floating.has_window(id) {
+                self.floating.move_window(Some(id), x, y, animate);
+            }
+        } else {
+            // Move active floating window
+            if self.floating_is_active {
+                self.floating.move_window(None, x, y, animate);
+            }
+        }
+    }
+
+    /// Switch focus between floating and tiling (replaces workspace.switch_focus_floating_tiling).
+    pub fn switch_focus_floating_tiling(&mut self) {
+        if self.floating_is_active {
+            // Switch to tiled
+            self.floating_is_active = false;
+            if let Some(row) = self.active_row_mut() {
+                row.focus_column(0);
+            }
+        } else {
+            // Switch to floating if there are floating windows
+            if self.floating.tiles().next().is_some() {
+                self.floating_is_active = true;
+                self.floating.focus_leftmost();
+            }
+        }
+    }
+
+    /// Move focus left within current context (replaces workspace.move_left).
+    pub fn move_left(&mut self) -> bool {
+        if self.floating_is_active {
+            self.floating.move_left();
+            true
+        } else if let Some(row) = self.active_row_mut() {
+            row.focus_left()
+        } else {
+            false
+        }
+    }
+
+    /// Move focus right within current context (replaces workspace.move_right).
+    pub fn move_right(&mut self) -> bool {
+        if self.floating_is_active {
+            self.floating.move_right();
+            true
+        } else if let Some(row) = self.active_row_mut() {
+            row.focus_right()
+        } else {
+            false
+        }
+    }
+
+    /// Move active column to first position (replaces workspace.move_column_to_first).
+    pub fn move_column_to_first(&mut self) {
+        if self.floating_is_active {
+            return; // No effect on floating windows
+        }
+        
+        if let Some(row) = self.active_row_mut() {
+            if row.active_column_idx() > 0 {
+                // For now, just focus the first column
+                // TODO(TEAM_019): Implement actual column reordering if needed
+                row.focus_column(0);
+            }
+        }
+    }
+
+    /// Move active column to last position (replaces workspace.move_column_to_last).
+    pub fn move_column_to_last(&mut self) {
+        if self.floating_is_active {
+            return; // No effect on floating windows
+        }
+        
+        if let Some(row) = self.active_row_mut() {
+            let last_idx = row.column_count().saturating_sub(1);
+            if row.active_column_idx() < last_idx {
+                // For now, just focus the last column
+                // TODO(TEAM_019): Implement actual column reordering if needed
+                row.focus_column(last_idx);
+            }
+        }
+    }
+
     /// Adds a tile to a specific row.
     pub fn add_tile_to_row(
         &mut self,
@@ -72,7 +357,7 @@ impl<W: LayoutElement> Canvas2D<W> {
     }
 
     /// Finds the row containing the given window.
-    pub fn find_window(&self, window: &W::Id) -> Option<(i32, usize)> {
+    pub fn find_window_row(&self, window: &W::Id) -> Option<(i32, usize)> {
         for (&row_idx, row) in &self.rows {
             if let Some(col_idx) = row.find_column(window) {
                 return Some((row_idx, col_idx));
@@ -87,33 +372,14 @@ impl<W: LayoutElement> Canvas2D<W> {
 
     /// Returns all tiles in the canvas (tiled only, not floating).
     /// TEAM_010: Added for Monitor.windows() migration
-    pub fn tiles(&self) -> impl Iterator<Item = &Tile<W>> + '_ {
+    pub fn tiled_tiles(&self) -> impl Iterator<Item = &Tile<W>> + '_ {
         self.rows.values().flat_map(|row| row.tiles())
     }
 
     /// Returns all tiles in the canvas (tiled only, not floating).
     /// TEAM_010: Added for Monitor.windows_mut() migration
-    pub fn tiles_mut(&mut self) -> impl Iterator<Item = &mut Tile<W>> + '_ {
+    pub fn tiled_tiles_mut(&mut self) -> impl Iterator<Item = &mut Tile<W>> + '_ {
         self.rows.values_mut().flat_map(|row| row.tiles_mut())
-    }
-
-    /// Returns all windows in the canvas (tiled and floating).
-    /// TEAM_010: Added for Monitor.windows() migration
-    pub fn windows(&self) -> impl Iterator<Item = &W> + '_ {
-        let tiled = self.tiles().map(Tile::window);
-        let floating = self.floating.tiles().map(Tile::window);
-        tiled.chain(floating)
-    }
-
-    /// Returns all windows in the canvas (tiled and floating).
-    /// TEAM_010: Added for Monitor.windows_mut() migration
-    pub fn windows_mut(&mut self) -> impl Iterator<Item = &mut W> + '_ {
-        // Can't easily chain mutable iterators, so collect tiled first
-        // This is a limitation we accept for now
-        self.rows
-            .values_mut()
-            .flat_map(|row| row.tiles_mut())
-            .map(Tile::window_mut)
     }
 
     /// Returns all tiles with their render positions.

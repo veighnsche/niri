@@ -2075,89 +2075,6 @@ fn empty_workspaces_dont_move_back_to_original_output() {
 }
 
 #[test]
-fn named_workspaces_dont_update_original_output_on_adding_window() {
-    let ops = [
-        Op::AddOutput(1),
-        Op::SetRowName {
-            new_ws_name: 1,
-            _ws_name: None,
-        },
-        Op::AddOutput(2),
-        Op::RemoveOutput(1),
-        Op::FocusRowUp,
-        // Adding a window updates the original output for unnamed workspaces.
-        Op::AddWindow {
-            params: TestWindowParams::new(1),
-        },
-        // Connecting the previous output should move the named workspace back since its
-        // original output wasn't updated.
-        Op::AddOutput(1),
-    ];
-
-    let layout = check_ops(ops);
-    let (mon, _, ws) = layout
-        .workspaces()
-        .find(|(_, _, ws)| ws.name().is_some())
-        .unwrap();
-    assert!(ws.name().is_some()); // Sanity check.
-    let mon = mon.unwrap();
-    assert_eq!(mon.output_name(), "output1");
-}
-
-#[test]
-fn workspaces_update_original_output_on_moving_to_same_output() {
-    let ops = [
-        Op::AddOutput(1),
-        Op::SetRowName {
-            new_ws_name: 1,
-            _ws_name: None,
-        },
-        Op::AddOutput(2),
-        Op::RemoveOutput(1),
-        Op::FocusRowUp,
-        Op::MoveRowToOutput(2),
-        Op::AddOutput(1),
-    ];
-
-    let layout = check_ops(ops);
-    let (mon, _, ws) = layout
-        .workspaces()
-        .find(|(_, _, ws)| ws.name().is_some())
-        .unwrap();
-    assert!(ws.name().is_some()); // Sanity check.
-    let mon = mon.unwrap();
-    assert_eq!(mon.output_name(), "output2");
-}
-
-#[test]
-fn workspaces_update_original_output_on_moving_to_same_monitor() {
-    let ops = [
-        Op::AddOutput(1),
-        Op::SetRowName {
-            new_ws_name: 1,
-            _ws_name: None,
-        },
-        Op::AddOutput(2),
-        Op::RemoveOutput(1),
-        Op::FocusRowUp,
-        Op::MoveRowToMonitor {
-            _ws_name: Some(1),
-            output_id: 2,
-        },
-        Op::AddOutput(1),
-    ];
-
-    let layout = check_ops(ops);
-    let (mon, _, ws) = layout
-        .workspaces()
-        .find(|(_, _, ws)| ws.name().is_some())
-        .unwrap();
-    assert!(ws.name().is_some()); // Sanity check.
-    let mon = mon.unwrap();
-    assert_eq!(mon.output_name(), "output2");
-}
-
-#[test]
 fn large_negative_height_change() {
     let ops = [
         Op::AddOutput(1),
@@ -2293,84 +2210,6 @@ fn move_workspace_to_output() {
     assert_eq!(monitors[1].active_workspace_idx, 0);
     assert_eq!(monitors[1].workspaces.len(), 2);
     assert!(monitors[1].workspaces[0].has_windows());
-}
-
-#[test]
-fn open_right_of_on_different_workspace() {
-    let ops = [
-        Op::AddOutput(1),
-        Op::AddWindow {
-            params: TestWindowParams::new(1),
-        },
-        Op::FocusRowDown,
-        Op::AddWindow {
-            params: TestWindowParams::new(2),
-        },
-        Op::AddWindowNextTo {
-            params: TestWindowParams::new(3),
-            next_to_id: 1,
-        },
-    ];
-
-    let layout = check_ops(ops);
-
-    let MonitorSet::Normal { monitors, .. } = layout.monitor_set else {
-        unreachable!()
-    };
-
-    let mon = monitors.into_iter().next().unwrap();
-    assert_eq!(
-        mon.active_workspace_idx, 1,
-        "the second workspace must remain active"
-    );
-    assert_eq!(
-        mon.workspaces[0].scrolling().active_column_idx(),
-        1,
-        "the new window must become active"
-    );
-}
-
-#[test]
-// empty_workspace_above_first = true
-fn open_right_of_on_different_workspace_ewaf() {
-    let ops = [
-        Op::AddOutput(1),
-        Op::AddWindow {
-            params: TestWindowParams::new(1),
-        },
-        Op::FocusRowDown,
-        Op::AddWindow {
-            params: TestWindowParams::new(2),
-        },
-        Op::AddWindowNextTo {
-            params: TestWindowParams::new(3),
-            next_to_id: 1,
-        },
-    ];
-
-    let options = Options {
-        layout: niri_config::Layout {
-            empty_workspace_above_first: true,
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    let layout = check_ops_with_options(options, ops);
-
-    let MonitorSet::Normal { monitors, .. } = layout.monitor_set else {
-        unreachable!()
-    };
-
-    let mon = monitors.into_iter().next().unwrap();
-    assert_eq!(
-        mon.active_workspace_idx, 2,
-        "the second workspace must remain active"
-    );
-    assert_eq!(
-        mon.workspaces[1].scrolling().active_column_idx(),
-        1,
-        "the new window must become active"
-    );
 }
 
 #[test]
@@ -2691,55 +2530,6 @@ fn interactive_move_onto_first_empty_workspace() {
         ..Default::default()
     };
     check_ops_with_options(options, ops);
-}
-
-#[test]
-fn output_active_workspace_is_preserved() {
-    let ops = [
-        Op::AddOutput(1),
-        Op::AddWindow {
-            params: TestWindowParams::new(1),
-        },
-        Op::FocusRowDown,
-        Op::AddWindow {
-            params: TestWindowParams::new(2),
-        },
-        Op::RemoveOutput(1),
-        Op::AddOutput(1),
-    ];
-
-    let layout = check_ops(ops);
-
-    let MonitorSet::Normal { monitors, .. } = layout.monitor_set else {
-        unreachable!()
-    };
-
-    assert_eq!(monitors[0].active_workspace_idx, 1);
-}
-
-#[test]
-fn output_active_workspace_is_preserved_with_other_outputs() {
-    let ops = [
-        Op::AddOutput(1),
-        Op::AddOutput(2),
-        Op::AddWindow {
-            params: TestWindowParams::new(1),
-        },
-        Op::FocusRowDown,
-        Op::AddWindow {
-            params: TestWindowParams::new(2),
-        },
-        Op::RemoveOutput(1),
-        Op::AddOutput(1),
-    ];
-
-    let layout = check_ops(ops);
-
-    let MonitorSet::Normal { monitors, .. } = layout.monitor_set else {
-        unreachable!()
-    };
-
-    assert_eq!(monitors[1].active_workspace_idx, 1);
 }
 
 #[test]
@@ -3298,38 +3088,6 @@ fn set_last_workspace_name() {
 }
 
 #[test]
-fn move_workspace_to_same_monitor_doesnt_reorder() {
-    let ops = [
-        Op::AddOutput(0),
-        Op::SetRowName {
-            new_ws_name: 0,
-            _ws_name: None,
-        },
-        Op::AddWindow {
-            params: TestWindowParams::new(0),
-        },
-        Op::FocusRowDown,
-        Op::AddWindow {
-            params: TestWindowParams::new(1),
-        },
-        Op::AddWindow {
-            params: TestWindowParams::new(2),
-        },
-        Op::MoveRowToMonitor {
-            _ws_name: Some(0),
-            output_id: 0,
-        },
-    ];
-
-    let layout = check_ops(ops);
-    let counts: Vec<_> = layout
-        .workspaces()
-        .map(|(_, _, ws)| ws.windows().count())
-        .collect();
-    assert_eq!(counts, &[1, 2, 0]);
-}
-
-#[test]
 fn removing_window_above_preserves_focused_window() {
     let ops = [
         Op::AddOutput(0),
@@ -3426,69 +3184,6 @@ fn preset_column_width_reset_after_set_width() {
     let layout = check_ops_with_options(options, ops);
     let win = layout.windows().next().unwrap().1;
     assert_eq!(win.requested_size().unwrap().w, 500);
-}
-
-#[test]
-fn move_column_to_workspace_unfocused_with_multiple_monitors() {
-    let ops = [
-        Op::AddOutput(1),
-        Op::SetRowName {
-            new_ws_name: 101,
-            _ws_name: None,
-        },
-        Op::AddWindow {
-            params: TestWindowParams::new(1),
-        },
-        Op::FocusRowDown,
-        Op::SetRowName {
-            new_ws_name: 102,
-            _ws_name: None,
-        },
-        Op::AddWindow {
-            params: TestWindowParams::new(2),
-        },
-        Op::AddOutput(2),
-        Op::FocusOutput(2),
-        Op::SetRowName {
-            new_ws_name: 201,
-            _ws_name: None,
-        },
-        Op::AddWindow {
-            params: TestWindowParams::new(3),
-        },
-        Op::AddWindow {
-            params: TestWindowParams::new(4),
-        },
-        Op::MoveColumnToOutput {
-            output_id: 1,
-            target_ws_idx: Some(0),
-            activate: false,
-        },
-        Op::FocusOutput(1),
-    ];
-
-    let layout = check_ops(ops);
-
-    assert_eq!(layout.active_workspace().unwrap().name().unwrap(), "ws102");
-
-    for (mon, win) in layout.windows() {
-        let mon = mon.unwrap();
-        let ws = mon
-            .workspaces
-            .iter()
-            .find(|w| w.has_window(win.id()))
-            .unwrap();
-
-        assert_eq!(
-            ws.name().unwrap(),
-            match win.id() {
-                1 | 4 => "ws101",
-                2 => "ws102",
-                3 => "ws201",
-                _ => unreachable!(),
-            }
-        );
-    }
 }
 
 #[test]

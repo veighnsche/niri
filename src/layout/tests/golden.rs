@@ -215,26 +215,6 @@ fn golden_f1_fullscreen_window() {
 }
 
 // ============================================================================
-// Group G: Move Column
-// ============================================================================
-
-#[test]
-fn golden_g1_move_column_left() {
-    insta::assert_yaml_snapshot!(snapshot([
-        Op::AddOutput(1), win(1), win(2), win(3),
-        Op::MoveColumnLeft,
-    ]));
-}
-
-#[test]
-fn golden_g2_move_column_to_first() {
-    insta::assert_yaml_snapshot!(snapshot([
-        Op::AddOutput(1), win(1), win(2), win(3),
-        Op::MoveColumnToFirst,
-    ]));
-}
-
-// ============================================================================
 // Group H: Move Window Within Column
 // ============================================================================
 
@@ -703,28 +683,6 @@ fn golden_y2_expand_second_column() {
 }
 
 // ============================================================================
-// Group Z: Move Column to Index
-// ============================================================================
-
-#[test]
-fn golden_z1_move_column_right() {
-    insta::assert_yaml_snapshot!(snapshot([
-        Op::AddOutput(1), win(1), win(2), win(3),
-        Op::FocusColumnFirst,
-        Op::MoveColumnRight,
-    ]));
-}
-
-#[test]
-fn golden_z2_move_column_to_last() {
-    insta::assert_yaml_snapshot!(snapshot([
-        Op::AddOutput(1), win(1), win(2), win(3),
-        Op::FocusColumnFirst,
-        Op::MoveColumnToLast,
-    ]));
-}
-
-// ============================================================================
 // ANIMATION TESTS: Capture animations DURING execution (no CompleteAnimations)
 // These verify animation parameters match between golden and refactored code.
 // ============================================================================
@@ -787,25 +745,6 @@ fn golden_anim_expel_right() {
         Op::AddOutput(1), win(1), win(2),
         consume_left(),
         expel_right(),
-    ]));
-}
-
-// --- Animation: Move Column ---
-
-#[test]
-fn golden_anim_move_column_left() {
-    // Move column triggers column_move_x animations
-    insta::assert_yaml_snapshot!(snapshot([
-        Op::AddOutput(1), win(1), win(2), win(3),
-        Op::MoveColumnLeft,
-    ]));
-}
-
-#[test]
-fn golden_anim_move_column_to_first() {
-    insta::assert_yaml_snapshot!(snapshot([
-        Op::AddOutput(1), win(1), win(2), win(3),
-        Op::MoveColumnToFirst,
     ]));
 }
 

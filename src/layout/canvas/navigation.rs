@@ -336,26 +336,23 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Replaces monitor.move_to_workspace(window, idx, activate)
     pub fn move_window_to_row(&mut self, window: &W::Id, idx: i32, activate: bool) -> bool {
         // Find which row contains the window
-        let (current_row_idx, column_idx, tile_idx) = if let Some((row_idx, _tile_pos)) = self.find_window(window) {
+        let (current_row_idx, column_idx, tile_idx) = if let Some((row_idx, row, _tile)) = self.find_window(window) {
             // Find column and tile indices within the row
-            if let Some(row) = self.rows.get(&row_idx) {
-                let mut found = None;
-                for (col_idx, column) in row.columns().enumerate() {
-                    for (tile_idx, tile) in column.tiles_iter().enumerate() {
-                        if tile.window().id() == window {
-                            found = Some((row_idx, col_idx, tile_idx));
-                            break;
-                        }
-                    }
-                    if found.is_some() {
+            let mut found = None;
+            for (col_idx, column) in row.columns().enumerate() {
+                for (tile_idx, tile_check) in column.tiles_iter().enumerate() {
+                    if tile_check.window().id() == window {
+                        found = Some((col_idx, tile_idx));
                         break;
                     }
                 }
-                if let Some(found) = found {
-                    found
-                } else {
-                    return false;
+                if found.is_some() {
+                    break;
                 }
+            }
+            
+            if let Some((col_idx, tile_idx)) = found {
+                (row_idx, col_idx, tile_idx)
             } else {
                 return false;
             }
