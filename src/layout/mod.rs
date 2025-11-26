@@ -466,6 +466,48 @@ pub struct RemovedTile<W: LayoutElement> {
     is_floating: bool,
 }
 
+impl<W: LayoutElement> RemovedTile<W> {
+    // TEAM_008: Added constructor for use by Row module
+    pub(crate) fn new(
+        tile: Tile<W>,
+        width: ColumnWidth,
+        is_full_width: bool,
+        is_floating: bool,
+    ) -> Self {
+        Self {
+            tile,
+            width,
+            is_full_width,
+            is_floating,
+        }
+    }
+
+    /// Returns the tile.
+    pub fn tile(self) -> Tile<W> {
+        self.tile
+    }
+
+    /// Returns the width of the column the tile was in.
+    pub fn width(&self) -> ColumnWidth {
+        self.width
+    }
+
+    /// Returns whether the column the tile was in was full-width.
+    pub fn is_full_width(&self) -> bool {
+        self.is_full_width
+    }
+
+    /// Returns whether the tile was floating.
+    pub fn is_floating(&self) -> bool {
+        self.is_floating
+    }
+
+    /// Destructures into components.
+    pub fn into_parts(self) -> (Tile<W>, ColumnWidth, bool, bool) {
+        (self.tile, self.width, self.is_full_width, self.is_floating)
+    }
+}
+
 /// Whether to activate a newly added window.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ActivateWindow {

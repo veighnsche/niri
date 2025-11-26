@@ -302,7 +302,4 @@ pub(crate) fn compute_working_area(
     area
 }
 
-// TODO(TEAM_006): Port add_window from ScrollingSpace
-// TODO(TEAM_006): Port remove_window from ScrollingSpace
-// TODO(TEAM_006): Port consume_or_expel_window_left/right from ScrollingSpace
-// See docs/2d-canvas-plan/TODO.md for full list
+// See docs/2d-canvas-plan/TODO.md for remaining work

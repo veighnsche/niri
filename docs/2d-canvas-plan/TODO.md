@@ -12,9 +12,17 @@ Row is a partial implementation. These methods need to be ported from `scrolling
 ### Column Operations (DONE)
 - [x] `add_tile`, `add_column`, `remove_column` — basic versions done
 - [x] `move_left`, `move_right`, `move_column_to` — basic versions done
+- [x] `add_tile_to_column` — add tile to existing column (TEAM_008)
+- [x] `add_tile_right_of` — add tile as new column right of window (TEAM_008)
+- [x] `activate_column` — activate column with animation (TEAM_008)
+- [x] `remove_tile` — remove tile by window ID (TEAM_008)
+- [x] `remove_tile_by_idx` — remove tile by column/tile index with animations (TEAM_008)
+- [x] `remove_active_column` — remove the active column (TEAM_008)
+- [x] `remove_column_by_idx` — remove column with full animation support (TEAM_008)
+- [x] `consume_or_expel_window_left` — consume into left column or expel as new column (TEAM_008)
+- [x] `consume_or_expel_window_right` — consume into right column or expel as new column (TEAM_008)
+- [x] `consume_into_column` — consume first tile from right column into active (TEAM_008)
 - [ ] TODO(TEAM_006): Animate column movement during add/remove/move
-- [ ] TODO(TEAM_006): Port `consume_or_expel_window_left` from ScrollingSpace
-- [ ] TODO(TEAM_006): Port `consume_or_expel_window_right` from ScrollingSpace
 
 ### View Offset / Animation
 - [x] TODO(TEAM_007): Port full `animate_view_offset_to_column` logic — DONE
@@ -26,7 +34,7 @@ Row is a partial implementation. These methods need to be ported from `scrolling
 - [x] TODO(TEAM_007): Port `render_elements` from ScrollingSpace — DONE
 - [x] TODO(TEAM_007): Port `columns_in_render_order` — DONE
 - [x] TODO(TEAM_007): Port `update_render_elements` — DONE
-- [ ] TODO(TEAM_006): Port `render_above_top_layer` from ScrollingSpace
+- [x] `render_above_top_layer` — returns true when fullscreen and view stationary (TEAM_008)
 
 ### Interactive Resize
 - [x] TODO(TEAM_007): Port `interactive_resize_begin` from ScrollingSpace — DONE

@@ -71,6 +71,28 @@ impl<W: LayoutElement> Row<W> {
     }
 
     // =========================================================================
+    // Render queries
+    // =========================================================================
+
+    /// Returns whether this row should render above the top layer.
+    ///
+    /// This is true when the active column is fullscreen and the view is stationary.
+    // TEAM_008: Ported from ScrollingSpace
+    pub fn render_above_top_layer(&self) -> bool {
+        if self.columns.is_empty() {
+            return false;
+        }
+
+        if !self.view_offset_x.is_static() {
+            return false;
+        }
+
+        self.columns[self.active_column_idx]
+            .sizing_mode()
+            .is_fullscreen()
+    }
+
+    // =========================================================================
     // Render elements
     // =========================================================================
 
