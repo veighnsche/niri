@@ -99,8 +99,14 @@ phases/
 ### Phase 1.5.3: Monitor Integration (IN PROGRESS)
 - [x] Add Canvas2D field to Monitor struct
 - [x] Add canvas() and canvas_mut() accessors
-- [ ] Migrate window operations to use Canvas2D
-- [ ] Remove legacy workspace fields
+- [x] Created detailed migration plan (5 parts)
+- [x] Step 1.1: Added tiles/windows methods to Canvas2D
+- [x] Step 1.2: Added tiles_iter methods to Column (outside #[cfg(test)])
+- [x] Step 1.3: Migrate Monitor query methods (windows, has_window)
+  - Uses hybrid approach: checks BOTH canvas AND workspaces during transition
+  - 284 tests pass, 91 golden tests pass
+- [ ] Step 1.4: Migrate Monitor mutation methods (add_window, remove_window)
+- [ ] Parts 2-5: Remove workspace switching, overview, fields, config
 
 ## Handoff
 - [x] Code compiles (`cargo check`)

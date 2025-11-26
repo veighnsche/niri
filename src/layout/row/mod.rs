@@ -46,6 +46,7 @@ use smithay::utils::{Logical, Rectangle, Size};
 use super::animated_value::AnimatedValue;
 use super::closing_window::ClosingWindow;
 use super::column::Column;
+use super::tile::Tile;
 use super::types::InteractiveResize;
 use super::{LayoutElement, Options};
 use crate::animation::Clock;

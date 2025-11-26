@@ -30,25 +30,40 @@ Column already has `tiles()` returning `(tile, position)`.
 
 ---
 
-## Step 1.2: Add Simple Tile Iterators to Column
+## Step 1.2: Add Simple Tile Iterators to Column ✅
 
 Column's `tiles()` returns `(tile, position)`. We need a simpler version:
 
 | Method | Purpose | Status |
 |--------|---------|--------|
-| `tiles_iter()` | Returns `&Tile` only | ⏳ TODO |
-| `tiles_iter_mut()` | Returns `&mut Tile` only | ⏳ TODO |
+| `tiles_iter()` | Returns `&Tile` only | ✅ Added |
+| `tiles_iter_mut()` | Returns `&mut Tile` only | ✅ Added |
+
+**Note**: These had to be added outside the `#[cfg(test)]` block to be available in non-test builds.
 
 ---
 
-## Step 1.3: Migrate Monitor Query Methods
+## Step 1.3: Migrate Monitor Query Methods ✅
 
 These methods only READ data, so they're safe to migrate first:
 
 | Method | Current | Target | Status |
 |--------|---------|--------|--------|
-| `windows()` | `workspaces.iter().flat_map(ws.windows())` | `canvas.windows()` | ⏳ |
-| `has_window()` | `windows().any(...)` | Uses new `windows()` | ⏳ |
+| `windows()` | `workspaces.iter().flat_map(ws.windows())` | `canvas.windows()` | ✅ |
+| `has_window()` | `windows().any(...)` | `canvas.contains_any()` | ✅ |
+
+**Migration Strategy**: During the transition, these methods check BOTH canvas AND workspaces.
+This ensures existing tests pass while we incrementally migrate window operations.
+
+```rust
+// windows() chains both sources
+canvas_windows.chain(workspace_windows)
+
+// has_window() checks both
+self.canvas.contains_any(window) || self.workspaces.iter().any(...)
+```
+
+After full migration (Part 4), the workspace checks will be removed.
 
 ---
 

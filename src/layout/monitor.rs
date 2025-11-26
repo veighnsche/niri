@@ -448,12 +448,27 @@ impl<W: LayoutElement> Monitor<W> {
         &mut self.workspaces[self.active_workspace_idx]
     }
 
-    pub fn windows(&self) -> impl Iterator<Item = &W> {
-        self.workspaces.iter().flat_map(|ws| ws.windows())
+    // =========================================================================
+    // TEAM_010: Window query methods
+    // During migration, check BOTH canvas AND workspaces
+    // TODO(TEAM_010): Remove workspace checks after full migration
+    // =========================================================================
+
+    /// Returns all windows on this monitor (tiled and floating).
+    pub fn windows(&self) -> impl Iterator<Item = &W> + '_ {
+        // TEAM_010: During migration, chain canvas and workspace windows
+        // After migration complete, this will only use canvas
+        let canvas_windows = self.canvas.windows();
+        let workspace_windows = self.workspaces.iter().flat_map(|ws| ws.windows());
+        canvas_windows.chain(workspace_windows)
     }
 
+    /// Returns whether this monitor contains the given window.
     pub fn has_window(&self, window: &W::Id) -> bool {
-        self.windows().any(|win| win.id() == window)
+        // TEAM_010: During migration, check both canvas and workspaces
+        // After migration complete, this will only use canvas
+        self.canvas.contains_any(window)
+            || self.workspaces.iter().any(|ws| ws.has_window(window))
     }
 
     pub fn add_workspace_at(&mut self, idx: usize) {

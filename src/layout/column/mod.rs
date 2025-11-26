@@ -72,6 +72,21 @@ pub struct Column<W: LayoutElement> {
     pub(crate) options: Rc<Options>,
 }
 
+// TEAM_010: Non-test methods for tile iteration
+impl<W: LayoutElement> Column<W> {
+    /// Returns iterator over tiles (without positions).
+    /// TEAM_010: Added for Row.tiles() migration
+    pub fn tiles_iter(&self) -> impl Iterator<Item = &Tile<W>> + '_ {
+        self.tiles.iter()
+    }
+
+    /// Returns mutable iterator over tiles (without positions).
+    /// TEAM_010: Added for Row.tiles_mut() migration
+    pub fn tiles_iter_mut(&mut self) -> impl Iterator<Item = &mut Tile<W>> + '_ {
+        self.tiles.iter_mut()
+    }
+}
+
 pub(crate) fn resolve_preset_size(
     preset: PresetSize,
     options: &Options,
