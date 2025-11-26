@@ -64,6 +64,12 @@ enum GoldenSyncAction {
     },
     /// Show status of golden snapshot sync
     Status,
+    /// Clean up .snap.new files (failed test outputs)
+    /// 
+    /// When tests fail, insta creates .snap.new files with your code's output.
+    /// These are NOT golden snapshots — they're evidence of regressions.
+    /// This command removes them.
+    Clean,
 }
 
 fn main() -> Result<()> {
@@ -74,6 +80,7 @@ fn main() -> Result<()> {
             GoldenSyncAction::Generate { dry_run } => golden_sync_generate(dry_run),
             GoldenSyncAction::Pull { dry_run } => golden_sync_pull(dry_run),
             GoldenSyncAction::Status => golden_sync_status(),
+            GoldenSyncAction::Clean => golden_sync_clean(),
         },
     }
 }
@@ -293,12 +300,35 @@ fn golden_sync_pull(dry_run: bool) -> Result<()> {
     }
 
     println!("\n✅ Copied {copied} golden snapshot files");
+
+    // Clean up any .new files
+    let new_count = count_new_files();
+    if new_count > 0 {
+        println!("\n🧹 Cleaning up {new_count} .snap.new files (old regression evidence)...");
+        let _ = clean_new_files();
+    }
+
     println!("\nNext steps:");
     println!("  1. Run: cargo test --lib golden");
     println!("  2. If tests fail → your refactor changed behavior!");
     println!("  3. Fix regressions or document intentional changes");
 
     Ok(())
+}
+
+fn clean_new_files() -> usize {
+    let mut removed = 0;
+    if let Ok(entries) = std::fs::read_dir(SNAPSHOTS_PATH) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.to_string_lossy().ends_with(".snap.new") {
+                if std::fs::remove_file(&path).is_ok() {
+                    removed += 1;
+                }
+            }
+        }
+    }
+    removed
 }
 
 fn golden_sync_status() -> Result<()> {
@@ -353,6 +383,63 @@ fn golden_sync_status() -> Result<()> {
     } else {
         println!("\n✅ Snapshot counts match");
     }
+
+    // Check for .new files (failed test outputs)
+    let new_count = count_new_files();
+    if new_count > 0 {
+        println!("\n🔴 Found {new_count} .snap.new files (regression evidence)");
+        println!("   These are NOT golden snapshots — they're your broken code's output.");
+        println!("   Run 'cargo xtask golden-sync clean' to remove them.");
+    }
+
+    Ok(())
+}
+
+fn count_new_files() -> usize {
+    std::fs::read_dir(SNAPSHOTS_PATH)
+        .map(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .filter(|e| {
+                    e.path()
+                        .to_string_lossy()
+                        .ends_with(".snap.new")
+                })
+                .count()
+        })
+        .unwrap_or(0)
+}
+
+fn golden_sync_clean() -> Result<()> {
+    println!("🧹 Cleaning up .snap.new files...\n");
+
+    let new_count = count_new_files();
+    if new_count == 0 {
+        println!("✅ No .snap.new files found");
+        return Ok(());
+    }
+
+    println!("Found {new_count} .snap.new files to remove:\n");
+    
+    // Show what we're removing
+    if let Ok(entries) = std::fs::read_dir(SNAPSHOTS_PATH) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if path.to_string_lossy().ends_with(".snap.new") {
+                println!("  🗑️  {}", path.file_name().unwrap_or_default().to_string_lossy());
+            }
+        }
+    }
+
+    let removed = clean_new_files();
+    
+    println!("\n✅ Removed {removed} .snap.new files");
+    println!("\n📝 About .snap.new files:");
+    println!("   • Created when golden tests FAIL");
+    println!("   • Contain YOUR CODE's output (potentially broken)");
+    println!("   • Are NOT golden snapshots");
+    println!("   • Should NEVER be accepted with 'cargo insta accept'");
+    println!("   • Fix your code instead!");
 
     Ok(())
 }
