@@ -17,8 +17,9 @@ Row is a partial implementation. These methods need to be ported from `scrolling
 - [ ] TODO(TEAM_006): Port `consume_or_expel_window_right` from ScrollingSpace
 
 ### View Offset / Animation
-- [ ] TODO(TEAM_006): Port full `animate_view_offset_to_column` logic (current is stub)
-- [ ] TODO(TEAM_006): Port `set_view_offset_with_animation` from ScrollingSpace
+- [x] TODO(TEAM_007): Port full `animate_view_offset_to_column` logic — DONE
+- [x] TODO(TEAM_007): Port `compute_new_view_offset_*` methods — DONE
+- [x] TODO(TEAM_007): Port `animate_view_offset_with_config` — DONE
 - [ ] TODO(TEAM_006): Port gesture handling (`view_offset_gesture_begin`, etc.)
 
 ### Rendering
@@ -45,7 +46,8 @@ Canvas2D depends on Row completion. Additional work needed:
 - [ ] TODO(TEAM_006): Add `toggle_floating` method
 
 ### Camera
-- [ ] TODO(TEAM_006): Animate camera_y when changing rows (current is instant)
+- [x] TODO(TEAM_007): Animate camera_y when changing rows — DONE
+- [ ] TODO(TEAM_007): Add vertical_view_movement config to niri-config
 - [ ] TODO(TEAM_006): Add camera_x tracking for horizontal scroll
 
 ### Rendering

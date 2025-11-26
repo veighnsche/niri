@@ -31,7 +31,7 @@ use super::row::Row;
 use super::tile::Tile;
 use super::types::ColumnWidth;
 use super::{LayoutElement, Options};
-use crate::animation::Clock;
+use crate::animation::{Animation, Clock};
 
 // TEAM_006: FloatingSpace temporarily removed until Row has full functionality.
 // Will be re-added when Canvas2D is more complete.
@@ -213,11 +213,29 @@ impl<W: LayoutElement> Canvas2D<W> {
     }
 
     /// Updates the camera Y position to follow the active row.
+    // TEAM_007: Animate camera_y when changing rows
     fn update_camera_y(&mut self) {
         if let Some(row) = self.active_row() {
             let target_y = row.y_offset();
-            // TODO: Use animation config from options
-            self.camera_y = AnimatedValue::new(target_y);
+            let current_y = self.camera_y.current();
+            
+            // If already at target, no need to animate
+            let pixel = 1. / self.scale;
+            if (current_y - target_y).abs() < pixel {
+                self.camera_y = AnimatedValue::Static(target_y);
+                return;
+            }
+            
+            // TODO(TEAM_007): Add vertical_view_movement config to niri-config
+            // For now, use horizontal_view_movement since they typically use similar easing
+            let config = self.options.animations.horizontal_view_movement.0;
+            self.camera_y = AnimatedValue::Animation(Animation::new(
+                self.clock.clone(),
+                current_y,
+                target_y,
+                0., // initial velocity
+                config,
+            ));
         }
     }
 

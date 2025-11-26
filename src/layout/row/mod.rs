@@ -30,10 +30,11 @@
 // The full implementation requires porting ~3800 lines from scrolling.rs.
 // This is being done incrementally to ensure correctness.
 
+use std::cmp::min;
 use std::iter::zip;
 use std::rc::Rc;
 
-use niri_config::Struts;
+use niri_config::{CenterFocusedColumn, Struts};
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
 use super::animated_value::AnimatedValue;
@@ -41,8 +42,8 @@ use super::closing_window::ClosingWindow;
 use super::column::Column;
 use super::tile::Tile;
 use super::types::{ColumnWidth, InteractiveResize};
-use super::{LayoutElement, Options};
-use crate::animation::Clock;
+use super::{LayoutElement, Options, SizingMode};
+use crate::animation::{Animation, Clock};
 
 /// Amount of touchpad movement to scroll the view for the width of one working area.
 const VIEW_GESTURE_WORKING_AREA_MOVEMENT: f64 = 1200.;
@@ -361,22 +362,25 @@ impl<W: LayoutElement> Row<W> {
     }
 
     // =========================================================================
-    // Internal: View offset calculation
+    // View offset calculation (ported from ScrollingSpace)
     // =========================================================================
 
-    /// Animates the view offset to show the specified column.
-    fn animate_view_offset_to_column(
-        &mut self,
-        _prev_col_x: Option<f64>,
-        col_idx: usize,
-        _new_col_width: Option<f64>,
-    ) {
-        // TODO(TEAM_006): Port full animate_view_offset_to_column from ScrollingSpace
-        // Current: simple static offset. Need: animated transitions, centering logic
-        if !self.columns.is_empty() {
-            let col_x = self.column_x(col_idx);
-            self.view_offset_x = AnimatedValue::new(-col_x);
-        }
+    // TEAM_007: Full view offset logic ported from scrolling.rs
+
+    /// Returns whether this row centers the focused column.
+    pub fn is_centering_focused_column(&self) -> bool {
+        self.options.layout.center_focused_column == CenterFocusedColumn::Always
+            || (self.options.layout.always_center_single_column && self.columns.len() <= 1)
+    }
+
+    /// Returns the current view position (column X + view offset).
+    pub fn view_pos(&self) -> f64 {
+        self.column_x(self.active_column_idx) + self.view_offset_x.current()
+    }
+
+    /// Returns the target view position (end of animation).
+    pub fn target_view_pos(&self) -> f64 {
+        self.column_x(self.active_column_idx) + self.view_offset_x.target()
     }
 
     /// Returns the X position of the column at the given index.
@@ -389,6 +393,225 @@ impl<W: LayoutElement> Row<W> {
             }
         }
         x
+    }
+
+    fn compute_new_view_offset_fit(
+        &self,
+        target_x: Option<f64>,
+        col_x: f64,
+        width: f64,
+        mode: SizingMode,
+    ) -> f64 {
+        if mode.is_fullscreen() {
+            return 0.;
+        }
+
+        let (area, padding) = if mode.is_maximized() {
+            (self.parent_area, 0.)
+        } else {
+            (self.working_area, self.options.layout.gaps)
+        };
+
+        let target_x = target_x.unwrap_or_else(|| self.target_view_pos());
+
+        let new_offset =
+            compute_new_view_offset(target_x + area.loc.x, area.size.w, col_x, width, padding);
+
+        // Non-fullscreen windows are always offset at least by the working area position.
+        new_offset - area.loc.x
+    }
+
+    fn compute_new_view_offset_centered(
+        &self,
+        target_x: Option<f64>,
+        col_x: f64,
+        width: f64,
+        mode: SizingMode,
+    ) -> f64 {
+        if mode.is_fullscreen() {
+            return self.compute_new_view_offset_fit(target_x, col_x, width, mode);
+        }
+
+        let area = if mode.is_maximized() {
+            self.parent_area
+        } else {
+            self.working_area
+        };
+
+        // Columns wider than the view are left-aligned (the fit code can deal with that).
+        if area.size.w <= width {
+            return self.compute_new_view_offset_fit(target_x, col_x, width, mode);
+        }
+
+        -(area.size.w - width) / 2. - area.loc.x
+    }
+
+    fn compute_new_view_offset_for_column_fit(&self, target_x: Option<f64>, idx: usize) -> f64 {
+        let col = &self.columns[idx];
+        self.compute_new_view_offset_fit(
+            target_x,
+            self.column_x(idx),
+            col.width(),
+            col.sizing_mode(),
+        )
+    }
+
+    fn compute_new_view_offset_for_column_centered(
+        &self,
+        target_x: Option<f64>,
+        idx: usize,
+    ) -> f64 {
+        let col = &self.columns[idx];
+        self.compute_new_view_offset_centered(
+            target_x,
+            self.column_x(idx),
+            col.width(),
+            col.sizing_mode(),
+        )
+    }
+
+    fn compute_new_view_offset_for_column(
+        &self,
+        target_x: Option<f64>,
+        idx: usize,
+        prev_idx: Option<usize>,
+    ) -> f64 {
+        if self.is_centering_focused_column() {
+            return self.compute_new_view_offset_for_column_centered(target_x, idx);
+        }
+
+        match self.options.layout.center_focused_column {
+            CenterFocusedColumn::Always => {
+                self.compute_new_view_offset_for_column_centered(target_x, idx)
+            }
+            CenterFocusedColumn::OnOverflow => {
+                let Some(prev_idx) = prev_idx else {
+                    return self.compute_new_view_offset_for_column_fit(target_x, idx);
+                };
+
+                // Activating the same column.
+                if prev_idx == idx {
+                    return self.compute_new_view_offset_for_column_fit(target_x, idx);
+                }
+
+                // Always take the left or right neighbor of the target as the source.
+                let source_idx = if prev_idx > idx {
+                    min(idx + 1, self.columns.len() - 1)
+                } else {
+                    idx.saturating_sub(1)
+                };
+
+                let source_col_x = self.column_x(source_idx);
+                let source_col_width = self.columns[source_idx].width();
+
+                let target_col_x = self.column_x(idx);
+                let target_col_width = self.columns[idx].width();
+
+                // NOTE: This logic won't work entirely correctly with small fixed-size maximized
+                // windows (they have a different area and padding).
+                let total_width = if source_col_x < target_col_x {
+                    // Source is left from target.
+                    target_col_x - source_col_x + target_col_width
+                } else {
+                    // Source is right from target.
+                    source_col_x - target_col_x + source_col_width
+                } + self.options.layout.gaps * 2.;
+
+                // If it fits together, do a normal animation, otherwise center the new column.
+                if total_width <= self.working_area.size.w {
+                    self.compute_new_view_offset_for_column_fit(target_x, idx)
+                } else {
+                    self.compute_new_view_offset_for_column_centered(target_x, idx)
+                }
+            }
+            CenterFocusedColumn::Never => {
+                self.compute_new_view_offset_for_column_fit(target_x, idx)
+            }
+        }
+    }
+
+    fn animate_view_offset(&mut self, idx: usize, new_view_offset: f64) {
+        self.animate_view_offset_with_config(
+            idx,
+            new_view_offset,
+            self.options.animations.horizontal_view_movement.0,
+        );
+    }
+
+    fn animate_view_offset_with_config(
+        &mut self,
+        idx: usize,
+        new_view_offset: f64,
+        config: niri_config::Animation,
+    ) {
+        let new_col_x = self.column_x(idx);
+        let old_col_x = self.column_x(self.active_column_idx);
+        let offset_delta = old_col_x - new_col_x;
+        self.view_offset_x.offset(offset_delta);
+
+        let pixel = 1. / self.scale;
+        if (self.view_offset_x.current() - new_view_offset).abs() < pixel {
+            self.view_offset_x = AnimatedValue::Static(new_view_offset);
+            return;
+        }
+
+        match &mut self.view_offset_x {
+            AnimatedValue::Gesture(gesture) => {
+                gesture.animation = Some(Animation::new(
+                    self.clock.clone(),
+                    0.,
+                    new_view_offset - gesture.current_view_offset,
+                    0.,
+                    config,
+                ));
+            }
+            _ => {
+                // FIXME: also compute and use current velocity.
+                self.view_offset_x = AnimatedValue::Animation(Animation::new(
+                    self.clock.clone(),
+                    self.view_offset_x.current(),
+                    new_view_offset,
+                    0.,
+                    config,
+                ));
+            }
+        }
+    }
+
+    fn animate_view_offset_to_column_centered(
+        &mut self,
+        target_x: Option<f64>,
+        idx: usize,
+        config: niri_config::Animation,
+    ) {
+        let new_view_offset = self.compute_new_view_offset_for_column_centered(target_x, idx);
+        self.animate_view_offset_with_config(idx, new_view_offset, config);
+    }
+
+    fn animate_view_offset_to_column_with_config(
+        &mut self,
+        target_x: Option<f64>,
+        idx: usize,
+        prev_idx: Option<usize>,
+        config: niri_config::Animation,
+    ) {
+        let new_view_offset = self.compute_new_view_offset_for_column(target_x, idx, prev_idx);
+        self.animate_view_offset_with_config(idx, new_view_offset, config);
+    }
+
+    /// Animates the view offset to show the specified column.
+    fn animate_view_offset_to_column(
+        &mut self,
+        target_x: Option<f64>,
+        idx: usize,
+        prev_idx: Option<usize>,
+    ) {
+        self.animate_view_offset_to_column_with_config(
+            target_x,
+            idx,
+            prev_idx,
+            self.options.animations.horizontal_view_movement.0,
+        )
     }
 
     // =========================================================================
@@ -588,6 +811,41 @@ fn compute_working_area(
     area.size.h -= round(struts.top.0 as f64) + round(struts.bottom.0 as f64);
     
     area
+}
+
+// TEAM_007: Ported from scrolling.rs
+fn compute_new_view_offset(
+    cur_x: f64,
+    view_width: f64,
+    new_col_x: f64,
+    new_col_width: f64,
+    gaps: f64,
+) -> f64 {
+    // If the column is wider than the view, always left-align it.
+    if view_width <= new_col_width {
+        return 0.;
+    }
+
+    // Compute the padding in case it needs to be smaller due to large tile width.
+    let padding = ((view_width - new_col_width) / 2.).clamp(0., gaps);
+
+    // Compute the desired new X with padding.
+    let new_x = new_col_x - padding;
+    let new_right_x = new_col_x + new_col_width + padding;
+
+    // If the column is already fully visible, leave the view as is.
+    if cur_x <= new_x && new_right_x <= cur_x + view_width {
+        return -(new_col_x - cur_x);
+    }
+
+    // Otherwise, prefer the alignment that results in less motion from the current position.
+    let dist_to_left = (cur_x - new_x).abs();
+    let dist_to_right = ((cur_x + view_width) - new_right_x).abs();
+    if dist_to_left <= dist_to_right {
+        -padding
+    } else {
+        -(view_width - padding - new_col_width)
+    }
 }
 
 // TODO(TEAM_006): Port add_window from ScrollingSpace

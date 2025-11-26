@@ -334,23 +334,23 @@ pub struct Monitor<W: LayoutElement> {
 - [x] Add row_index, y_offset (TEAM_006)
 - [x] Navigation: focus_left, focus_right, focus_column (TEAM_006)
 - [x] Operations: add/remove, move_left/right (TEAM_006)
+- [x] Port full view offset animation logic (TEAM_007)
 - [ ] **NEXT**: Port column movement animations
 - [ ] **NEXT**: Port consume/expel operations
 - [ ] **NEXT**: Port gesture handling
-- [ ] **NEXT**: Port full view offset animation logic
 - [ ] **NEXT**: Port render_elements
 
 ### Step 1.2: Canvas2D Module
 - [x] Create `canvas/mod.rs` (TEAM_006)
 - [x] BTreeMap for rows (TEAM_006)
 - [x] Operations: add_tile, add_tile_to_row, contains, find_window (TEAM_006)
+- [x] Animate camera_y when changing rows (TEAM_007)
 - [ ] **NEXT**: Integrate FloatingSpace
 - [ ] **NEXT**: Port render_elements
-- [ ] **NEXT**: Animate camera_y when changing rows
 
 ### Step 1.3: Vertical Navigation
 - [x] focus_up, focus_down (TEAM_006)
-- [ ] **NEXT**: Camera Y animation (currently instant)
+- [x] Camera Y animation (TEAM_007)
 - [ ] Test navigation
 
 ### Step 1.4: Feature Flag
@@ -390,7 +390,7 @@ pub struct Monitor<W: LayoutElement> {
 - [x] Can create Canvas2D with multiple rows
 - [x] Can navigate up/down between rows
 - [x] Left/right navigation works within row
-- [ ] Camera Y updates when changing rows (animation)
+- [x] Camera Y updates when changing rows (animation) — TEAM_007
 - [ ] Existing behavior preserved with feature flag off
 
 ---
