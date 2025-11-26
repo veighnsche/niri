@@ -232,8 +232,8 @@ Add any new TODOs to: `docs/2d-canvas-plan/TODO.md`
 
 **Branch**: `2d-canvas`  
 **Phase**: 1.5 IN PROGRESS (Integration)  
-**Completed**: Phase 0 (all steps), Phase 1 Core (Row + Canvas2D)  
-**Next Step**: Complete gesture handling, interactive resize, then feature flag
+**Completed**: Phase 0, Phase 1 Core, **Phase 1.5.1 (Row complete)**  
+**Next Step**: Phase 1.5.2 (Canvas2D), then feature flag
 
 **Key Decisions**:
 - Workspaces **removed** — one infinite canvas per output
@@ -243,7 +243,7 @@ Add any new TODOs to: `docs/2d-canvas-plan/TODO.md`
 
 ---
 
-## Lessons Learned (from TEAM_000 → TEAM_007)
+## Lessons Learned (from TEAM_000 → TEAM_008)
 
 ### 1. Phase Sizing
 Large phases should be split. Phase 1 became Phase 1 + Phase 1.5 because:
@@ -280,6 +280,37 @@ When porting from `scrolling.rs`:
 Always run `./scripts/verify-golden.sh` before AND after changes to layout logic.
 The 58 golden tests catch regressions that unit tests miss.
 
+### 6. Refactor Large Files Properly (TEAM_008)
+When a file exceeds 500 lines, **refactor it into submodules**:
+
+```rust
+// WRONG: "The 500-line guideline isn't always achievable"
+// RIGHT: Split into submodules using the idiomatic Rust pattern
+
+// Before: operations.rs (692 lines - TOO BIG!)
+// After:
+operations/
+├── mod.rs      (22 lines)  - Re-exports
+├── add.rs      (159 lines) - Add tile/column
+├── remove.rs   (246 lines) - Remove tile/column
+├── move_col.rs (50 lines)  - Move column left/right
+└── consume.rs  (250 lines) - Consume/expel window
+```
+
+The pattern:
+1. Create a directory with the module name
+2. Create submodules for each logical grouping
+3. Each submodule has its own `impl<W: LayoutElement> Row<W>` block
+4. The `mod.rs` just declares the submodules — no re-exports needed for impl blocks
+
+**Never change the rules because you couldn't follow them. Refactor properly.**
+
+### 7. Ask Questions Early (TEAM_008)
+Create `.questions/TEAM_XXX_*.md` files for:
+- Architectural decisions that affect future phases
+- API design choices (e.g., should Row match ScrollingSpace exactly?)
+- Priority questions (e.g., is FloatingSpace critical for MVP?)
+
 ---
 
-*Rules established by TEAM_000. Updated by TEAM_007.*
+*Rules established by TEAM_000. Updated by TEAM_008.*

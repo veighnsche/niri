@@ -16,7 +16,12 @@
 //! ├── mod.rs          - Core struct and basic accessors
 //! ├── view_offset.rs  - View offset calculation and animation
 //! ├── navigation.rs   - Focus left/right/column
-//! ├── operations.rs   - Add/remove/move columns
+//! ├── operations/     - Column operations (refactored by TEAM_008)
+//! │   ├── mod.rs      - Re-exports
+//! │   ├── add.rs      - Add tile/column
+//! │   ├── remove.rs   - Remove tile/column
+//! │   ├── move_col.rs - Move column left/right
+//! │   └── consume.rs  - Consume/expel window
 //! ├── layout.rs       - Tile positions, config update
 //! ├── render.rs       - Rendering
 //! ├── gesture.rs      - Gesture-based scrolling

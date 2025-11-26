@@ -45,18 +45,53 @@ Per user request:
 ### Rendering (Phase 1.5.1.11) ✅
 - [x] Port `render_above_top_layer` from ScrollingSpace — returns true when fullscreen and view stationary
 
+### Refactoring (Rule 7 Compliance) ✅
+- [x] Split `operations.rs` (692 lines) into submodules:
+  - `operations/add.rs` (159 lines)
+  - `operations/remove.rs` (246 lines)
+  - `operations/move_col.rs` (50 lines)
+  - `operations/consume.rs` (250 lines)
+  - `operations/mod.rs` (22 lines)
+- [x] All files now under 500 lines ✅
+
 ## Changes Made
 
 ### Modified Files
 - `src/layout/row/mod.rs` — Cleaned up stale TODOs, updated module structure doc
-- `src/layout/row/operations.rs` — Added add/remove/consume/expel operations (693 lines)
+- `src/layout/row/operations/` — Refactored into submodules (was 692 lines, now 5 files < 250 lines each)
 - `src/layout/row/navigation.rs` — Added `activate_column`
 - `src/layout/row/render.rs` — Added `render_above_top_layer`
 - `src/layout/mod.rs` — Added `RemovedTile::new` constructor and getters
 - `docs/2d-canvas-plan/.teams/TEAM_007_phase1_continuation.md` — Completed team file
 - `docs/2d-canvas-plan/TODO.md` — Updated with completed items
+- `docs/2d-canvas-plan/ai-teams-rules.md` — Added Lesson #6 (proper refactoring pattern)
+
+## Remaining Work for Next Team
+
+### Phase 1.5.2: Complete Canvas2D
+- [ ] Integrate FloatingSpace
+- [ ] Apply camera offset to render elements
+- [ ] Add `vertical_view_movement` config to niri-config
+
+### Phase 1.5.3: Feature Flag
+- [ ] Add `canvas-2d` feature to Cargo.toml
+- [ ] Conditional Monitor code
+
+### Phase 1.5.4: Monitor Integration
+- [ ] Wire Canvas2D into Monitor
+
+### Open Questions
+See `.questions/TEAM_008_gaps_and_clarifications.md` for questions about:
+- Row module testing strategy
+- Canvas2D module structure
+- Row vs ScrollingSpace API parity
+- FloatingSpace priority
+- Column animation TODOs
 
 ## Handoff
 - [x] Code compiles (`cargo check`)
 - [x] Tests pass (`cargo test`) — 251 tests
+- [x] Golden tests pass (`cargo insta test`) — 58 tests
 - [x] Team file complete
+- [x] Documentation updated (README, phase-1.5, TODO.md)
+- [x] Questions documented

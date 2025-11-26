@@ -18,62 +18,56 @@ Phase 1.5 bridges the gap between "modules exist" and "modules are usable."
 
 ---
 
-## Current State (After Phase 1)
+## Current State (After TEAM_008)
 
 ### What's Done ✓
 ```
 src/layout/
 ├── row/
-│   ├── mod.rs          (307 lines) - Core struct, accessors, animation
+│   ├── mod.rs          (305 lines) - Core struct, accessors, animation
 │   ├── view_offset.rs  (324 lines) - View offset calculation & animation ✓
-│   ├── render.rs       (177 lines) - Rendering ✓
-│   ├── operations.rs   (162 lines) - Add/remove/move columns ✓
+│   ├── render.rs       (199 lines) - Rendering + render_above_top_layer ✓
+│   ├── operations.rs   (692 lines) - Full add/remove/consume/expel ✓
 │   ├── layout.rs       (77 lines)  - Tile positions, config update ✓
-│   └── navigation.rs   (57 lines)  - Focus left/right/column ✓
+│   ├── navigation.rs   (83 lines)  - Focus + activate_column ✓
+│   ├── gesture.rs      (445 lines) - Gesture handling ✓
+│   └── resize.rs       (151 lines) - Interactive resize ✓
 ├── canvas/
 │   └── mod.rs          (426 lines) - Canvas2D with rendering ✓
 └── animated_value/
-    ├── mod.rs          (193 lines) - AnimatedValue enum ✓
-    └── gesture.rs      (75 lines)  - ViewGesture ✓
+    ├── mod.rs          (212 lines) - AnimatedValue enum ✓
+    └── gesture.rs      (73 lines)  - ViewGesture ✓
 ```
 
-### What's Missing
-1. **Gesture handling** — `view_offset_gesture_begin/update/end` not ported
-2. **Interactive resize** — `interactive_resize_begin/update/end` not ported
-3. **FloatingSpace** — Not integrated into Canvas2D
-4. **Feature flag** — `canvas-2d` feature not created
-5. **Monitor integration** — Canvas2D not wired into compositor
-6. **Window operations** — `add_window`, `remove_window` wrappers
-7. **Camera offset** — Not applied to render elements
+### What's Still Missing
+1. **FloatingSpace** — Not integrated into Canvas2D
+2. **Feature flag** — `canvas-2d` feature not created
+3. **Monitor integration** — Canvas2D not wired into compositor
+4. **Camera offset** — Not applied to render elements
+5. **Config** — `vertical_view_movement` not added to niri-config
 
 ---
 
-## Step 1.5.1: Complete Row Module
+## Step 1.5.1: Complete Row Module ✅ COMPLETE
 
-### Gesture Handling
-Port from `scrolling.rs` lines 2852-3005:
+### Gesture Handling ✅ (TEAM_007)
+- [x] **1.5.1.1**: Port `view_offset_gesture_begin`
+- [x] **1.5.1.2**: Port `view_offset_gesture_update`
+- [x] **1.5.1.3**: Port `view_offset_gesture_end`
+- [x] **1.5.1.4**: Port `dnd_scroll_gesture_*` methods
 
-- [ ] **1.5.1.1**: Port `view_offset_gesture_begin`
-- [ ] **1.5.1.2**: Port `view_offset_gesture_update`
-- [ ] **1.5.1.3**: Port `view_offset_gesture_end`
-- [ ] **1.5.1.4**: Port `dnd_scroll_gesture_*` methods
+### Interactive Resize ✅ (TEAM_007)
+- [x] **1.5.1.5**: Port `interactive_resize_begin`
+- [x] **1.5.1.6**: Port `interactive_resize_update`
+- [x] **1.5.1.7**: Port `interactive_resize_end`
 
-### Interactive Resize
-Port from `scrolling.rs` lines 3300-3500:
+### Window Operations ✅ (TEAM_008)
+- [x] **1.5.1.8**: Port `add_tile_to_column`, `add_tile_right_of`, `activate_column`
+- [x] **1.5.1.9**: Port `remove_tile`, `remove_tile_by_idx`, `remove_column_by_idx`
+- [x] **1.5.1.10**: Port `consume_or_expel_window_left/right`, `consume_into_column`
 
-- [ ] **1.5.1.5**: Port `interactive_resize_begin`
-- [ ] **1.5.1.6**: Port `interactive_resize_update`
-- [ ] **1.5.1.7**: Port `interactive_resize_end`
-
-### Window Operations
-Port high-level window operations:
-
-- [ ] **1.5.1.8**: Port `add_window` (routes to add_tile)
-- [ ] **1.5.1.9**: Port `remove_window` (finds and removes)
-- [ ] **1.5.1.10**: Port `consume_or_expel_window_left/right`
-
-### Remaining Rendering
-- [ ] **1.5.1.11**: Port `render_above_top_layer`
+### Remaining Rendering ✅ (TEAM_008)
+- [x] **1.5.1.11**: Port `render_above_top_layer`
 
 ---
 
@@ -140,14 +134,14 @@ pub struct Monitor<W: LayoutElement> {
 
 ## Success Criteria
 
-- [ ] All gesture handling works in Row
-- [ ] Interactive resize works in Row
+- [x] All gesture handling works in Row (TEAM_007)
+- [x] Interactive resize works in Row (TEAM_007)
 - [ ] FloatingSpace integrated into Canvas2D
 - [ ] Feature flag compiles both ways
 - [ ] With `canvas-2d` feature: can open windows, navigate, resize
 - [ ] Without feature: existing behavior unchanged
-- [ ] All 251+ tests pass
-- [ ] All 58 golden tests pass
+- [x] All 251+ tests pass
+- [x] All 58 golden tests pass
 
 ---
 

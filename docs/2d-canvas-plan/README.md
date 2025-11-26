@@ -144,6 +144,10 @@ src/layout/
 │   ├── resize.rs             # Interactive resize
 │   └── operations.rs         # Add/remove tiles
 │
+├── animated_value/           # Animation abstraction ✅ COMPLETE
+│   ├── mod.rs                # AnimatedValue enum (Static/Animation/Gesture)
+│   └── gesture.rs            # ViewGesture struct
+│
 ├── golden/                   # Original main branch code (reference)
 │   ├── mod.rs                # Test-only module
 │   ├── scrolling.rs          # Original scrolling.rs
@@ -154,11 +158,20 @@ src/layout/
 ├── tests/
 │   └── golden.rs             # Golden snapshot comparison tests
 │
-├── row/                      # Row module (NEW)
+├── row/                      # Row module (NEW) ✅ COMPLETE
 │   ├── mod.rs                # Row struct + public interface
 │   ├── layout.rs             # Column positioning within row
-│   ├── navigation.rs         # Left/right focus movement
-│   └── operations.rs         # Add/remove columns
+│   ├── navigation.rs         # Left/right focus movement + activate_column
+│   ├── operations/           # Column operations (refactored by TEAM_008)
+│   │   ├── mod.rs            # Submodule declarations
+│   │   ├── add.rs            # Add tile/column
+│   │   ├── remove.rs         # Remove tile/column
+│   │   ├── move_col.rs       # Move column left/right
+│   │   └── consume.rs        # Consume/expel window
+│   ├── view_offset.rs        # View offset calculation & animation
+│   ├── gesture.rs            # Gesture-based scrolling
+│   ├── resize.rs             # Interactive resize
+│   └── render.rs             # Rendering
 │
 ├── canvas/                   # Canvas2D module (NEW)
 │   ├── mod.rs                # Canvas2D struct + public interface
@@ -210,7 +223,11 @@ src/layout/
 - [ ] Step 1.4: Feature flag integration → moved to Phase 1.5
 
 ### Phase 1.5: Integration (IN PROGRESS)
-- [ ] Step 1.5.1: Complete Row (gesture handling, interactive resize)
+- [x] Step 1.5.1: Complete Row module (TEAM_007, TEAM_008)
+  - [x] Gesture handling (gesture.rs)
+  - [x] Interactive resize (resize.rs)
+  - [x] Window operations (add/remove/consume/expel)
+  - [x] render_above_top_layer
 - [ ] Step 1.5.2: Complete Canvas2D (FloatingSpace, camera offset)
 - [ ] Step 1.5.3: Feature flag (canvas-2d)
 - [ ] Step 1.5.4: Monitor integration

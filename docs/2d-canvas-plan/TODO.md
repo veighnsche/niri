@@ -3,11 +3,13 @@
 > **Check this file first** to see where past teams planned to add features.
 > This maintains architectural consistency across teams.
 
+**Last updated**: TEAM_008 (Phase 1.5.1 complete)
+
 ---
 
-## src/layout/row/mod.rs
+## src/layout/row/ — ✅ PHASE 1.5.1 COMPLETE
 
-Row is a partial implementation. These methods need to be ported from `scrolling.rs`:
+Row module is now feature-complete for Phase 1.5.1. All core ScrollingSpace methods have been ported.
 
 ### Column Operations (DONE)
 - [x] `add_tile`, `add_column`, `remove_column` — basic versions done
@@ -22,7 +24,9 @@ Row is a partial implementation. These methods need to be ported from `scrolling
 - [x] `consume_or_expel_window_left` — consume into left column or expel as new column (TEAM_008)
 - [x] `consume_or_expel_window_right` — consume into right column or expel as new column (TEAM_008)
 - [x] `consume_into_column` — consume first tile from right column into active (TEAM_008)
-- [ ] TODO(TEAM_006): Animate column movement during add/remove/move
+
+### Remaining (Low Priority)
+- [ ] TODO(TEAM_006): Animate column movement during add/remove/move (lines 167, 447)
 
 ### View Offset / Animation
 - [x] TODO(TEAM_007): Port full `animate_view_offset_to_column` logic — DONE
@@ -52,18 +56,22 @@ Canvas2D depends on Row completion. Additional work needed:
 - [x] `contains`, `find_window` — done
 
 ### Floating Layer
-- [ ] TODO(TEAM_006): Integrate FloatingSpace (after Row is complete)
-- [ ] TODO(TEAM_006): Add `toggle_floating` method
+- [ ] TODO(TEAM_006): Integrate FloatingSpace (line 423)
+- [ ] TODO(TEAM_006): Add floating layer rendering (line 408)
+
+### Window Operations
+- [ ] TODO(TEAM_006): Add `add_window` that routes to correct row (line 424)
+- [ ] TODO(TEAM_006): Add `remove_window` that finds window across rows (line 425)
 
 ### Camera
 - [x] TODO(TEAM_007): Animate camera_y when changing rows — DONE
-- [ ] TODO(TEAM_007): Add vertical_view_movement config to niri-config
+- [ ] TODO(TEAM_007): Add vertical_view_movement config to niri-config (line 239)
 - [ ] TODO(TEAM_006): Add camera_x tracking for horizontal scroll
 
 ### Rendering
 - [x] TODO(TEAM_007): Add `render_elements` method — DONE
 - [x] TODO(TEAM_007): Add `update_render_elements` method — DONE
-- [ ] TODO(TEAM_007): Apply camera offset to render elements
+- [ ] TODO(TEAM_007): Apply camera offset to render elements (line 379)
 
 ---
 
