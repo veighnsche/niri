@@ -17,12 +17,14 @@ This avoids indirection and technical debt.
 ### Step 1.1: Row Module
 - [x] 1.1.1: Create `row/mod.rs` with `Row<W>` struct (clean slate, not wrapper)
 - [x] 1.1.3: Add row-specific fields (`row_index`, `y_offset`)
-- [x] Basic queries: `is_empty`, `columns`, `active_column_idx`, etc.
+- [x] Basic queries: `is_empty`, `columns`, `active_column_idx`, `contains`, `find_column`
 - [x] Basic navigation: `focus_left`, `focus_right`, `focus_column`
 - [x] Animation: `advance_animations`, `are_animations_ongoing`
 - [x] Tile queries: `tiles_with_render_positions`
-- [ ] TODO: Window operations (add_window, remove_window)
-- [ ] TODO: Column operations (consume, expel, resize)
+- [x] Column operations: `add_tile`, `add_column`, `remove_column`
+- [x] Column movement: `move_left`, `move_right`, `move_column_to`
+- [ ] TODO: Column movement animations
+- [ ] TODO: Consume/expel operations
 - [ ] TODO: Gesture handling
 - [ ] TODO: Full view offset animation logic
 - [ ] TODO: Rendering
@@ -33,8 +35,8 @@ This avoids indirection and technical debt.
 - [x] Basic navigation: `focus_up`, `focus_down`, `focus_left`, `focus_right`
 - [x] Row management: `ensure_row`, `cleanup_empty_rows`
 - [x] Animation: `advance_animations`, `are_animations_ongoing`
-- [ ] TODO: FloatingSpace integration (after Row is more complete)
-- [ ] TODO: Window operations
+- [x] Window operations: `add_tile`, `add_tile_to_row`, `contains`, `find_window`
+- [ ] TODO: FloatingSpace integration
 - [ ] TODO: Rendering
 
 ### Step 1.3: Vertical Navigation

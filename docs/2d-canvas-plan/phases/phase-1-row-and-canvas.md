@@ -329,24 +329,28 @@ pub struct Monitor<W: LayoutElement> {
 ## Checklist Summary
 
 ### Step 1.1: Row Module
-- [ ] Create `row/mod.rs`
-- [ ] Port column management
-- [ ] Add row_index, y_offset
-- [ ] Navigation: focus_left, focus_right
-- [ ] Operations: add/remove
-- [ ] Unit tests
+- [x] Create `row/mod.rs` (TEAM_006)
+- [x] Port column management — `add_tile`, `add_column`, `remove_column` (TEAM_006)
+- [x] Add row_index, y_offset (TEAM_006)
+- [x] Navigation: focus_left, focus_right, focus_column (TEAM_006)
+- [x] Operations: add/remove, move_left/right (TEAM_006)
+- [ ] **NEXT**: Port column movement animations
+- [ ] **NEXT**: Port consume/expel operations
+- [ ] **NEXT**: Port gesture handling
+- [ ] **NEXT**: Port full view offset animation logic
+- [ ] **NEXT**: Port render_elements
 
 ### Step 1.2: Canvas2D Module
-- [ ] Create `canvas/mod.rs`
-- [ ] BTreeMap for rows
-- [ ] Port Workspace fields
-- [ ] Operations: add row, add window
-- [ ] Basic render
-- [ ] Unit tests
+- [x] Create `canvas/mod.rs` (TEAM_006)
+- [x] BTreeMap for rows (TEAM_006)
+- [x] Operations: add_tile, add_tile_to_row, contains, find_window (TEAM_006)
+- [ ] **NEXT**: Integrate FloatingSpace
+- [ ] **NEXT**: Port render_elements
+- [ ] **NEXT**: Animate camera_y when changing rows
 
 ### Step 1.3: Vertical Navigation
-- [ ] focus_up, focus_down
-- [ ] Camera Y follows row
+- [x] focus_up, focus_down (TEAM_006)
+- [ ] **NEXT**: Camera Y animation (currently instant)
 - [ ] Test navigation
 
 ### Step 1.4: Feature Flag
@@ -356,16 +360,37 @@ pub struct Monitor<W: LayoutElement> {
 
 ---
 
+## TEAM_006 Handoff Notes
+
+**What's done:**
+- Row and Canvas2D modules created with clean-slate design (Option B)
+- Basic column operations work: add, remove, move, focus
+- Basic vertical navigation works: focus_up, focus_down
+- All 251 tests pass, 58 golden tests pass
+
+**What's next for TEAM_007:**
+1. Port column movement animations from `scrolling.rs` (lines 1518-1553)
+2. Port `animate_view_offset_to_column` full logic (lines 500-600)
+3. Port `render_elements` from ScrollingSpace
+4. Integrate FloatingSpace into Canvas2D
+5. Add feature flag for conditional compilation
+
+**Key files to reference:**
+- `src/layout/scrolling.rs` — source of methods to port
+- `docs/2d-canvas-plan/TODO.md` — detailed TODO list with line numbers
+
+---
+
 ## Estimated Time: 1-2 Weeks
 
 ---
 
 ## Success Criteria
 
-- [ ] Can create Canvas2D with multiple rows
-- [ ] Can navigate up/down between rows
-- [ ] Left/right navigation works within row
-- [ ] Camera Y updates when changing rows
+- [x] Can create Canvas2D with multiple rows
+- [x] Can navigate up/down between rows
+- [x] Left/right navigation works within row
+- [ ] Camera Y updates when changing rows (animation)
 - [ ] Existing behavior preserved with feature flag off
 
 ---

@@ -9,16 +9,12 @@
 
 Row is a partial implementation. These methods need to be ported from `scrolling.rs`:
 
-### Window Operations
-- [ ] TODO(TEAM_006): Port `add_window` from ScrollingSpace
-- [ ] TODO(TEAM_006): Port `remove_window` from ScrollingSpace
-- [ ] TODO(TEAM_006): Port `add_tile` from ScrollingSpace
-
-### Column Operations
+### Column Operations (DONE)
+- [x] `add_tile`, `add_column`, `remove_column` — basic versions done
+- [x] `move_left`, `move_right`, `move_column_to` — basic versions done
+- [ ] TODO(TEAM_006): Animate column movement during add/remove/move
 - [ ] TODO(TEAM_006): Port `consume_or_expel_window_left` from ScrollingSpace
 - [ ] TODO(TEAM_006): Port `consume_or_expel_window_right` from ScrollingSpace
-- [ ] TODO(TEAM_006): Port `move_column_left` from ScrollingSpace
-- [ ] TODO(TEAM_006): Port `move_column_right` from ScrollingSpace
 
 ### View Offset / Animation
 - [ ] TODO(TEAM_006): Port full `animate_view_offset_to_column` logic (current is stub)
@@ -40,13 +36,13 @@ Row is a partial implementation. These methods need to be ported from `scrolling
 
 Canvas2D depends on Row completion. Additional work needed:
 
+### Window Operations (DONE)
+- [x] `add_tile`, `add_tile_to_row` — done
+- [x] `contains`, `find_window` — done
+
 ### Floating Layer
 - [ ] TODO(TEAM_006): Integrate FloatingSpace (after Row is complete)
 - [ ] TODO(TEAM_006): Add `toggle_floating` method
-
-### Window Operations
-- [ ] TODO(TEAM_006): Add `add_window` that routes to correct row
-- [ ] TODO(TEAM_006): Add `remove_window` that finds window across rows
 
 ### Camera
 - [ ] TODO(TEAM_006): Animate camera_y when changing rows (current is instant)
