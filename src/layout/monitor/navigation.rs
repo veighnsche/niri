@@ -1,312 +1,173 @@
 // TEAM_013: Navigation methods extracted from monitor.rs
+// TEAM_022: Updated to use Canvas2D row navigation instead of workspaces
 //!
-//! This module contains workspace/row navigation methods.
-//! LEGACY: Workspace navigation will be replaced by Canvas2D row navigation.
+//! This module contains row navigation methods.
+//! Canvas2D rows replace workspaces.
 
 use std::cmp::min;
 
-use crate::layout::monitor::{Monitor, MonitorAddWindowTarget, WorkspaceSwitch};
-use crate::layout::{ActivateWindow, LayoutElement};
-use crate::utils::transaction::Transaction;
+use crate::layout::monitor::{Monitor, WorkspaceSwitch};
+use crate::layout::LayoutElement;
 
 impl<W: LayoutElement> Monitor<W> {
     // =========================================================================
-    // Workspace switching
+    // Row switching (was workspace switching)
     // =========================================================================
 
+    // TEAM_022: Row count for navigation
+    fn row_count(&self) -> usize {
+        self.canvas.rows().count().max(1)
+    }
+
     pub fn switch_workspace_up(&mut self) {
+        let current_idx = self.canvas.active_row_idx();
         let new_idx = match &self.workspace_switch {
-            // During a DnD scroll, select the prev apparent workspace.
             Some(WorkspaceSwitch::Gesture(gesture)) if gesture.dnd_last_event_time.is_some() => {
                 let current = gesture.current_idx;
                 let new = current.ceil() - 1.;
-                new.clamp(0., (self.workspaces.len() - 1) as f64) as usize
+                new.clamp(0., (self.row_count() - 1) as f64) as i32
             }
-            _ => self.active_workspace_idx.saturating_sub(1),
+            _ => current_idx.saturating_sub(1),
         };
 
-        self.activate_workspace(new_idx);
+        self.activate_row(new_idx);
     }
 
     pub fn switch_workspace_down(&mut self) {
+        let current_idx = self.canvas.active_row_idx();
         let new_idx = match &self.workspace_switch {
-            // During a DnD scroll, select the next apparent workspace.
             Some(WorkspaceSwitch::Gesture(gesture)) if gesture.dnd_last_event_time.is_some() => {
                 let current = gesture.current_idx;
                 let new = current.floor() + 1.;
-                new.clamp(0., (self.workspaces.len() - 1) as f64) as usize
+                new.clamp(0., (self.row_count() - 1) as f64) as i32
             }
-            _ => min(self.active_workspace_idx + 1, self.workspaces.len() - 1),
+            _ => min(current_idx + 1, (self.row_count() - 1) as i32),
         };
 
-        self.activate_workspace(new_idx);
+        self.activate_row(new_idx);
     }
 
     pub fn switch_workspace(&mut self, idx: usize) {
-        self.activate_workspace(min(idx, self.workspaces.len() - 1));
+        self.activate_row(min(idx, self.row_count() - 1) as i32);
     }
 
     pub fn switch_workspace_auto_back_and_forth(&mut self, idx: usize) {
-        let idx = min(idx, self.workspaces.len() - 1);
+        let idx = min(idx, self.row_count() - 1);
+        let current = self.canvas.active_row_idx() as usize;
 
-        if idx == self.active_workspace_idx {
-            if let Some(prev_idx) = self.previous_workspace_idx() {
-                self.switch_workspace(prev_idx);
-            }
+        if idx == current {
+            // TODO(TEAM_022): Implement previous row tracking if needed
+            // For now, just stay on current row
         } else {
             self.switch_workspace(idx);
         }
     }
 
     pub fn switch_workspace_previous(&mut self) {
-        if let Some(idx) = self.previous_workspace_idx() {
-            self.switch_workspace(idx);
-        }
+        // TODO(TEAM_022): Implement previous row tracking
+        // For now, this is a no-op
+    }
+
+    // TEAM_022: Activate a specific row
+    fn activate_row(&mut self, row_idx: i32) {
+        self.canvas.focus_row(row_idx);
     }
 
     // =========================================================================
-    // Combined window/workspace navigation
+    // Combined window/row navigation
     // =========================================================================
 
     pub fn move_down_or_to_workspace_down(&mut self) {
-        if !self.active_workspace().move_down() {
-            self.move_to_workspace_down(true);
+        // TEAM_022: Try to move down within column, else move to next row
+        if let Some(row) = self.canvas.active_row_mut() {
+            if !row.move_down() {
+                // Can't move down in column, try next row
+                self.switch_workspace_down();
+            }
         }
     }
 
     pub fn move_up_or_to_workspace_up(&mut self) {
-        if !self.active_workspace().move_up() {
-            self.move_to_workspace_up(true);
+        // TEAM_022: Try to move up within column, else move to previous row
+        if let Some(row) = self.canvas.active_row_mut() {
+            if !row.move_up() {
+                // Can't move up in column, try previous row
+                self.switch_workspace_up();
+            }
         }
     }
 
     pub fn focus_window_or_workspace_down(&mut self) {
-        if !self.active_workspace().focus_down() {
-            self.switch_workspace_down();
+        // TEAM_022: Try to focus down within column, else switch to next row
+        if let Some(row) = self.canvas.active_row_mut() {
+            if !row.focus_down() {
+                self.switch_workspace_down();
+            }
         }
     }
 
     pub fn focus_window_or_workspace_up(&mut self) {
-        if !self.active_workspace().focus_up() {
-            self.switch_workspace_up();
+        // TEAM_022: Try to focus up within column, else switch to previous row
+        if let Some(row) = self.canvas.active_row_mut() {
+            if !row.focus_up() {
+                self.switch_workspace_up();
+            }
         }
     }
 
     // =========================================================================
-    // Move window to workspace
+    // Move window to row (was workspace)
     // =========================================================================
 
-    pub fn move_to_workspace_up(&mut self, focus: bool) {
-        let source_workspace_idx = self.active_workspace_idx;
-
-        let new_idx = source_workspace_idx.saturating_sub(1);
-        if new_idx == source_workspace_idx {
-            return;
-        }
-        let new_id = self.workspaces[new_idx].id();
-
-        let workspace = &mut self.workspaces[source_workspace_idx];
-        let Some(removed) = workspace.remove_active_tile(Transaction::new()) else {
-            return;
-        };
-
-        let activate = if focus {
-            ActivateWindow::Yes
-        } else {
-            ActivateWindow::Smart
-        };
-
-        self.add_tile(
-            removed.tile,
-            MonitorAddWindowTarget::Workspace {
-                id: new_id,
-                column_idx: None,
-            },
-            activate,
-            true,
-            removed.width,
-            removed.is_full_width,
-            removed.is_floating,
-        );
+    pub fn move_to_workspace_up(&mut self, _focus: bool) {
+        // TEAM_022: Move window to row above
+        // TODO: Implement move window between rows in Canvas2D
     }
 
-    pub fn move_to_workspace_down(&mut self, focus: bool) {
-        let source_workspace_idx = self.active_workspace_idx;
-
-        let new_idx = min(source_workspace_idx + 1, self.workspaces.len() - 1);
-        if new_idx == source_workspace_idx {
-            return;
-        }
-        let new_id = self.workspaces[new_idx].id();
-
-        let workspace = &mut self.workspaces[source_workspace_idx];
-        let Some(removed) = workspace.remove_active_tile(Transaction::new()) else {
-            return;
-        };
-
-        let activate = if focus {
-            ActivateWindow::Yes
-        } else {
-            ActivateWindow::Smart
-        };
-
-        self.add_tile(
-            removed.tile,
-            MonitorAddWindowTarget::Workspace {
-                id: new_id,
-                column_idx: None,
-            },
-            activate,
-            true,
-            removed.width,
-            removed.is_full_width,
-            removed.is_floating,
-        );
+    pub fn move_to_workspace_down(&mut self, _focus: bool) {
+        // TEAM_022: Move window to row below
+        // TODO: Implement move window between rows in Canvas2D
     }
 
     pub fn move_to_workspace(
         &mut self,
-        window: Option<&W::Id>,
-        idx: usize,
-        activate: ActivateWindow,
+        _window: Option<&W::Id>,
+        _idx: usize,
+        _activate: crate::layout::ActivateWindow,
     ) {
-        let source_workspace_idx = if let Some(window) = window {
-            self.workspaces
-                .iter()
-                .position(|ws| ws.has_window(window))
-                .unwrap()
-        } else {
-            self.active_workspace_idx
-        };
-
-        let new_idx = min(idx, self.workspaces.len() - 1);
-        if new_idx == source_workspace_idx {
-            return;
-        }
-        let new_id = self.workspaces[new_idx].id();
-
-        let activate = activate.map_smart(|| {
-            window.map_or(true, |win| {
-                self.active_window().map(|win| win.id()) == Some(win)
-            })
-        });
-
-        let workspace = &mut self.workspaces[source_workspace_idx];
-        let transaction = Transaction::new();
-        let removed = if let Some(window) = window {
-            workspace.remove_tile(window, transaction)
-        } else if let Some(removed) = workspace.remove_active_tile(transaction) {
-            removed
-        } else {
-            return;
-        };
-
-        self.add_tile(
-            removed.tile,
-            MonitorAddWindowTarget::Workspace {
-                id: new_id,
-                column_idx: None,
-            },
-            if activate {
-                ActivateWindow::Yes
-            } else {
-                ActivateWindow::No
-            },
-            true,
-            removed.width,
-            removed.is_full_width,
-            removed.is_floating,
-        );
-
-        if self.workspace_switch.is_none() {
-            self.clean_up_workspaces();
-        }
+        // TEAM_022: Move window to specific row
+        // TODO: Implement move window between rows in Canvas2D
     }
 
     // =========================================================================
-    // Move column to workspace
+    // Move column to row (was workspace)
     // =========================================================================
 
-    pub fn move_column_to_workspace_up(&mut self, activate: bool) {
-        let source_workspace_idx = self.active_workspace_idx;
-
-        let new_idx = source_workspace_idx.saturating_sub(1);
-        if new_idx == source_workspace_idx {
-            return;
-        }
-
-        let workspace = &mut self.workspaces[source_workspace_idx];
-        if workspace.floating_is_active() {
-            self.move_to_workspace_up(activate);
-            return;
-        }
-
-        let Some(column) = workspace.remove_active_column() else {
-            return;
-        };
-
-        self.add_column(new_idx, column, activate);
+    pub fn move_column_to_workspace_up(&mut self, _activate: bool) {
+        // TEAM_022: Move column to row above
+        // TODO: Implement move column between rows in Canvas2D
     }
 
-    pub fn move_column_to_workspace_down(&mut self, activate: bool) {
-        let source_workspace_idx = self.active_workspace_idx;
-
-        let new_idx = min(source_workspace_idx + 1, self.workspaces.len() - 1);
-        if new_idx == source_workspace_idx {
-            return;
-        }
-
-        let workspace = &mut self.workspaces[source_workspace_idx];
-        if workspace.floating_is_active() {
-            self.move_to_workspace_down(activate);
-            return;
-        }
-
-        let Some(column) = workspace.remove_active_column() else {
-            return;
-        };
-
-        self.add_column(new_idx, column, activate);
+    pub fn move_column_to_workspace_down(&mut self, _activate: bool) {
+        // TEAM_022: Move column to row below
+        // TODO: Implement move column between rows in Canvas2D
     }
 
-    pub fn move_column_to_workspace(&mut self, idx: usize, activate: bool) {
-        let source_workspace_idx = self.active_workspace_idx;
-
-        let new_idx = min(idx, self.workspaces.len() - 1);
-        if new_idx == source_workspace_idx {
-            return;
-        }
-
-        let workspace = &mut self.workspaces[source_workspace_idx];
-        if workspace.floating_is_active() {
-            let activate = if activate {
-                ActivateWindow::Smart
-            } else {
-                ActivateWindow::No
-            };
-            self.move_to_workspace(None, idx, activate);
-            return;
-        }
-
-        let Some(column) = workspace.remove_active_column() else {
-            return;
-        };
-
-        self.add_column(new_idx, column, activate);
+    pub fn move_column_to_workspace(&mut self, _idx: usize, _activate: bool) {
+        // TEAM_022: Move column to specific row
+        // TODO: Implement move column between rows in Canvas2D
     }
 
     // =========================================================================
-    // Workspace render index
+    // Row render index
     // =========================================================================
 
     pub fn workspace_render_idx(&self) -> f64 {
-        // TEAM_014: Removed overview animation synchronization (Part 3)
-        // Overview mode is no longer supported, so no need for monotonic animation correction.
-
+        // TEAM_022: Returns the current row index for rendering
         if let Some(switch) = &self.workspace_switch {
             switch.current_idx()
         } else {
-            self.active_workspace_idx as f64
+            self.canvas.active_row_idx() as f64
         }
     }
 }

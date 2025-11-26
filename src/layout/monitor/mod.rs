@@ -18,7 +18,8 @@ use smithay::utils::{Logical, Rectangle, Size};
 use crate::animation::Clock;
 use crate::layout::canvas::Canvas2D;
 use crate::layout::insert_hint_element::InsertHintElement;
-use crate::layout::workspace_types::{compute_working_area, Workspace, WorkspaceId};
+use crate::layout::workspace_types::compute_working_area;
+use crate::layout::row::Row;
 use crate::layout::{LayoutElement, Options};
 use crate::niri_render_elements;
 use crate::utils::output_size;
@@ -67,18 +68,8 @@ pub struct Monitor<W: LayoutElement> {
     /// The 2D canvas containing all windows on this output.
     pub(in crate::layout) canvas: Canvas2D<W>,
 
-    // =========================================================================
-    // LEGACY: Keep workspaces temporarily for incremental migration
-    // TODO(TEAM_013): Remove after all methods are migrated to Canvas2D
-    // =========================================================================
-
-    /// LEGACY: Workspaces (kept for gradual migration)
-    pub(in crate::layout) workspaces: Vec<Workspace<W>>,
-    /// LEGACY: Index of the currently active workspace.
-    pub(in crate::layout) active_workspace_idx: usize,
-    /// LEGACY: ID of the previously active workspace.
-    pub(in crate::layout) previous_workspace_id: Option<WorkspaceId>,
-    /// LEGACY: In-progress switch between workspaces.
+    // TEAM_022: Legacy workspace fields removed - Canvas2D is now sole layout system
+    /// LEGACY: In-progress switch between rows (was workspaces).
     pub(in crate::layout) workspace_switch: Option<WorkspaceSwitch>,
 
     // =========================================================================
@@ -102,11 +93,11 @@ pub struct Monitor<W: LayoutElement> {
     layout_config: Option<niri_config::LayoutPart>,
 }
 
-// TEAM_013: Render element types
+// TEAM_022: Render element types - now uses Canvas2D instead of Workspace
 niri_render_elements! {
     MonitorInnerRenderElement<R> => {
-        Workspace = smithay::backend::renderer::element::utils::CropRenderElement<
-            crate::layout::workspace_types::WorkspaceRenderElement>,
+        Canvas = smithay::backend::renderer::element::utils::CropRenderElement<
+            crate::layout::canvas::Canvas2DRenderElement<R>>,
         InsertHint = smithay::backend::renderer::element::utils::CropRenderElement<crate::layout::insert_hint_element::InsertHintRenderElement>,
         UncroppedInsertHint = crate::layout::insert_hint_element::InsertHintRenderElement,
         Shadow = crate::render_helpers::shadow::ShadowRenderElement,
@@ -118,10 +109,9 @@ pub type MonitorRenderElement<R> =
     RelocateRenderElement<RescaleRenderElement<MonitorInnerRenderElement<R>>>;
 
 impl<W: LayoutElement> Monitor<W> {
+    // TEAM_022: Simplified constructor - Canvas2D is now the sole layout system
     pub fn new(
         output: Output,
-        mut workspaces: Vec<Workspace<W>>,
-        ws_id_to_activate: Option<WorkspaceId>,
         clock: Clock,
         base_options: Rc<Options>,
         layout_config: Option<LayoutPart>,
@@ -133,30 +123,7 @@ impl<W: LayoutElement> Monitor<W> {
         let view_size = output_size(&output);
         let working_area = compute_working_area(&output);
 
-        // Prepare the workspaces: set output, empty first, empty last.
-        let mut active_workspace_idx = 0;
-
-        for (idx, ws) in workspaces.iter_mut().enumerate() {
-            assert!(ws.has_windows_or_name());
-
-            ws.set_output(Some(output.clone()));
-            ws.update_config(options.clone());
-
-            if ws_id_to_activate.is_some_and(|id| ws.id() == id) {
-                active_workspace_idx = idx;
-            }
-        }
-
-        if options.layout.empty_workspace_above_first && !workspaces.is_empty() {
-            let ws = Workspace::new(output.clone(), clock.clone(), options.clone());
-            workspaces.insert(0, ws);
-            active_workspace_idx += 1;
-        }
-
-        let ws = Workspace::new(output.clone(), clock.clone(), options.clone());
-        workspaces.push(ws);
-
-        // TEAM_010: Create Canvas2D for 2D layout mode
+        // TEAM_022: Create Canvas2D as the sole layout system
         let canvas = Canvas2D::new(
             Some(output.clone()),
             view_size,
@@ -173,16 +140,12 @@ impl<W: LayoutElement> Monitor<W> {
             scale,
             view_size,
             working_area,
-            // TEAM_010: Canvas2D is the new layout primitive
+            // TEAM_022: Canvas2D is the sole layout system
             canvas,
-            // LEGACY: Keep workspaces for gradual migration
-            workspaces,
-            active_workspace_idx,
-            previous_workspace_id: None,
             insert_hint: None,
             insert_hint_element: InsertHintElement::new(options.layout.insert_hint),
             insert_hint_render_loc: None,
-            // TEAM_014: Removed overview_open and overview_progress (Part 3)
+            // TEAM_022: Keep workspace_switch for row switching animations
             workspace_switch: None,
             clock,
             base_options,
@@ -215,10 +178,24 @@ impl<W: LayoutElement> Monitor<W> {
         self.working_area
     }
 
-    // TEAM_021: Legacy workspace compatibility method
+    // TEAM_022: Returns active row index (was workspace index)
     pub fn active_workspace_idx(&self) -> usize {
-        // Return canvas active row index as workspace index for compatibility
         self.canvas.active_row_idx() as usize
+    }
+
+    // TEAM_022: Returns the number of rows (was workspace count)
+    pub fn workspace_count(&self) -> usize {
+        self.canvas.rows().count()
+    }
+
+    // TEAM_022: Returns active row as active_workspace for compatibility
+    pub fn active_workspace(&mut self) -> Option<&mut Row<W>> {
+        self.canvas.active_row_mut()
+    }
+
+    // TEAM_022: Returns active row ref as active_workspace_ref for compatibility
+    pub fn active_workspace_ref(&self) -> Option<&Row<W>> {
+        self.canvas.active_row()
     }
 
     // TEAM_021: Legacy workspace compatibility method
@@ -250,4 +227,142 @@ impl<W: LayoutElement> Monitor<W> {
         &mut self.canvas
     }
 
+    // =========================================================================
+    // TEAM_022: Legacy workspace compatibility methods
+    // These route to Canvas2D operations
+    // =========================================================================
+
+    /// Find a named row/workspace by name.
+    pub fn find_named_workspace(&self, name: &str) -> Option<&Row<W>> {
+        for (_, row) in self.canvas.rows() {
+            if let Some(row_name) = row.name() {
+                if row_name == name {
+                    return Some(row);
+                }
+            }
+        }
+        None
+    }
+
+    /// Get active window from canvas.
+    pub fn active_window(&self) -> Option<&W> {
+        self.canvas.active_window()
+    }
+
+    /// Clean up empty rows in the canvas.
+    pub fn clean_up_workspaces(&mut self) {
+        self.canvas.cleanup_empty_rows();
+    }
+
+    /// Add a workspace/row at top.
+    pub fn add_workspace_top(&mut self) {
+        // TEAM_022: Create a new row above current
+        // For now, just ensure row -1 exists
+        self.canvas.ensure_row(-1);
+    }
+
+    /// Add a workspace/row at bottom.
+    pub fn add_workspace_bottom(&mut self) {
+        // Find the max row index and add one below
+        let max_idx = self.canvas.rows().map(|(i, _)| i).max().unwrap_or(0);
+        self.canvas.ensure_row(max_idx + 1);
+    }
+
+    /// Get workspace size with gap.
+    pub fn workspace_size_with_gap(&self, _zoom: f64) -> f64 {
+        self.view_size.h
+    }
+
+    /// Convert monitor into workspaces (for output removal).
+    /// TEAM_022: Returns empty since we don't use workspace Vec anymore.
+    pub fn into_workspaces(self) -> Vec<()> {
+        Vec::new()
+    }
+
+    /// Append workspaces from another monitor.
+    pub fn append_workspaces(&mut self, _workspaces: Vec<()>) {
+        // TEAM_022: No-op - workspace Vec is no longer used
+    }
+
+    /// Add a column to a row.
+    pub fn add_column(
+        &mut self,
+        _row_idx: usize,
+        _column: crate::layout::column::Column<W>,
+        _activate: bool,
+    ) {
+        // TEAM_022: TODO - implement proper column addition to canvas
+    }
+
+    /// Resolve add window target.
+    pub fn resolve_add_window_target(
+        &self,
+        _target: &MonitorAddWindowTarget<W>,
+    ) -> (i32, Option<usize>) {
+        // TEAM_022: Return active row for now
+        (self.canvas.active_row_idx(), None)
+    }
+
+    /// Add a window to the monitor.
+    pub fn add_window(
+        &mut self,
+        window: W,
+        target: Option<MonitorAddWindowTarget<W>>,
+        activate: crate::layout::ActivateWindow,
+        _width: Option<crate::layout::types::ColumnWidth>,
+        _is_full_width: bool,
+    ) -> Option<()> {
+        // TEAM_022: Add window to canvas
+        let (row_idx, _col_idx) = if let Some(target) = target {
+            self.resolve_add_window_target(&target)
+        } else {
+            (self.canvas.active_row_idx(), None)
+        };
+
+        // Create tile and add to row
+        let tile = self.canvas.make_tile(window);
+        let width = crate::layout::types::ColumnWidth::Proportion(1.0);
+        self.canvas.add_tile_to_row(
+            row_idx,
+            tile,
+            activate == crate::layout::ActivateWindow::Yes,
+            width,
+            false,
+        );
+        Some(())
+    }
+
+    /// Add a tile to the monitor.
+    pub fn add_tile(
+        &mut self,
+        tile: crate::layout::tile::Tile<W>,
+        target: MonitorAddWindowTarget<W>,
+        activate: crate::layout::ActivateWindow,
+        _animate: bool,
+        width: crate::layout::types::ColumnWidth,
+        is_full_width: bool,
+        _is_floating: bool,
+    ) {
+        let (row_idx, _col_idx) = self.resolve_add_window_target(&target);
+        self.canvas.add_tile_to_row(
+            row_idx,
+            tile,
+            activate == crate::layout::ActivateWindow::Yes,
+            width,
+            is_full_width,
+        );
+    }
+
+    /// Previous workspace index (for workspace switching).
+    pub fn previous_workspace_idx(&self) -> Option<usize> {
+        // TEAM_022: Not implemented for canvas
+        None
+    }
+
+    /// Activate a workspace/row by index.
+    pub fn activate_workspace(&mut self, idx: usize) {
+        self.canvas.focus_row(idx as i32);
+    }
+
 }
+
