@@ -73,7 +73,7 @@ use smithay::{
 };
 
 pub use crate::handlers::xdg_shell::KdeDecorationsModeState;
-use crate::layout::workspace::WorkspaceId;
+use crate::layout::workspace_types::WorkspaceId;
 use crate::layout::ActivateWindow;
 use crate::niri::{DndIcon, NewClient, State};
 use crate::protocols::ext_workspace::{self, ExtWorkspaceHandler, ExtWorkspaceManagerState};

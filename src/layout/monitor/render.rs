@@ -13,7 +13,7 @@ use smithay::utils::{Logical, Point, Rectangle, Size};
 use crate::layout::monitor::{
     InsertHintRenderLoc, InsertWorkspace, Monitor, MonitorInnerRenderElement, MonitorRenderElement,
 };
-use crate::layout::workspace::{Workspace, WorkspaceRenderElement};
+use crate::layout::workspace_types::{Workspace, WorkspaceRenderElement};
 use crate::layout::LayoutElement;
 use crate::render_helpers::renderer::NiriRenderer;
 use crate::render_helpers::RenderTarget;

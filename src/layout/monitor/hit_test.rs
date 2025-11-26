@@ -16,7 +16,7 @@ impl<W: LayoutElement> Monitor<W> {
     pub fn workspace_under(
         &self,
         pos_within_output: Point<f64, Logical>,
-    ) -> Option<(&crate::layout::workspace::Workspace<W>, Rectangle<f64, Logical>)> {
+    ) -> Option<(&crate::layout::workspace_types::Workspace<W>, Rectangle<f64, Logical>)> {
         let (ws, geo) = self.workspaces_with_render_geo().find_map(|(ws, geo)| {
             // Extend width to entire output.
             let loc = Point::from((0., geo.loc.y));
@@ -31,7 +31,7 @@ impl<W: LayoutElement> Monitor<W> {
     pub fn workspace_under_narrow(
         &self,
         pos_within_output: Point<f64, Logical>,
-    ) -> Option<&crate::layout::workspace::Workspace<W>> {
+    ) -> Option<&crate::layout::workspace_types::Workspace<W>> {
         self.workspaces_with_render_geo()
             .find_map(|(ws, geo)| geo.contains(pos_within_output).then_some(ws))
     }

@@ -9,7 +9,7 @@ use accesskit_unix::Adapter;
 use calloop::LoopHandle;
 use niri_config::MruScope;
 
-use crate::layout::workspace::WorkspaceId;
+use crate::layout::workspace_types::WorkspaceId;
 use crate::niri::{KeyboardFocus, Niri, State};
 use crate::utils::with_toplevel_role;
 use crate::window::mapped::MappedId;

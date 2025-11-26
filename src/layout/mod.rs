@@ -51,11 +51,11 @@ use smithay::output::{self, Output};
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point, Rectangle, Scale, Serial, Size, Transform};
 use tile::{Tile, TileRenderElement};
-use workspace::{WorkspaceAddWindowTarget, WorkspaceId};
+// TEAM_021: Use minimal workspace types after Canvas2D migration
+use workspace_types::{WorkspaceAddWindowTarget, WorkspaceId, OutputId, compute_working_area, Workspace};
 
 pub use self::monitor::MonitorRenderElement;
 use self::monitor::{Monitor, WorkspaceSwitch};
-use self::workspace::{OutputId, Workspace};
 // DEPRECATED(overview): Removed Animation and SwipeTracker imports (no longer needed)
 use crate::animation::Clock;
 // TEAM_003: ScrollDirection now imported from types module above
@@ -94,7 +94,8 @@ pub mod animated_value;
 pub mod row;
 // TEAM_006: Canvas2D module for 2D tiling layout
 pub mod canvas;
-pub mod workspace;
+pub mod workspace_types;  // TEAM_021: Minimal workspace types for external compatibility
+// DEPRECATED: workspace module removed - functionality migrated to Canvas2D
 
 // TEAM_004: Golden snapshot infrastructure
 // TEAM_010: Extended with animation timeline snapshots

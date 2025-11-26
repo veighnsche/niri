@@ -140,7 +140,7 @@ use crate::ipc::server::IpcServer;
 use crate::layer::mapped::LayerSurfaceRenderElement;
 use crate::layer::MappedLayer;
 use crate::layout::tile::TileRenderElement;
-use crate::layout::workspace::{Workspace, WorkspaceId};
+use crate::layout::workspace_types::{Workspace, WorkspaceId};
 use crate::layout::{HitType, Layout, LayoutElement as _, MonitorRenderElement};
 use crate::niri_render_elements;
 use crate::protocols::ext_workspace::{self, ExtWorkspaceManagerState};

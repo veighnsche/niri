@@ -5,7 +5,7 @@
 use std::rc::Rc;
 
 use crate::layout::monitor::Monitor;
-use crate::layout::workspace::compute_working_area;
+use crate::layout::workspace_types::compute_working_area;
 use crate::layout::{LayoutElement, Options};
 use crate::utils::output_size;
 

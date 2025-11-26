@@ -29,7 +29,7 @@ use smithay::reexports::wayland_server::{
 use wayland_backend::server::ClientId;
 
 use crate::layout::monitor::Monitor;
-use crate::layout::workspace::{Workspace, WorkspaceId};
+use crate::layout::workspace_types::{Workspace, WorkspaceId};
 use crate::niri::State;
 use crate::window::Mapped;
 

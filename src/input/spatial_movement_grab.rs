@@ -10,7 +10,7 @@ use smithay::input::SeatHandler;
 use smithay::output::Output;
 use smithay::utils::{Logical, Point};
 
-use crate::layout::workspace::WorkspaceId;
+use crate::layout::workspace_types::WorkspaceId;
 use crate::niri::State;
 
 pub struct SpatialMovementGrab {

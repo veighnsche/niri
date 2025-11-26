@@ -18,15 +18,14 @@ use smithay::utils::{Logical, Rectangle, Size};
 use crate::animation::Clock;
 use crate::layout::canvas::Canvas2D;
 use crate::layout::insert_hint_element::InsertHintElement;
-use crate::layout::workspace::{compute_working_area, Workspace, WorkspaceId};
+use crate::layout::workspace_types::{compute_working_area, Workspace, WorkspaceId};
 use crate::layout::{LayoutElement, Options};
 use crate::niri_render_elements;
 use crate::utils::output_size;
 
 // TEAM_013: Submodules
 mod types;
-mod workspace_compat; // LEGACY: All workspace code here for easy deletion
-mod workspace_ops;    // LEGACY: Workspace operations
+// TEAM_021: Legacy workspace modules removed - functionality migrated to Canvas2D
 mod navigation;       // LEGACY: Workspace navigation
 mod render;           // LEGACY: Workspace rendering
 mod hit_test;         // LEGACY: Workspace hit testing
@@ -106,7 +105,8 @@ pub struct Monitor<W: LayoutElement> {
 // TEAM_013: Render element types
 niri_render_elements! {
     MonitorInnerRenderElement<R> => {
-        Workspace = smithay::backend::renderer::element::utils::CropRenderElement<crate::layout::workspace::WorkspaceRenderElement<R>>,
+        Workspace = smithay::backend::renderer::element::utils::CropRenderElement<
+            crate::layout::workspace_types::WorkspaceRenderElement>,
         InsertHint = smithay::backend::renderer::element::utils::CropRenderElement<crate::layout::insert_hint_element::InsertHintRenderElement>,
         UncroppedInsertHint = crate::layout::insert_hint_element::InsertHintRenderElement,
         Shadow = crate::render_helpers::shadow::ShadowRenderElement,
@@ -213,6 +213,23 @@ impl<W: LayoutElement> Monitor<W> {
 
     pub fn working_area(&self) -> Rectangle<f64, Logical> {
         self.working_area
+    }
+
+    // TEAM_021: Legacy workspace compatibility method
+    pub fn active_workspace_idx(&self) -> usize {
+        // Return canvas active row index as workspace index for compatibility
+        self.canvas.active_row_idx() as usize
+    }
+
+    // TEAM_021: Legacy workspace compatibility method
+    pub fn are_transitions_ongoing(&self) -> bool {
+        // Check canvas for ongoing transitions
+        self.canvas.are_transitions_ongoing()
+    }
+
+    // TEAM_021: Legacy workspace compatibility method
+    pub fn move_workspace_to_idx(&mut self, _old_idx: usize, _new_idx: usize) {
+        // Empty stub - workspace movement is now handled by canvas
     }
 
     pub fn layout_config(&self) -> Option<&niri_config::LayoutPart> {

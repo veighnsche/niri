@@ -9,7 +9,7 @@ use smithay::utils::{Logical, Point};
 
 use crate::animation::Animation;
 use crate::input::swipe_tracker::SwipeTracker;
-use crate::layout::workspace::WorkspaceId;
+use crate::layout::workspace_types::WorkspaceId;
 use crate::layout::LayoutElement;
 
 // TEAM_013: Re-export InsertPosition from types module

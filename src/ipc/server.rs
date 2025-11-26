@@ -32,7 +32,7 @@ use smithay::wayland::shell::wlr_layer::{KeyboardInteractivity, Layer};
 
 use crate::backend::IpcOutputMap;
 use crate::input::pick_window_grab::PickWindowGrab;
-use crate::layout::workspace::WorkspaceId;
+use crate::layout::workspace_types::WorkspaceId;
 use crate::niri::State;
 use crate::utils::{version, with_toplevel_role};
 use crate::window::Mapped;
