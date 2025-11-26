@@ -124,6 +124,6 @@ impl<W: LayoutElement> Monitor<W> {
     /// During animations, assumes the final view position.
     pub fn active_tile_visual_rectangle(&self) -> Option<Rectangle<f64, Logical>> {
         // DEPRECATED(overview): Removed overview_open check
-        self.active_workspace_ref().active_tile_visual_rectangle()
+        self.active_workspace_ref().and_then(|ws| ws.active_tile_visual_rectangle())
     }
 }

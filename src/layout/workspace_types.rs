@@ -25,6 +25,21 @@ impl WorkspaceId {
     pub fn specific(id: u64) -> Self {
         Self(id)
     }
+    
+    /// TEAM_024: Create a WorkspaceId from a row index
+    /// This maps row indices to workspace IDs for compatibility
+    pub fn from_row_index(row_index: i32) -> Self {
+        // Map row index to workspace ID
+        // Row 0 (origin) -> workspace ID 1
+        // Row 1 -> workspace ID 2, etc.
+        // Row -1 -> workspace ID 0, Row -2 -> workspace ID 99, etc.
+        if row_index >= 0 {
+            Self((row_index + 1) as u64)
+        } else {
+            // Negative rows map to high workspace IDs
+            Self(((-row_index) as u64).wrapping_mul(10))
+        }
+    }
 }
 
 /// Legacy output ID for external system compatibility

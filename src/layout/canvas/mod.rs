@@ -287,4 +287,11 @@ impl<W: LayoutElement> Canvas2D<W> {
             }
         }
     }
+
+    /// Remove a row by index.
+    /// TEAM_025: Stub implementation for compatibility
+    pub fn remove_row(&mut self, row_idx: i32) {
+        // TEAM_025: TODO - implement proper row removal with active row adjustment
+        self.rows.remove(&row_idx);
+    }
 }

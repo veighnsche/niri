@@ -20,17 +20,17 @@ impl<W: LayoutElement> Monitor<W> {
 
         if self.options.layout.empty_workspace_above_first
             != options.layout.empty_workspace_above_first
-            && self.workspaces.len() > 1
+            && self.canvas.rows().count() > 1
         {
             if options.layout.empty_workspace_above_first {
                 self.add_workspace_top();
-            } else if self.workspace_switch.is_none() && self.active_workspace_idx != 0 {
-                self.workspaces.remove(0);
-                self.active_workspace_idx = self.active_workspace_idx.saturating_sub(1);
+            } else if self.workspace_switch.is_none() && self.active_workspace_idx() != 0 {
+                // TODO: TEAM_024: Implement row removal in canvas
+                // self.canvas.remove_row(0);
             }
         }
 
-        for ws in &mut self.workspaces {
+        for (_, ws) in self.canvas.workspaces_mut() {
             ws.update_config(options.clone());
         }
 
@@ -53,7 +53,7 @@ impl<W: LayoutElement> Monitor<W> {
     }
 
     pub fn update_shaders(&mut self) {
-        for ws in &mut self.workspaces {
+        for (_, ws) in self.canvas.workspaces_mut() {
             ws.update_shaders();
         }
 
@@ -69,7 +69,7 @@ impl<W: LayoutElement> Monitor<W> {
         self.view_size = output_size(&self.output);
         self.working_area = compute_working_area(&self.output);
 
-        for ws in &mut self.workspaces {
+        for (_, ws) in self.canvas.workspaces_mut() {
             ws.update_output_size();
         }
     }

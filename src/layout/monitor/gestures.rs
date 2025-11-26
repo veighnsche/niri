@@ -80,7 +80,7 @@ impl<W: LayoutElement> Monitor<W> {
 
         let pos = gesture.tracker.pos() / total_height;
 
-        let (min, max) = gesture.min_max(self.workspaces.len());
+        let (min, max) = gesture.min_max(self.canvas.rows().count());
         let new_idx = gesture.start_idx + pos;
         let new_idx = rubber_band.clamp(min, max, new_idx);
 
@@ -126,7 +126,7 @@ impl<W: LayoutElement> Monitor<W> {
         let current_pos = gesture.tracker.pos() / total_height;
         let pos = gesture.tracker.projected_end_pos() / total_height;
 
-        let (min, max) = gesture.min_max(self.workspaces.len());
+        let (min, max) = gesture.min_max(self.canvas.rows().count());
         let new_idx = gesture.start_idx + pos;
 
         let new_idx = new_idx.clamp(min, max);
@@ -134,11 +134,13 @@ impl<W: LayoutElement> Monitor<W> {
 
         velocity *= rubber_band.clamp_derivative(min, max, gesture.start_idx + current_pos);
 
-        if self.active_workspace_idx != new_idx {
-            self.previous_workspace_id = Some(self.workspaces[self.active_workspace_idx].id());
+        if self.active_workspace_idx() != new_idx {
+            // TODO: TEAM_024: Get workspace ID from canvas row
+            // self.previous_workspace_id = Some(self.canvas.workspaces()[self.active_workspace_idx()].id());
         }
 
-        self.active_workspace_idx = new_idx;
+        // TODO: TEAM_024: Set active workspace index in canvas
+        // self.active_workspace_idx = new_idx;
         self.workspace_switch = Some(WorkspaceSwitch::Animation(Animation::new(
             self.clock.clone(),
             gesture.current_idx,
@@ -230,7 +232,7 @@ impl<W: LayoutElement> Monitor<W> {
         let pos = gesture.tracker.pos() / total_height;
         let unclamped = gesture.start_idx + pos;
 
-        let (min, max) = gesture.min_max(self.workspaces.len());
+        let (min, max) = gesture.min_max(self.canvas.workspaces().count());
         let clamped = unclamped.clamp(min, max);
 
         // Make sure that DnD scrolling too much outside the min/max does not "build up".

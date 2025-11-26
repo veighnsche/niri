@@ -653,7 +653,7 @@ impl State {
                     Workspace {
                         id,
                         idx: u8::try_from(ws_idx + 1).unwrap_or(u8::MAX),
-                        name: ws.name().cloned(),
+                        name: ws.name().map(|s| s.to_string()),
                         output: mon.map(|mon| mon.output_name().clone()),
                         is_urgent: ws.is_urgent(),
                         is_active: mon.is_some_and(|mon| mon.active_workspace_idx() == ws_idx),

@@ -143,4 +143,24 @@ impl<W: LayoutElement> Column<W> {
     pub fn tiles_with_animations(&self) -> impl Iterator<Item = (&super::tile::Tile<W>, usize)> {
         self.tiles.iter().enumerate().map(|(idx, tile)| (tile, idx))
     }
+
+    /// Get the display mode of this column.
+    pub fn display_mode(&self) -> ColumnDisplay {
+        self.display_mode
+    }
+
+    /// Get the index of the active tile.
+    pub fn active_tile_idx(&self) -> Option<usize> {
+        Some(self.active_tile_idx)
+    }
+
+    /// Get mutable reference to the active tile.
+    pub fn active_tile_mut(&mut self) -> Option<&mut Tile<W>> {
+        self.tiles.get_mut(self.active_tile_idx)
+    }
+
+    /// Get reference to the active tile.
+    pub fn active_tile(&self) -> Option<&Tile<W>> {
+        self.tiles.get(self.active_tile_idx)
+    }
 }

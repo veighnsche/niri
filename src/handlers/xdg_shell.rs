@@ -467,7 +467,7 @@ impl XdgShellHandler for State {
                     let mon = mon.map(|(mon, _)| mon);
 
                     let ws = mon
-                        .map(|mon| mon.active_workspace_ref())
+                        .and_then(|mon| mon.active_workspace_ref())
                         .or_else(|| self.niri.layout.active_workspace());
 
                     if let Some(ws) = ws {
@@ -566,7 +566,7 @@ impl XdgShellHandler for State {
                         .as_deref()
                         .and_then(|name| mon.map(|mon| mon.find_named_workspace(name)))
                         .unwrap_or_else(|| {
-                            mon.map(|mon| mon.active_workspace_ref())
+                            mon.and_then(|mon| mon.active_workspace_ref())
                                 .or_else(|| self.niri.layout.active_workspace())
                         });
 
@@ -683,7 +683,7 @@ impl XdgShellHandler for State {
                     let mon = mon.map(|(mon, _)| mon);
 
                     let ws = mon
-                        .map(|mon| mon.active_workspace_ref())
+                        .and_then(|mon| mon.active_workspace_ref())
                         .or_else(|| self.niri.layout.active_workspace());
 
                     if let Some(ws) = ws {
@@ -777,7 +777,7 @@ impl XdgShellHandler for State {
                         .as_deref()
                         .and_then(|name| mon.map(|mon| mon.find_named_workspace(name)))
                         .unwrap_or_else(|| {
-                            mon.map(|mon| mon.active_workspace_ref())
+                            mon.and_then(|mon| mon.active_workspace_ref())
                                 .or_else(|| self.niri.layout.active_workspace())
                         });
 
@@ -1116,7 +1116,7 @@ impl State {
             .as_deref()
             .and_then(|name| mon.map(|mon| mon.find_named_workspace(name)))
             .unwrap_or_else(|| {
-                mon.map(|mon| mon.active_workspace_ref())
+                mon.and_then(|mon| mon.active_workspace_ref())
                     .or_else(|| self.niri.layout.active_workspace())
             });
 

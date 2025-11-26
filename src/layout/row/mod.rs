@@ -41,8 +41,10 @@ pub use render::RowRenderElement;
 use std::rc::Rc;
 
 use niri_config::{Struts, Border};
+use niri_config::utils::MergeWith;
 use niri_ipc::ColumnDisplay;
 use smithay::utils::{Logical, Rectangle, Size};
+use smithay::output::Output;
 
 use super::animated_value::AnimatedValue;
 use super::closing_window::ClosingWindow;
@@ -209,6 +211,12 @@ impl<W: LayoutElement> Row<W> {
         self.name = name;
     }
 
+    /// Returns the workspace ID for this row.
+    /// TEAM_024: Added for workspace compatibility during Canvas2D migration
+    pub fn id(&self) -> crate::layout::workspace_types::WorkspaceId {
+        crate::layout::workspace_types::WorkspaceId::from_row_index(self.row_index)
+    }
+
     /// Sets the row index (used internally by canvas for reordering).
     pub(crate) fn set_row_index(&mut self, row_index: i32) {
         self.row_index = row_index;
@@ -268,6 +276,18 @@ impl<W: LayoutElement> Row<W> {
         self.columns.iter().position(|col| col.contains(window))
     }
 
+    /// Returns whether this row contains the given window.
+    /// TEAM_024: Added for workspace compatibility during Canvas2D migration
+    pub fn has_window(&self, id: &W::Id) -> bool {
+        self.contains(id)
+    }
+
+    /// Returns whether the given window is floating in this row.
+    /// TEAM_024: Added for workspace compatibility - always false for tiled rows
+    pub fn is_floating(&self, _id: &W::Id) -> bool {
+        false // Rows only contain tiled windows, floating windows are in Canvas2D.floating
+    }
+
     /// Returns all tiles in this row.
     /// TEAM_010: Added for Canvas2D.windows() migration
     pub fn tiles(&self) -> impl Iterator<Item = &Tile<W>> + '_ {
@@ -278,6 +298,18 @@ impl<W: LayoutElement> Row<W> {
     /// TEAM_010: Added for Canvas2D.windows_mut() migration
     pub fn tiles_mut(&mut self) -> impl Iterator<Item = &mut Tile<W>> + '_ {
         self.columns.iter_mut().flat_map(|col| col.tiles_iter_mut())
+    }
+
+    /// Returns all windows in this row.
+    /// TEAM_024: Added for workspace compatibility
+    pub fn windows(&self) -> impl Iterator<Item = &W> + '_ {
+        self.tiles().map(|tile| tile.window())
+    }
+
+    /// Returns all windows in this row (mutable).
+    /// TEAM_024: Added for workspace compatibility
+    pub fn windows_mut(&mut self) -> impl Iterator<Item = &mut W> + '_ {
+        self.tiles_mut().map(|tile| tile.window_mut())
     }
 
     // =========================================================================
@@ -650,7 +682,7 @@ impl<W: LayoutElement> Row<W> {
     /// TEAM_022: Stub implementation for compatibility
     pub fn configure_new_window<R>(
         &self,
-        _window: &W,
+        _window: &crate::window::Window,
         _width: Option<niri_config::PresetSize>,
         _height: Option<niri_config::PresetSize>,
         _is_floating: bool,
@@ -717,6 +749,161 @@ impl<W: LayoutElement> Row<W> {
     /// Check if any transitions are ongoing.
     pub fn are_transitions_ongoing(&self) -> bool {
         self.are_animations_ongoing()
+    }
+
+    // TEAM_024: Workspace compatibility methods - these are mostly no-ops for rows
+    // since floating windows are handled at the Canvas2D level
+    
+    pub fn set_window_height(&mut self, _window: Option<&W::Id>, _height: super::SizeChange) {
+        // Rows don't control individual window heights - this is a no-op
+    }
+    
+    pub fn reset_window_height(&mut self, _window: &W::Id) {
+        // Rows don't control individual window heights - this is a no-op
+    }
+    
+    pub fn expand_column_to_available_width(&mut self, _column_idx: usize) {
+        // TODO: TEAM_024: Implement column width expansion if needed
+    }
+    
+    pub fn toggle_window_floating(&mut self, _window: &W::Id) {
+        // Floating is handled at Canvas2D level - this is a no-op for rows
+    }
+    
+    pub fn set_window_floating(&mut self, _window: &W::Id, _floating: bool) {
+        // Floating is handled at Canvas2D level - this is a no-op for rows
+    }
+    
+    pub fn focus_floating(&mut self) -> bool {
+        // Rows don't contain floating windows - always false
+        false
+    }
+    
+    pub fn focus_tiling(&mut self) -> bool {
+        // Focus the first tiled window in the active column
+        if let Some(column) = self.active_column_mut() {
+            if let Some(tile) = column.active_tile_mut() {
+                tile.window().set_activated(true);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+    
+    pub fn switch_focus_floating_tiling(&mut self) -> bool {
+        // Rows only have tiled windows - just focus tiling
+        self.focus_tiling()
+    }
+    
+    pub fn set_fullscreen(&mut self, _id: &W::Id, _is_fullscreen: bool) {
+        // TODO: TEAM_024: Implement fullscreen state if needed
+    }
+    
+    pub fn toggle_fullscreen(&mut self, _id: &W::Id) {
+        // TODO: TEAM_024: Implement fullscreen toggle if needed
+    }
+    
+    pub fn set_maximized(&mut self, _id: &W::Id, _maximize: bool) {
+        // TODO: TEAM_024: Implement maximized state if needed
+    }
+    
+    pub fn toggle_maximized(&mut self, _id: &W::Id) {
+        // TODO: TEAM_024: Implement maximized toggle if needed
+    }
+    
+    pub fn active_window(&self) -> Option<&W> {
+        self.active_column()
+            .and_then(|col| col.active_tile())
+            .map(|tile| tile.window())
+    }
+    
+    pub fn activate_window(&mut self, _window: &W::Id) -> bool {
+        // TODO: TEAM_024: Implement window activation if needed
+        false
+    }
+    
+    pub fn start_open_animation(&mut self) {
+        // TODO: TEAM_024: Implement open animation if needed
+    }
+    
+    pub fn layout_config(&self) -> Option<niri_config::LayoutPart> {
+        // Rows don't have individual layout configs - this comes from the monitor/canvas
+        None
+    }
+
+    /// Get the current output for this row.
+    /// TEAM_022: Stub implementation - rows don't directly track outputs
+    pub fn current_output(&self) -> Option<Output> {
+        // TEAM_022: TODO - rows should get output from monitor/canvas
+        None
+    }
+
+    /// Get mutable reference to the active window.
+    /// TEAM_022: Stub implementation
+    pub fn active_window_mut(&mut self) -> Option<&mut W> {
+        // TEAM_022: TODO - implement active window logic
+        self.active_column_mut()
+            .and_then(|col| col.active_tile_mut())
+            .map(|tile| tile.window_mut())
+    }
+
+    /// Check if this row is urgent.
+    /// TEAM_022: Stub implementation
+    pub fn is_urgent(&self) -> bool {
+        // TEAM_022: TODO - implement urgency detection
+        false
+    }
+
+    /// Find window under the given point.
+    /// TEAM_022: Stub implementation
+    pub fn window_under(&self, _point: Point<f64, Logical>) -> Option<&W> {
+        // TEAM_022: TODO - implement hit testing
+        None
+    }
+
+    /// Find resize edges under the given point.
+    /// TEAM_022: Stub implementation
+    pub fn resize_edges_under(&self, _point: Point<f64, Logical>) -> Option<crate::layout::resize_edges::ResizeEdges> {
+        // TEAM_022: TODO - implement resize edge detection
+        None
+    }
+
+    /// Get the visual rectangle of the active tile.
+    /// TEAM_022: Stub implementation
+    pub fn active_tile_visual_rectangle(&self) -> Option<Rectangle<f64, Logical>> {
+        // TEAM_022: TODO - implement active tile visual rectangle
+        self.active_column()
+            .and_then(|col| col.active_tile())
+            .map(|tile| tile.visual_rectangle())
+    }
+
+    /// Check if this row has any windows or a name.
+    /// TEAM_022: Stub implementation
+    pub fn has_windows_or_name(&self) -> bool {
+        // TEAM_022: TODO - implement proper check
+        self.columns().count() > 0
+    }
+
+    /// Check if this row contains the given window.
+    /// TEAM_022: Stub implementation
+    pub fn has_window(&self, window: &W) -> bool {
+        // TEAM_022: TODO - implement window lookup
+        self.columns().any(|col| col.tiles_iter().any(|tile| tile.window() == window))
+    }
+
+    /// Update a window in this row.
+    /// TEAM_022: Stub implementation
+    pub fn update_window(&mut self, _window: &W) {
+        // TEAM_022: TODO - implement window update
+    }
+
+    /// Update the layout config for this row.
+    /// TEAM_022: Stub implementation
+    pub fn update_layout_config(&mut self, _config: Option<niri_config::LayoutPart>) {
+        // TEAM_022: TODO - rows don't have individual layout configs
     }
 }
 
