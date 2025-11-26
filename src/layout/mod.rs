@@ -820,7 +820,7 @@ impl<W: LayoutElement> Layout<W> {
 
                 self.last_active_workspace_id.insert(
                     monitor.output_name().clone(),
-                    monitor.canvas.workspaces().nth(monitor.active_workspace_idx).unwrap().id(),
+                    monitor.canvas.workspaces().nth(monitor.active_workspace_idx).unwrap().1.id(),
                 );
 
                 let mut workspaces = monitor.into_workspaces();
@@ -968,7 +968,7 @@ impl<W: LayoutElement> Layout<W> {
                 let mon = &mut monitors[mon_idx];
 
                 let (ws_idx, _) = mon.resolve_add_window_target(target);
-                let ws = &mon.canvas.workspaces().nth(ws_idx).unwrap();
+                let ws = &mon.canvas.workspaces().nth(ws_idx).unwrap().1;
                 let scrolling_width = ws.resolve_scrolling_width(&window, width);
 
                 mon.add_window(
@@ -1108,7 +1108,7 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
                     for (idx, ws) in mon.canvas.workspaces_mut() {
-                        if ws.1.has_window(window) {
+                        if ws.has_window(window) {
                             let removed = ws.1.remove_tile(window, transaction);
 
                             // Clean up empty workspaces that are not active and not last.
@@ -1130,8 +1130,8 @@ impl<W: LayoutElement> Layout<W> {
                                 && mon.canvas.workspaces().count() == 2
                                 && mon.workspace_switch.is_none()
                             {
-                                assert!(!mon.canvas.workspaces().nth(0).unwrap().has_windows_or_name());
-                                assert!(!mon.canvas.workspaces().nth(1).unwrap().has_windows_or_name());
+                                assert!(!mon.canvas.workspaces().nth(0).unwrap().1.has_windows_or_name());
+                                assert!(!mon.canvas.workspaces().nth(1).unwrap().1.has_windows_or_name());
                                 mon.canvas.remove_row(1);
                                 mon.active_workspace_idx = 0;
                             }
@@ -1142,7 +1142,7 @@ impl<W: LayoutElement> Layout<W> {
             }
             MonitorSet::NoOutputs { workspaces, .. } => {
                 for (idx, ws) in workspaces.iter_mut().enumerate() {
-                    if ws.1.has_window(window) {
+                    if ws.has_window(window) {
                         let removed = ws.1.remove_tile(window, transaction);
 
                         // Clean up empty workspaces.
@@ -1196,8 +1196,8 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
                     for ws in mon.canvas.workspaces_mut() {
-                        if ws.1.has_window(window) {
-                            ws.1.update_window(window, serial);
+                        if ws.has_window(window) {
+                            ws.update_window(window, serial);
                             return;
                         }
                     }
@@ -1205,8 +1205,8 @@ impl<W: LayoutElement> Layout<W> {
             }
             MonitorSet::NoOutputs { workspaces, .. } => {
                 for ws in workspaces {
-                    if ws.1.has_window(window) {
-                        ws.1.update_window(window, serial);
+                    if ws.has_window(window) {
+                        ws.update_window(window, serial);
                         return;
                     }
                 }
@@ -1344,7 +1344,7 @@ impl<W: LayoutElement> Layout<W> {
         match &self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
-                    for ws in mon.canvas.workspaces() {
+                    for (_, ws) in mon.canvas.workspaces() {
                         if let Some(window) = ws.find_wl_surface(wl_surface) {
                             return Some((window, Some(&mon.output)));
                         }
@@ -1447,9 +1447,9 @@ impl<W: LayoutElement> Layout<W> {
         }
 
         for mon in self.monitors() {
-            for ws in mon.canvas.workspaces() {
-                if ws.1.has_window(window) {
-                    return ws.scroll_amount_to_activate(window);
+            for (_, ws) in mon.canvas.workspaces() {
+                if ws.has_window(window) {
+                    return ws.1.scroll_amount_to_activate(window);
                 }
             }
         }
@@ -1659,7 +1659,7 @@ impl<W: LayoutElement> Layout<W> {
         match &self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
-                    for ws in mon.canvas.workspaces() {
+                    for (_, ws) in mon.canvas.workspaces() {
                         for (tile, layout) in ws.tiles_with_ipc_layouts() {
                             f(tile.window(), Some(&mon.output), Some(ws.id()), layout);
                         }
@@ -3498,7 +3498,7 @@ impl<W: LayoutElement> Layout<W> {
         // TODO(TEAM_020): Eventually remove workspace check entirely
         // For now, keep workspace check for compatibility
         for ws in self.workspaces_mut() {
-            if ws.1.has_window(id) {
+            if ws.has_window(id) {
                 ws.set_fullscreen(id, is_fullscreen);
                 return;
             }
@@ -3523,7 +3523,7 @@ impl<W: LayoutElement> Layout<W> {
         // TODO(TEAM_020): Eventually remove workspace check entirely
         // For now, keep workspace check for compatibility
         for ws in self.workspaces_mut() {
-            if ws.1.has_window(id) {
+            if ws.has_window(id) {
                 ws.toggle_fullscreen(id);
                 return;
             }
@@ -3544,7 +3544,7 @@ impl<W: LayoutElement> Layout<W> {
 
             // Fallback to workspace iteration for compatibility
             for ws in self.workspaces_mut() {
-                if ws.1.has_window(id) {
+                if ws.has_window(id) {
                     ws.set_fullscreen(id, false);
                     break;
                 }
@@ -3577,7 +3577,7 @@ impl<W: LayoutElement> Layout<W> {
         // TODO(TEAM_020): Eventually remove workspace check entirely
         // For now, keep workspace check for compatibility
         for ws in self.workspaces_mut() {
-            if ws.1.has_window(id) {
+            if ws.has_window(id) {
                 ws.set_maximized(id, maximize);
                 return;
             }
@@ -3602,7 +3602,7 @@ impl<W: LayoutElement> Layout<W> {
         // TODO(TEAM_020): Eventually remove workspace check entirely
         // For now, keep workspace check for compatibility
         for ws in self.workspaces_mut() {
-            if ws.1.has_window(id) {
+            if ws.has_window(id) {
                 ws.toggle_maximized(id);
                 return;
             }
@@ -4361,7 +4361,7 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
                     for ws in mon.canvas.workspaces_mut() {
-                        if ws.1.has_window(&window) {
+                        if ws.has_window(&window) {
                             return ws.interactive_resize_begin(window, edges);
                         }
                     }
@@ -4369,7 +4369,7 @@ impl<W: LayoutElement> Layout<W> {
             }
             MonitorSet::NoOutputs { workspaces, .. } => {
                 for ws in workspaces {
-                    if ws.1.has_window(&window) {
+                    if ws.has_window(&window) {
                         return ws.interactive_resize_begin(window, edges);
                     }
                 }
@@ -4394,7 +4394,7 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
                     for ws in mon.canvas.workspaces_mut() {
-                        if ws.1.has_window(window) {
+                        if ws.has_window(window) {
                             return ws.interactive_resize_update(window, delta);
                         }
                     }
@@ -4402,7 +4402,7 @@ impl<W: LayoutElement> Layout<W> {
             }
             MonitorSet::NoOutputs { workspaces, .. } => {
                 for ws in workspaces {
-                    if ws.1.has_window(window) {
+                    if ws.has_window(window) {
                         return ws.interactive_resize_update(window, delta);
                     }
                 }
@@ -4423,7 +4423,7 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
                     for ws in mon.canvas.workspaces_mut() {
-                        if ws.1.has_window(window) {
+                        if ws.has_window(window) {
                             ws.interactive_resize_end(Some(window));
                             return;
                         }
@@ -4432,7 +4432,7 @@ impl<W: LayoutElement> Layout<W> {
             }
             MonitorSet::NoOutputs { workspaces, .. } => {
                 for ws in workspaces {
-                    if ws.1.has_window(window) {
+                    if ws.has_window(window) {
                         ws.interactive_resize_end(Some(window));
                         return;
                     }
@@ -4553,7 +4553,7 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
                     for ws in mon.canvas.workspaces_mut() {
-                        if ws.1.has_window(window) {
+                        if ws.has_window(window) {
                             ws.store_unmap_snapshot_if_empty(renderer, window);
                             return;
                         }
@@ -4562,7 +4562,7 @@ impl<W: LayoutElement> Layout<W> {
             }
             MonitorSet::NoOutputs { workspaces, .. } => {
                 for ws in workspaces {
-                    if ws.1.has_window(window) {
+                    if ws.has_window(window) {
                         ws.store_unmap_snapshot_if_empty(renderer, window);
                         return;
                     }
@@ -4583,7 +4583,7 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
                     for ws in mon.canvas.workspaces_mut() {
-                        if ws.1.has_window(window) {
+                        if ws.has_window(window) {
                             ws.clear_unmap_snapshot(window);
                             return;
                         }
@@ -4592,7 +4592,7 @@ impl<W: LayoutElement> Layout<W> {
             }
             MonitorSet::NoOutputs { workspaces, .. } => {
                 for ws in workspaces {
-                    if ws.1.has_window(window) {
+                    if ws.has_window(window) {
                         ws.clear_unmap_snapshot(window);
                         return;
                     }
@@ -4645,7 +4645,7 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
                     for (_, ws) in mon.canvas.workspaces_mut() {
-                        if ws.1.has_window(window) {
+                        if ws.has_window(window) {
                             ws.start_close_animation_for_window(renderer, window, blocker);
                             return;
                         }
@@ -4654,7 +4654,7 @@ impl<W: LayoutElement> Layout<W> {
             }
             MonitorSet::NoOutputs { canvas, .. } => {
                 for (_, ws) in canvas.workspaces_mut() {
-                    if ws.1.has_window(window) {
+                    if ws.has_window(window) {
                         ws.start_close_animation_for_window(renderer, window, blocker);
                         return;
                     }

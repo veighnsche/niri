@@ -579,7 +579,7 @@ impl<W: LayoutElement> Canvas2D<W> {
     pub fn are_transitions_ongoing(&self) -> bool {
         // Check all rows for ongoing transitions
         for row in self.rows() {
-            if row.are_transitions_ongoing() {
+            if row.1.are_transitions_ongoing() {
                 return true;
             }
         }

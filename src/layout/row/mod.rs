@@ -45,6 +45,7 @@ use niri_config::utils::MergeWith;
 use niri_ipc::ColumnDisplay;
 use smithay::utils::{Logical, Rectangle, Size};
 use smithay::output::Output;
+use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 
 use super::animated_value::AnimatedValue;
 use super::closing_window::ClosingWindow;
@@ -277,10 +278,7 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Returns whether this row contains the given window.
-    /// TEAM_024: Added for workspace compatibility during Canvas2D migration
-    pub fn has_window(&self, id: &W::Id) -> bool {
-        self.contains(id)
-    }
+    /// TEAM_024: Use the has_window method that takes &W instead of &W::Id
 
     /// Returns whether the given window is floating in this row.
     /// TEAM_024: Added for workspace compatibility - always false for tiled rows
@@ -904,6 +902,73 @@ impl<W: LayoutElement> Row<W> {
     /// TEAM_022: Stub implementation
     pub fn update_layout_config(&mut self, _config: Option<niri_config::LayoutPart>) {
         // TEAM_022: TODO - rows don't have individual layout configs
+    }
+
+    /// Resolve scrolling width for a window.
+    /// TEAM_025: Stub implementation
+    pub fn resolve_scrolling_width(&self, _window: &W, _width: Option<niri_config::PresetSize>) -> f64 {
+        // TEAM_025: TODO - implement proper scrolling width resolution
+        1.0
+    }
+
+    /// Make a tile for a window.
+    /// TEAM_025: Stub implementation
+    pub fn make_tile(&mut self, _window: W, _activate: bool) {
+        // TEAM_025: TODO - implement tile creation
+    }
+
+    /// Handle descendants added.
+    /// TEAM_025: Stub implementation
+    pub fn descendants_added(&mut self) {
+        // TEAM_025: TODO - implement descendants handling
+    }
+
+    /// Find a Wayland surface.
+    /// TEAM_025: Stub implementation
+    pub fn find_wl_surface(&self, _wl_surface: &wl_surface::WlSurface) -> Option<&W> {
+        // TEAM_025: TODO - implement surface lookup
+        None
+    }
+
+    /// Find a Wayland surface mutably.
+    /// TEAM_025: Stub implementation
+    pub fn find_wl_surface_mut(&mut self, _wl_surface: &wl_surface::WlSurface) -> Option<&mut W> {
+        // TEAM_025: TODO - implement mutable surface lookup
+        None
+    }
+
+    /// Get popup target rectangle.
+    /// TEAM_025: Stub implementation
+    pub fn popup_target_rect(&self) -> Option<Rectangle<i32, Logical>> {
+        // TEAM_025: TODO - implement popup target rect
+        None
+    }
+
+    /// Activate window without raising.
+    /// TEAM_025: Stub implementation
+    pub fn activate_window_without_raising(&mut self, _window: &W) {
+        // TEAM_025: TODO - implement activation without raising
+    }
+
+    /// Get tiles with IPC layouts.
+    /// TEAM_025: Stub implementation
+    pub fn tiles_with_ipc_layouts(&self) -> Vec<niri_ipc::WindowLayout> {
+        // TEAM_025: TODO - implement IPC layout generation
+        Vec::new()
+    }
+
+    /// Check if transitions are ongoing.
+    /// TEAM_025: Stub implementation
+    pub fn are_transitions_ongoing(&self) -> bool {
+        // TEAM_025: TODO - implement transition checking
+        false
+    }
+
+    /// Activate a window in this row.
+    /// TEAM_025: Stub implementation
+    pub fn activate_window(&mut self, _window: &W) -> bool {
+        // TEAM_025: TODO - implement window activation
+        false
     }
 }
 

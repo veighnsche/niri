@@ -9,7 +9,7 @@
 
 ## Current Status
 - **Starting Error Count**: 205 compilation errors
-- **Current Error Count**: 208 compilation errors
+- **Current Error Count**: 205 compilation errors  
 - **Golden Tests**: ✅ PASSING (84/84)
 - **Main Issues**: Iterator pattern adaptation and missing method implementations
 
@@ -18,11 +18,13 @@
 1. **Option type mismatches**: Fixed `.map()` vs `.and_then()` patterns in xdg_shell.rs
 2. **configure_new_window signature**: Updated to accept `&Window` instead of `&W`
 3. **Field access patterns**: Fixed many `.workspaces` → `.canvas.workspaces()` transitions
-4. **Missing Row methods**: Added `current_output`, `active_window_mut`, `is_urgent`, `window_under`, `resize_edges_under`, `active_tile_visual_rectangle`, `has_windows_or_name`, `has_window`, `update_window`, `update_layout_config`
+4. **Missing Row methods**: Added `current_output`, `active_window_mut`, `is_urgent`, `window_under`, `resize_edges_under`, `active_tile_visual_rectangle`, `has_windows_or_name`, `has_window`, `update_window`, `update_layout_config`, `resolve_scrolling_width`, `make_tile`, `descendants_added`, `find_wl_surface`, `find_wl_surface_mut`, `popup_target_rect`, `activate_window_without_raising`, `tiles_with_ipc_layouts`, `are_transitions_ongoing`, `activate_window`
 5. **Missing Column methods**: Added `display_mode`, `active_tile_idx`, `active_tile_mut`, `active_tile`
 6. **Missing Canvas2D methods**: Added `remove_row`
 7. **Border trait imports**: Added `MergeWith` trait for `merged_with()` method
-8. **Tuple pattern fixes**: Fixed iterator patterns to handle `(i32, &Row<W>)` tuples
+8. **Tuple pattern fixes**: Fixed iterator patterns to handle `(i32, &Row<W>)` tuples correctly
+9. **Method conflicts resolved**: Removed duplicate `has_window` method that was causing E0034 errors
+10. **Iterator return type understanding**: Distinguished between `rows()` (returns tuples) and `workspaces_mut()` (returns direct references)
 
 ### 🔧 Technical Fixes:
 - **Import fixes**: Added necessary trait imports (MergeWith, Output)
