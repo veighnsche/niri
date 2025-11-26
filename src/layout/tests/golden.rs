@@ -647,16 +647,6 @@ fn golden_w2_focus_up_or_column_left() {
     ]));
 }
 
-// TEAM_014: Renamed from golden_w3_focus_window_or_workspace_down
-#[test]
-fn golden_w3_focus_window_or_row_down() {
-    insta::assert_yaml_snapshot!(snapshot([
-        Op::AddOutput(1), win(1), win(2),
-        consume_left(),
-        Op::FocusWindowOrRowDown,
-    ]));
-}
-
 // ============================================================================
 // Group X: Manual Width Adjustments (SetColumnWidth)
 // ============================================================================

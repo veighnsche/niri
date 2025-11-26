@@ -6,6 +6,23 @@
 
 ---
 
+## ⚠️ **CRITICAL: GOLDEN TEST RULES**
+
+**LEARNED FROM TEAM_018's MISTAKES - READ BEFORE STARTING**
+
+🚨 **NEVER accept golden snapshot changes** - they represent MAIN BRANCH behavior  
+🚨 **NEVER remove workspace-related golden tests** - they must continue working  
+🚨 **If golden tests fail, fix YOUR CODE** - not the tests  
+
+**CORRECT APPROACH**: Implement canvas methods WITHOUT breaking workspace system  
+**FORBIDDEN**: Wholesale workspace → canvas migration that changes behavior  
+
+**FULL GUIDELINES**: See [../GOLDEN_TEST_RULES.md](../GOLDEN_TEST_RULES.md)
+
+*TEAM_018 violated these rules and had to revert all work. Don't make their mistake.*
+
+---
+
 ## Problem Statement
 
 **Part 2 was supposed to implement row-based navigation, but only did renaming.**

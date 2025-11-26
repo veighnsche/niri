@@ -4,6 +4,21 @@
 
 ---
 
+## ⚠️ **CRITICAL: GOLDEN TEST RULES**
+
+**LEARNED FROM TEAM_018's MISTAKES - READ BEFORE STARTING**
+
+🚨 **NEVER accept golden snapshot changes** - they represent MAIN BRANCH behavior  
+🚨 **NEVER remove workspace-related golden tests** - they must continue working  
+🚨 **If golden tests fail, fix YOUR CODE** - not the tests  
+
+**FULL GUIDELINES**: See [GOLDEN_TEST_RULES.md](GOLDEN_TEST_RULES.md)  
+**COMPLIANCE CHECKLIST**: See [GOLDEN_TEST_CHECKLIST.md](GOLDEN_TEST_CHECKLIST.md)
+
+*TEAM_018 violated these rules and had to revert all work. Don't make their mistake.*
+
+---
+
 ## 🚀 CURRENT WORK: Phase 1.5.3 — Replace Workspace with Canvas2D
 
 **Status**: IN PROGRESS (Part 1)  
