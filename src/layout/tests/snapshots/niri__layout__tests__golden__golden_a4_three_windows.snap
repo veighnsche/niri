@@ -1,0 +1,45 @@
+---
+source: src/layout/tests/golden.rs
+expression: snapshot
+---
+columns:
+  - x: 0
+    width: 100
+    tiles:
+      - x: 0
+        y: 16
+        width: 100
+        height: 200
+    active_tile_idx: 0
+    is_full_width: false
+    is_fullscreen: false
+  - x: 116
+    width: 100
+    tiles:
+      - x: 116
+        y: 16
+        width: 100
+        height: 200
+    active_tile_idx: 0
+    is_full_width: false
+    is_fullscreen: false
+  - x: 232
+    width: 100
+    tiles:
+      - x: 232
+        y: 16
+        width: 100
+        height: 200
+    active_tile_idx: 0
+    is_full_width: false
+    is_fullscreen: false
+active_column_idx: 2
+view_offset: -248
+working_area:
+  x: 0
+  y: 0
+  w: 1280
+  h: 720
+view_size:
+  w: 1280
+  h: 720

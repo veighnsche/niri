@@ -3601,6 +3601,30 @@ impl<W: LayoutElement> ScrollingSpace<W> {
         &self.view_offset
     }
 
+    // TEAM_004: Snapshot method for golden testing
+    #[cfg(test)]
+    pub fn snapshot(&self) -> crate::layout::snapshot::ScrollingSnapshot {
+        use crate::layout::snapshot::{RectSnapshot, ScrollingSnapshot, SizeSnapshot};
+
+        let columns = self
+            .columns
+            .iter()
+            .enumerate()
+            .map(|(idx, col)| {
+                let col_x = self.column_x(idx);
+                col.snapshot(col_x)
+            })
+            .collect();
+
+        ScrollingSnapshot {
+            columns,
+            active_column_idx: self.active_column_idx,
+            view_offset: self.view_offset.current(),
+            working_area: RectSnapshot::from(self.working_area),
+            view_size: SizeSnapshot::from(self.view_size),
+        }
+    }
+
     #[cfg(test)]
     pub fn verify_invariants(&self) {
         assert!(self.view_size.w > 0.);

@@ -59,9 +59,11 @@ When you modify code, add your team number:
 4. If tests fail → you introduced a regression, fix it
 
 ### Key Files
-- `src/layout/golden/` — Original main branch code (reference)
+- `src/layout/golden/` — Original main branch code (reference, **READ-ONLY**)
 - `src/layout/snapshot.rs` — Snapshot types (positions, indices, etc.)
 - `src/layout/tests/golden.rs` — Snapshot comparison tests
+
+> ⚠️ Golden files are chmod read-only. **NEVER modify them.** They are the reference baseline.
 
 ### What Snapshots Capture
 - Column X positions and widths
@@ -122,11 +124,17 @@ Create a question file: `.questions/TEAM_XXX_topic.md`
 
 ---
 
-## Rule 8: Task Splitting
+## Rule 8: Maximize Context Window
 
-**If a task takes > 1 hour or touches > 3 files**: split it.
+**Do as much work as possible within your context window.**
 
-Create sub-task files in `.teams/`
+- Don't stop after one task if you can continue
+- You already have the context loaded — use it
+- Next team will have to re-gather all context from scratch
+- Only stop when: context runs out, blocked, or need USER input
+
+### Task Splitting
+If a single task takes > 1 hour or touches > 3 files: split it into sub-task files in `.teams/`
 
 ---
 
@@ -168,9 +176,9 @@ Create sub-task files in `.teams/`
 
 **Branch**: `2d-canvas`  
 **Phase**: 0.5 (Golden Snapshots) → then 0.2 (AnimatedValue)  
-**Completed**: Phase 0.1 (Column extraction), Phase 0.3 (Import cleanup)  
-**Next Step**: Read `phases/phase-0.5a-golden-infrastructure.md` (first sub-phase)
+**Completed**: Phase 0.1, 0.3, 0.5.A, 0.5.B (20 golden tests)  
+**Next Step**: `phases/phase-0.5c-core-golden-tests.md` (Groups H-L) or `phases/phase-0.5d-advanced-golden-tests.md`
 
 ---
 
-*Rules established by TEAM_000. Updated by TEAM_003.*
+*Rules established by TEAM_000. Updated by TEAM_004.*

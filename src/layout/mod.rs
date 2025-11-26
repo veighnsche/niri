@@ -90,6 +90,12 @@ pub mod tile;
 pub mod types;
 pub mod workspace;
 
+// TEAM_004: Golden snapshot infrastructure
+#[cfg(test)]
+pub mod snapshot;
+#[cfg(test)]
+mod golden;
+
 #[cfg(test)]
 mod tests;
 

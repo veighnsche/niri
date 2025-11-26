@@ -85,3 +85,36 @@ pub(crate) fn resolve_preset_size(
         PresetSize::Fixed(width) => ResolvedSize::Window(f64::from(width)),
     }
 }
+
+// TEAM_004: Snapshot method for golden testing
+#[cfg(test)]
+impl<W: LayoutElement> Column<W> {
+    /// Create a snapshot of this column for golden testing.
+    ///
+    /// The `column_x` parameter is the X position of this column's left edge.
+    pub fn snapshot(&self, column_x: f64) -> crate::layout::snapshot::ColumnSnapshot {
+        use crate::layout::snapshot::{ColumnSnapshot, TileSnapshot};
+
+        let tiles: Vec<TileSnapshot> = self
+            .tiles()
+            .map(|(tile, offset)| {
+                let tile_size = tile.tile_size();
+                TileSnapshot {
+                    x: column_x + offset.x,
+                    y: offset.y,
+                    width: tile_size.w,
+                    height: tile_size.h,
+                }
+            })
+            .collect();
+
+        ColumnSnapshot {
+            x: column_x,
+            width: self.width(),
+            tiles,
+            active_tile_idx: self.active_tile_idx,
+            is_full_width: self.is_full_width,
+            is_fullscreen: self.sizing_mode().is_fullscreen(),
+        }
+    }
+}

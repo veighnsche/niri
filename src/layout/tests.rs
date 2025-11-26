@@ -15,6 +15,8 @@ use super::*;
 
 mod animations;
 mod fullscreen;
+// TEAM_004: Golden snapshot tests
+mod golden;
 
 impl<W: LayoutElement> Default for Layout<W> {
     fn default() -> Self {
@@ -44,10 +46,10 @@ struct TestWindowInner {
 }
 
 #[derive(Debug, Clone)]
-struct TestWindow(Rc<TestWindowInner>);
+pub(super) struct TestWindow(Rc<TestWindowInner>);
 
 #[derive(Debug, Clone, Arbitrary)]
-struct TestWindowParams {
+pub(super) struct TestWindowParams {
     #[proptest(strategy = "1..=5usize")]
     id: usize,
     #[proptest(strategy = "arbitrary_parent_id()")]
