@@ -21,10 +21,12 @@
 //! └── render.rs       - Rendering
 //! ```
 
+mod gesture;
 mod layout;
 mod navigation;
 mod operations;
 mod render;
+mod resize;
 mod view_offset;
 
 pub use render::RowRenderElement;

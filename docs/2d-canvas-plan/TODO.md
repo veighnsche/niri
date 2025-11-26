@@ -20,7 +20,7 @@ Row is a partial implementation. These methods need to be ported from `scrolling
 - [x] TODO(TEAM_007): Port full `animate_view_offset_to_column` logic — DONE
 - [x] TODO(TEAM_007): Port `compute_new_view_offset_*` methods — DONE
 - [x] TODO(TEAM_007): Port `animate_view_offset_with_config` — DONE
-- [ ] TODO(TEAM_006): Port gesture handling (`view_offset_gesture_begin`, etc.)
+- [x] TODO(TEAM_007): Port gesture handling (`view_offset_gesture_begin`, etc.) — DONE
 
 ### Rendering
 - [x] TODO(TEAM_007): Port `render_elements` from ScrollingSpace — DONE
@@ -29,9 +29,9 @@ Row is a partial implementation. These methods need to be ported from `scrolling
 - [ ] TODO(TEAM_006): Port `render_above_top_layer` from ScrollingSpace
 
 ### Interactive Resize
-- [ ] TODO(TEAM_006): Port `interactive_resize_begin` from ScrollingSpace
-- [ ] TODO(TEAM_006): Port `interactive_resize_update` from ScrollingSpace
-- [ ] TODO(TEAM_006): Port `interactive_resize_end` from ScrollingSpace
+- [x] TODO(TEAM_007): Port `interactive_resize_begin` from ScrollingSpace — DONE
+- [x] TODO(TEAM_007): Port `interactive_resize_update` from ScrollingSpace — DONE
+- [x] TODO(TEAM_007): Port `interactive_resize_end` from ScrollingSpace — DONE
 
 ---
 
