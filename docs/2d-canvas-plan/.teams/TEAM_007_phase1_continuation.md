@@ -1,9 +1,10 @@
-# TEAM_007: Phase 1 Continuation
+# TEAM_007: Phase 1 Continuation + Modular Refactor
 
 ## Status: COMPLETE
 
 ## Objective
-Continue Phase 1: Port key ScrollingSpace methods to Row and Canvas2D.
+1. Continue Phase 1: Port key ScrollingSpace methods to Row and Canvas2D
+2. Refactor `row/mod.rs` into focused submodules per Rule 7
 
 ## Starting Point
 Per TEAM_006 handoff:
@@ -11,6 +12,7 @@ Per TEAM_006 handoff:
 - Basic column operations work: add, remove, move, focus
 - Basic vertical navigation works: focus_up, focus_down
 - All 251 tests pass, 58 golden tests pass
+- `row/mod.rs` at 858 lines (approaching 1000 max)
 
 ## Completed Work
 
@@ -26,18 +28,31 @@ Per TEAM_006 handoff:
 - [x] Animate camera_y when changing rows using horizontal_view_movement config
 - [x] Added TODO for vertical_view_movement config in niri-config
 
+### Modular Refactor (Rule 7) ✅
+Refactored `row/mod.rs` (858 lines) into focused submodules:
+
+```
+row/
+├── mod.rs          (303 lines) - Core struct, accessors, animation
+├── view_offset.rs  (323 lines) - View offset calculation & animation
+├── operations.rs   (162 lines) - Add/remove/move columns
+├── navigation.rs   (57 lines)  - Focus left/right/column
+└── layout.rs       (76 lines)  - Tile positions, config update
+```
+
 ## Changes Made
 
+### New Files (Modular Refactor)
+- `src/layout/row/view_offset.rs` — View offset calculation and animation
+- `src/layout/row/navigation.rs` — Focus navigation methods
+- `src/layout/row/operations.rs` — Column add/remove/move operations
+- `src/layout/row/layout.rs` — Tile position queries and config update
+
 ### Modified Files
-- `src/layout/row/mod.rs` — Full view offset animation logic (~200 lines added)
-  - Added imports: `min`, `CenterFocusedColumn`, `SizingMode`, `Animation`
-  - Added `compute_new_view_offset` helper function
-  - Added `compute_new_view_offset_fit`, `compute_new_view_offset_centered`
-  - Added `compute_new_view_offset_for_column_fit`, `compute_new_view_offset_for_column_centered`
-  - Added `compute_new_view_offset_for_column` with OnOverflow logic
-  - Added `animate_view_offset`, `animate_view_offset_with_config`
-  - Added `animate_view_offset_to_column_centered`, `animate_view_offset_to_column_with_config`
-  - Replaced stub `animate_view_offset_to_column` with full implementation
+- `src/layout/row/mod.rs` — Refactored from 858 → 303 lines
+  - Added module declarations
+  - Kept core struct, accessors, animation methods
+  - Moved other methods to submodules
   
 - `src/layout/canvas/mod.rs` — Camera Y animation
   - Added Animation import
