@@ -235,9 +235,9 @@ Add any new TODOs to: `docs/2d-canvas-plan/TODO.md`
 ## Current Project State
 
 **Branch**: `2d-canvas`  
-**Phase**: 1 IN PROGRESS (Row + Canvas2D)  
-**Completed**: Phase 0 (all steps)  
-**Next Step**: Complete Row implementation, then Canvas2D
+**Phase**: 1.5 IN PROGRESS (Integration)  
+**Completed**: Phase 0 (all steps), Phase 1 Core (Row + Canvas2D)  
+**Next Step**: Complete gesture handling, interactive resize, then feature flag
 
 **Key Decisions**:
 - Workspaces **removed** — one infinite canvas per output
@@ -247,4 +247,43 @@ Add any new TODOs to: `docs/2d-canvas-plan/TODO.md`
 
 ---
 
-*Rules established by TEAM_000. Updated by TEAM_006.*
+## Lessons Learned (from TEAM_000 → TEAM_007)
+
+### 1. Phase Sizing
+Large phases should be split. Phase 1 became Phase 1 + Phase 1.5 because:
+- Creating modules is different from wiring them into the compositor
+- Feature flag integration is significant work on its own
+- Each phase should have a clear "done" state
+
+### 2. Module Structure
+Follow the Column module pattern:
+```
+module/
+├── mod.rs          (~150-300 lines) - Core struct + re-exports
+├── operations.rs   (~100-200 lines) - Add/remove/move
+├── navigation.rs   (~50-100 lines)  - Focus methods
+├── layout.rs       (~50-100 lines)  - Position queries
+├── render.rs       (~150-200 lines) - Rendering
+└── view_offset.rs  (if needed)      - Scroll/animation
+```
+Keep files < 500 lines (ideal), < 1000 lines (max).
+
+### 3. Porting Strategy
+When porting from `scrolling.rs`:
+1. **Read the source** — understand what the method does
+2. **Identify dependencies** — what other methods does it call?
+3. **Port helpers first** — bottom-up, not top-down
+4. **Test incrementally** — run `cargo check` after each method
+
+### 4. Documentation Maintenance
+- Update README.md progress tracking **during** work, not after
+- Mark team files as COMPLETE when done
+- Phase files should reflect actual module structure
+
+### 5. Golden Tests
+Always run `./scripts/verify-golden.sh` before AND after changes to layout logic.
+The 58 golden tests catch regressions that unit tests miss.
+
+---
+
+*Rules established by TEAM_000. Updated by TEAM_007.*

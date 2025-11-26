@@ -6,24 +6,28 @@
 
 ## Prerequisites
 
-- Phase 1 complete (Row, Canvas2D, basic navigation)
+- Phase 1 complete (Row, Canvas2D, basic navigation) ✅
+- Phase 1.5 complete (Integration, feature flag)
 
-### Starting Point After Phase 1
+### Starting Point After Phase 1.5
 ```
 src/layout/
 ├── column/              # From Phase 0
+│   ├── mod.rs, core.rs, layout.rs, operations.rs
+│   ├── render.rs, sizing.rs, tile_data.rs
+│   └── tests.rs
 ├── animated_value/      # From Phase 0
-├── row/                 # NEW in Phase 1
-│   ├── mod.rs
-│   ├── layout.rs
-│   ├── navigation.rs
-│   └── operations.rs
-├── canvas/              # NEW in Phase 1
-│   ├── mod.rs
-│   ├── layout.rs
-│   ├── navigation.rs
-│   ├── operations.rs
-│   └── render.rs
+│   ├── mod.rs           # AnimatedValue enum
+│   └── gesture.rs       # ViewGesture
+├── row/                 # From Phase 1/1.5
+│   ├── mod.rs           # Core struct + accessors
+│   ├── layout.rs        # Tile positions, config
+│   ├── navigation.rs    # Focus left/right/column
+│   ├── operations.rs    # Add/remove/move columns
+│   ├── render.rs        # Rendering
+│   └── view_offset.rs   # View offset animation
+├── canvas/              # From Phase 1/1.5
+│   └── mod.rs           # Canvas2D (single file, ~400 lines)
 ├── scrolling.rs         # Still exists for non-2D mode
 ├── tile.rs
 ├── workspace.rs

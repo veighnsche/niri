@@ -121,7 +121,8 @@ ROW 1   |             | Column B' |                                 |
 | Phase | Focus | Key Deliverable |
 |-------|-------|-----------------|
 | [Phase 0](phases/phase-0-preparation.md) | Modular foundation | Refactor existing code into clean modules |
-| [Phase 1](phases/phase-1-row-and-canvas.md) | Row + Canvas2D | Multi-row canvas with basic navigation |
+| [Phase 1](phases/phase-1-row-and-canvas.md) | Row + Canvas2D | Create core modules with basic functionality |
+| [Phase 1.5](phases/phase-1.5-integration.md) | Integration | Complete modules, wire into compositor |
 | [Phase 2](phases/phase-2-row-spanning.md) | Row spanning | Windows can span multiple rows |
 | [Phase 3](phases/phase-3-camera.md) | Camera system | Dynamic zoom based on focused window |
 | [Phase 4](phases/phase-4-navigation.md) | Navigation + polish | Geometric nav, origin-based behavior |
@@ -179,24 +180,40 @@ src/layout/
 
 ## Progress Tracking
 
-### Phase 0: Preparation (~1 week)
-- [x] Step 0.1: Extract Column from scrolling.rs → layout/column/ module (TEAM_002 - COMPLETE)
-- [x] Step 0.3: Clean up ScrollingSpace dependencies (TEAM_003 - COMPLETE)
-- [x] **Step 0.5: Golden snapshot infrastructure** (TEAM_004 - COMPLETE)
+### Phase 0: Preparation ✅ COMPLETE
+- [x] Step 0.1: Extract Column from scrolling.rs → layout/column/ module (TEAM_002)
+- [x] Step 0.3: Clean up ScrollingSpace dependencies (TEAM_003)
+- [x] **Step 0.5: Golden snapshot infrastructure** (TEAM_004)
   - [x] 0.5.A: Infrastructure setup (insta, types)
   - [x] 0.5.B: Golden code extraction, snapshot() methods
   - [x] 0.5.C: Core golden tests (Groups A-L) — 30 tests
   - [x] 0.5.D: Advanced golden tests (Groups M-W) — 28 tests (58 total)
-- [x] **Step 0.2: Create AnimatedValue abstraction** (TEAM_005 - COMPLETE)
+- [x] **Step 0.2: Create AnimatedValue abstraction** (TEAM_005)
   - [x] AnimatedValue enum (Static/Animation/Gesture)
   - [x] AnimatedPoint for 2D (Camera prep)
   - [x] ViewGesture extracted to animated_value/gesture.rs
 
-### Phase 1: Row + Canvas2D
-- [ ] Step 1.1: Create Row module
-- [ ] Step 1.2: Create Canvas2D module
-- [ ] Step 1.3: Basic vertical navigation
-- [ ] Step 1.4: Feature flag integration
+### Phase 1: Row + Canvas2D ✅ CORE COMPLETE
+- [x] Step 1.1: Create Row module (TEAM_006, TEAM_007)
+  - [x] Core struct and accessors
+  - [x] Navigation (focus_left/right/column)
+  - [x] Operations (add/remove/move columns)
+  - [x] View offset animation logic
+  - [x] Rendering (render_elements, update_render_elements)
+- [x] Step 1.2: Create Canvas2D module (TEAM_006, TEAM_007)
+  - [x] BTreeMap-based row storage
+  - [x] Window operations (add_tile, contains, find)
+  - [x] Rendering (render_elements, update_render_elements)
+- [x] Step 1.3: Basic vertical navigation (TEAM_006, TEAM_007)
+  - [x] focus_up, focus_down
+  - [x] Camera Y animation
+- [ ] Step 1.4: Feature flag integration → moved to Phase 1.5
+
+### Phase 1.5: Integration (IN PROGRESS)
+- [ ] Step 1.5.1: Complete Row (gesture handling, interactive resize)
+- [ ] Step 1.5.2: Complete Canvas2D (FloatingSpace, camera offset)
+- [ ] Step 1.5.3: Feature flag (canvas-2d)
+- [ ] Step 1.5.4: Monitor integration
 
 ### Phase 2: Row Spanning
 - [ ] Step 2.1: Add row_span to Tile
@@ -227,9 +244,10 @@ src/layout/
 
 ## Quick Links
 
-- [Phase 0: Preparation](phases/phase-0-preparation.md)
-- [Phase 0.5: Golden Snapshots](phases/phase-0.5-golden-snapshots.md) ⚠️ **REQUIRED**
-- [Phase 1: Row + Canvas2D](phases/phase-1-row-and-canvas.md)
+- [Phase 0: Preparation](phases/phase-0-preparation.md) ✅
+- [Phase 0.5: Golden Snapshots](phases/phase-0.5-golden-snapshots.md) ✅ **REQUIRED**
+- [Phase 1: Row + Canvas2D](phases/phase-1-row-and-canvas.md) ✅ Core complete
+- [Phase 1.5: Integration](phases/phase-1.5-integration.md) ⬅️ **CURRENT**
 - [Phase 2: Row Spanning](phases/phase-2-row-spanning.md)
 - [Phase 3: Camera System](phases/phase-3-camera.md)
 - [Phase 4: Navigation + Polish](phases/phase-4-navigation.md)
