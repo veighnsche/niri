@@ -8,6 +8,20 @@ trigger: always_on
 
 ---
 
+## Rule 0: Quality Over Speed
+
+**Always take the correct approach, never the quick shortcut.**
+
+- If the plan recommends Option B (clean slate), do Option B
+- If a proper refactor requires more work, do the work
+- Never choose "faster to implement" over "architecturally correct"
+- Wrappers and indirection layers are technical debt — avoid them
+- Future teams will inherit your decisions — leave them clean code
+
+**Good > Quick. Always.**
+
+---
+
 ## Rule 1: Canonical Source
 
 `/home/vince/Projects/niri/docs/2d-canvas-plan/` is the **ONLY** source of truth.
@@ -45,7 +59,7 @@ When you modify code, add your team number:
 4. **Check** `.questions/` for any unanswered questions
 5. **Claim** your team number
 6. **Create** your team file
-7. **Run** `cargo insta test` — golden tests must pass BEFORE you start
+7. **Run** `./scripts/verify-golden.sh` — golden tests must pass BEFORE you start
 8. **Then** start coding
 
 ---
@@ -57,17 +71,19 @@ When you modify code, add your team number:
 ### ⚠️ MANDATORY: If You Touch Layout Logic
 
 **Before ANY refactor that touches these files, you MUST:**
-1. Run `cargo insta test` — verify golden tests pass BEFORE your changes
+1. Run `./scripts/verify-golden.sh` — verify permissions and tests pass BEFORE your changes
 2. Make your changes
 3. Run `cargo insta test` again — verify they STILL pass
 4. If tests fail → you introduced a regression, fix it
 
 ### Key Files
-- `src/layout/golden/` — Original main branch code (reference, **READ-ONLY**)
 - `src/layout/snapshot.rs` — Snapshot types (positions, indices, etc.)
 - `src/layout/tests/golden.rs` — Snapshot comparison tests
+- `src/layout/tests/snapshots/*.snap` — Locked baseline snapshots (chmod 444)
+- `scripts/verify-golden.sh` — Verification script
 
-> ⚠️ Golden files are chmod read-only. **NEVER modify them.** They are the reference baseline.
+> ⚠️ Snapshot files are chmod 444 (read-only). **NEVER modify them.**
+> Source commit: `75d5e3b0` — use `git show 75d5e3b0:src/layout/scrolling.rs` to see original code
 
 ### What Snapshots Capture
 - Column X positions and widths
@@ -106,7 +122,20 @@ Be bold. Break things. Fix them properly.
 
 ---
 
-## Rule 6: Modular Refactoring
+## Rule 6: No Dead Code
+
+**Always remove dead code and unused files.**
+
+- Delete unused functions, structs, modules
+- Delete files that aren't wired up to anything
+- Delete commented-out code blocks
+- If code exists "for reference only" — delete it, use git history instead
+
+**The codebase should only contain code that compiles and runs.**
+
+---
+
+## Rule 7: Modular Refactoring
 
 **Goal**: Break monolithic files into small, focused modules.
 
@@ -118,7 +147,7 @@ Be bold. Break things. Fix them properly.
 
 ---
 
-## Rule 7: Ask Questions
+## Rule 8: Ask Questions
 
 **When uncertain, blocked, or plans don't add up**: ask the USER.
 
@@ -128,7 +157,7 @@ Create a question file: `.questions/TEAM_XXX_topic.md`
 
 ---
 
-## Rule 8: Maximize Context Window
+## Rule 9: Maximize Context Window
 
 **Do as much work as possible within your context window.**
 
@@ -142,7 +171,7 @@ If a single task takes > 1 hour or touches > 3 files: split it into sub-task fil
 
 ---
 
-## Rule 9: Before You Finish
+## Rule 10: Before You Finish
 
 1. **Update** your team file with all changes
 2. **Verify** code compiles: `cargo check`
@@ -162,6 +191,32 @@ If a single task takes > 1 hour or touches > 3 files: split it into sub-task fil
 
 ---
 
+## Rule 11: TODO Tracking
+
+**All incomplete work MUST be clearly marked and tracked.**
+
+### In Code
+Use this exact format for searchability:
+```rust
+// TODO(TEAM_XXX): Brief description of what needs to be done
+```
+
+### Global TODO List
+Before finishing, run: `grep -rn "TODO(TEAM" src/layout/`
+
+Add any new TODOs to: `docs/2d-canvas-plan/TODO.md`
+
+### TODO.md Format
+```markdown
+## src/layout/row/mod.rs
+- [ ] TODO(TEAM_006): Port add_window from ScrollingSpace (line 440)
+- [ ] TODO(TEAM_006): Port remove_window from ScrollingSpace (line 441)
+```
+
+**Future teams check TODO.md first** to see planned feature locations.
+
+---
+
 ## Quick Reference
 
 | Task | Location |
@@ -170,8 +225,9 @@ If a single task takes > 1 hour or touches > 3 files: split it into sub-task fil
 | Current phase | `phases/phase-X-*.md` |
 | Team logs | `.teams/TEAM_XXX_*.md` |
 | Questions for USER | `.questions/TEAM_XXX_*.md` |
-| Golden reference code | `src/layout/golden/` |
-| Snapshot types | `src/layout/snapshot.rs` |
+| **Global TODOs** | `TODO.md` |
+| Golden snapshots | `src/layout/tests/snapshots/*.snap` |
+| Verification script | `scripts/verify-golden.sh` |
 | Your code comments | `// TEAM_XXX: ...` |
 
 ---
@@ -179,16 +235,16 @@ If a single task takes > 1 hour or touches > 3 files: split it into sub-task fil
 ## Current Project State
 
 **Branch**: `2d-canvas`  
-**Phase**: 0.5 COMPLETE → Next: 0.2 (AnimatedValue) or Phase 1 (Row + Canvas2D)  
-**Completed**: Phase 0.1, 0.3, 0.5 (58 golden tests across Groups A-W)  
-**Next Step**: `phases/phase-0.2-animated-value.md` or `phases/phase-1-row-and-canvas.md`
+**Phase**: 1 IN PROGRESS (Row + Canvas2D)  
+**Completed**: Phase 0 (all steps)  
+**Next Step**: Complete Row implementation, then Canvas2D
 
-**Key Decisions (TEAM_004)**:
+**Key Decisions**:
 - Workspaces **removed** — one infinite canvas per output
 - `Mod+Up/Down` uses geometric navigation (crosses rows)
 - `Mod+1/2/3` repurposed for camera bookmarks
-- Always enabled (breaking change, no opt-in)
+- Row owns columns directly (Option B, not wrapper)
 
 ---
 
-*Rules established by TEAM_000. Updated by TEAM_004.*
+*Rules established by TEAM_000. Updated by TEAM_006.*

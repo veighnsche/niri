@@ -90,6 +90,10 @@ pub mod tile;
 pub mod types;
 // TEAM_005: AnimatedValue abstraction for view offset and camera
 pub mod animated_value;
+// TEAM_006: Row module for 2D canvas layout
+pub mod row;
+// TEAM_006: Canvas2D module for 2D tiling layout
+pub mod canvas;
 pub mod workspace;
 
 // TEAM_004: Golden snapshot infrastructure

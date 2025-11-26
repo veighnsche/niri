@@ -4,6 +4,20 @@
 
 ---
 
+## Rule 0: Quality Over Speed
+
+**Always take the correct approach, never the quick shortcut.**
+
+- If the plan recommends Option B (clean slate), do Option B
+- If a proper refactor requires more work, do the work
+- Never choose "faster to implement" over "architecturally correct"
+- Wrappers and indirection layers are technical debt — avoid them
+- Future teams will inherit your decisions — leave them clean code
+
+**Good > Quick. Always.**
+
+---
+
 ## Rule 1: Canonical Source
 
 `/home/vince/Projects/niri/docs/2d-canvas-plan/` is the **ONLY** source of truth.
@@ -41,7 +55,7 @@ When you modify code, add your team number:
 4. **Check** `.questions/` for any unanswered questions
 5. **Claim** your team number
 6. **Create** your team file
-7. **Run** `cargo insta test` — golden tests must pass BEFORE you start
+7. **Run** `./scripts/verify-golden.sh` — golden tests must pass BEFORE you start
 8. **Then** start coding
 
 ---
@@ -173,6 +187,32 @@ If a single task takes > 1 hour or touches > 3 files: split it into sub-task fil
 
 ---
 
+## Rule 11: TODO Tracking
+
+**All incomplete work MUST be clearly marked and tracked.**
+
+### In Code
+Use this exact format for searchability:
+```rust
+// TODO(TEAM_XXX): Brief description of what needs to be done
+```
+
+### Global TODO List
+Before finishing, run: `grep -rn "TODO(TEAM" src/layout/`
+
+Add any new TODOs to: `docs/2d-canvas-plan/TODO.md`
+
+### TODO.md Format
+```markdown
+## src/layout/row/mod.rs
+- [ ] TODO(TEAM_006): Port add_window from ScrollingSpace (line 440)
+- [ ] TODO(TEAM_006): Port remove_window from ScrollingSpace (line 441)
+```
+
+**Future teams check TODO.md first** to see planned feature locations.
+
+---
+
 ## Quick Reference
 
 | Task | Location |
@@ -181,8 +221,8 @@ If a single task takes > 1 hour or touches > 3 files: split it into sub-task fil
 | Current phase | `phases/phase-X-*.md` |
 | Team logs | `.teams/TEAM_XXX_*.md` |
 | Questions for USER | `.questions/TEAM_XXX_*.md` |
+| **Global TODOs** | `TODO.md` |
 | Golden snapshots | `src/layout/tests/snapshots/*.snap` |
-| Snapshot types | `src/layout/snapshot.rs` |
 | Verification script | `scripts/verify-golden.sh` |
 | Your code comments | `// TEAM_XXX: ...` |
 
@@ -191,20 +231,16 @@ If a single task takes > 1 hour or touches > 3 files: split it into sub-task fil
 ## Current Project State
 
 **Branch**: `2d-canvas`  
-**Phase**: 0 COMPLETE → Next: Phase 1 (Row + Canvas2D)  
-**Completed**: Phase 0.1, 0.2, 0.3, 0.5 (all Phase 0 steps)  
-**Next Step**: `phases/phase-1-row-and-canvas.md`
+**Phase**: 1 IN PROGRESS (Row + Canvas2D)  
+**Completed**: Phase 0 (all steps)  
+**Next Step**: Complete Row implementation, then Canvas2D
 
-**Key Decisions (TEAM_004)**:
+**Key Decisions**:
 - Workspaces **removed** — one infinite canvas per output
 - `Mod+Up/Down` uses geometric navigation (crosses rows)
 - `Mod+1/2/3` repurposed for camera bookmarks
-- Always enabled (breaking change, no opt-in)
-
-**TEAM_005 Additions**:
-- `AnimatedValue` abstraction in `src/layout/animated_value/`
-- `AnimatedPoint` ready for Camera (Phase 3)
+- Row owns columns directly (Option B, not wrapper)
 
 ---
 
-*Rules established by TEAM_000. Updated by TEAM_005.*
+*Rules established by TEAM_000. Updated by TEAM_006.*

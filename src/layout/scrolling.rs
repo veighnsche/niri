@@ -3565,13 +3565,24 @@ impl<W: LayoutElement> ScrollingSpace<W> {
         &self.options
     }
 
-    #[cfg(test)]
+    // TEAM_006: Public accessors for Row wrapper
+    /// Returns the active column index.
     pub fn active_column_idx(&self) -> usize {
         self.active_column_idx
     }
 
-    #[cfg(test)]
-    pub(super) fn view_offset(&self) -> &AnimatedValue {
+    /// Returns the active column, if any.
+    pub fn active_column(&self) -> Option<&Column<W>> {
+        self.columns.get(self.active_column_idx)
+    }
+
+    /// Returns a mutable reference to the active column, if any.
+    pub fn active_column_mut(&mut self) -> Option<&mut Column<W>> {
+        self.columns.get_mut(self.active_column_idx)
+    }
+
+    /// Returns the view offset.
+    pub fn view_offset(&self) -> &AnimatedValue {
         &self.view_offset
     }
 

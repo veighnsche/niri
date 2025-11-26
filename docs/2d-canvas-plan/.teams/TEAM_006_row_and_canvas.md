@@ -5,43 +5,73 @@
 ## Objective
 Implement Phase 1: Create Row and Canvas2D modules with basic vertical navigation.
 
-## Plan
-Per `phases/phase-1-row-and-canvas.md`:
-
-### Step 1.1: Row Module
-- [ ] 1.1.1: Create `row/mod.rs` with `Row<W>` struct
-- [ ] 1.1.2: Port `ScrollingSpace` logic (composition approach)
-- [ ] 1.1.3: Add row-specific fields (`row_index`, `y_offset`)
-- [ ] 1.1.4: Create `row/layout.rs`
-- [ ] 1.1.5: Create `row/navigation.rs`
-- [ ] 1.1.6: Create `row/operations.rs`
-- [ ] 1.1.7: Unit tests
-
-### Step 1.2: Canvas2D Module
-- [ ] 1.2.1-1.2.7: TBD after Row complete
-
-### Step 1.3: Vertical Navigation
-- [ ] 1.3.1-1.3.4: TBD after Canvas2D complete
-
-### Step 1.4: Feature Flag
-- [ ] 1.4.1-1.4.4: TBD
-
 ## Design Decision
 
-**Option A (Composition)**: `Row` wraps `ScrollingSpace`
-- Less code duplication, faster to implement
-- Row adds row_index and y_offset on top of ScrollingSpace
+**Chose Option B (Clean Slate)** per Rule 0: Quality > Speed.
 
-Starting with Option A for pragmatic progress.
+Row owns its columns directly rather than wrapping ScrollingSpace.
+This avoids indirection and technical debt.
 
 ## Progress
-(Will update as work progresses)
+
+### Step 1.1: Row Module
+- [x] 1.1.1: Create `row/mod.rs` with `Row<W>` struct (clean slate, not wrapper)
+- [x] 1.1.3: Add row-specific fields (`row_index`, `y_offset`)
+- [x] Basic queries: `is_empty`, `columns`, `active_column_idx`, etc.
+- [x] Basic navigation: `focus_left`, `focus_right`, `focus_column`
+- [x] Animation: `advance_animations`, `are_animations_ongoing`
+- [x] Tile queries: `tiles_with_render_positions`
+- [ ] TODO: Window operations (add_window, remove_window)
+- [ ] TODO: Column operations (consume, expel, resize)
+- [ ] TODO: Gesture handling
+- [ ] TODO: Full view offset animation logic
+- [ ] TODO: Rendering
+
+### Step 1.2: Canvas2D Module
+- [x] 1.2.1: Create `canvas/mod.rs` with `Canvas2D<W>` struct
+- [x] 1.2.2: Use `BTreeMap<i32, Row<W>>` for sparse row storage
+- [x] Basic navigation: `focus_up`, `focus_down`, `focus_left`, `focus_right`
+- [x] Row management: `ensure_row`, `cleanup_empty_rows`
+- [x] Animation: `advance_animations`, `are_animations_ongoing`
+- [ ] TODO: FloatingSpace integration (after Row is more complete)
+- [ ] TODO: Window operations
+- [ ] TODO: Rendering
+
+### Step 1.3: Vertical Navigation
+- [x] 1.3.1: Implement `Canvas2D::focus_up()`
+- [x] 1.3.2: Implement `Canvas2D::focus_down()`
+- [ ] TODO: 1.3.3: Animate camera Y to follow active row
+
+### Step 1.4: Feature Flag
+- [ ] TODO: Not started
 
 ## Changes Made
-(Will update as work progresses)
+
+### New Files
+- `src/layout/row/mod.rs` — Row struct with clean-slate implementation
+- `src/layout/canvas/mod.rs` — Canvas2D struct
+
+### Modified Files
+- `src/layout/mod.rs` — Added `pub mod row` and `pub mod canvas`
+- `src/layout/scrolling.rs` — Added public accessors for Row compatibility
+- `docs/2d-canvas-plan/ai-teams-rules.md` — Added Rule 0: Quality > Speed
 
 ## Handoff
-- [ ] Code compiles (`cargo check`)
-- [ ] Tests pass (`cargo test`)
-- [ ] Golden tests pass (`./scripts/verify-golden.sh`)
-- [ ] Team file complete
+- [x] Code compiles (`cargo check`)
+- [x] Tests pass (`cargo test`) — 251 tests
+- [x] Golden tests pass (`./scripts/verify-golden.sh`) — 58 tests
+- [x] Team file complete
+
+## Notes for Next Team
+
+Row is a **partial implementation**. Key missing pieces:
+1. Window operations (`add_window`, `remove_window`)
+2. Column operations (consume, expel)
+3. Full view offset animation logic (ported stub only)
+4. Rendering
+5. Interactive resize
+
+The current implementation provides the structure but needs ScrollingSpace
+methods ported incrementally. About ~3000 lines still to port.
+
+Canvas2D is similarly partial — depends on Row completion.
