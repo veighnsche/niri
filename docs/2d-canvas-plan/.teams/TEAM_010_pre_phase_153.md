@@ -105,7 +105,11 @@ phases/
 - [x] Step 1.3: Migrate Monitor query methods (windows, has_window)
   - Uses hybrid approach: checks BOTH canvas AND workspaces during transition
   - 284 tests pass, 91 golden tests pass
-- [ ] Step 1.4: Migrate Monitor mutation methods (add_window, remove_window)
+- [x] Step 1.4: Migrate Monitor mutation methods (partial)
+  - Added `make_tile()` to Canvas2D
+  - `add_window()` now uses `canvas.make_tile()`
+  - `add_tile()` and `remove_window()` still use workspaces (complex logic)
+  - Full migration requires Parts 2-4 to remove workspace-specific logic
 - [ ] Parts 2-5: Remove workspace switching, overview, fields, config
 
 ## Handoff

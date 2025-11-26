@@ -3,7 +3,18 @@
 > **Check this file first** to see where past teams planned to add features.
 > This maintains architectural consistency across teams.
 
-**Last updated**: TEAM_009 (Phase 1.5.2 COMPLETE, Phase 1.5.3 next)
+**Last updated**: TEAM_010 (Phase 1.5.3 Part 1 IN PROGRESS)
+
+---
+
+## src/layout/monitor.rs — 🔄 PHASE 1.5.3 IN PROGRESS
+
+Migration from Workspace to Canvas2D. These TODOs will be resolved in Parts 2-4.
+
+### Migration TODOs (TEAM_010)
+- [ ] TODO(TEAM_010): Remove canvas field comment after all methods migrated (`monitor.rs:81`)
+- [ ] TODO(TEAM_010): Remove workspace checks from `windows()` and `has_window()` (`monitor.rs:454`)
+- [ ] TODO(TEAM_010): Remove workspace operations from mutation methods (`monitor.rs:584`)
 
 ---
 

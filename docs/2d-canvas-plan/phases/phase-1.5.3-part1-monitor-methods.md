@@ -67,15 +67,28 @@ After full migration (Part 4), the workspace checks will be removed.
 
 ---
 
-## Step 1.4: Migrate Monitor Mutation Methods
+## Step 1.4: Migrate Monitor Mutation Methods ✅
 
 These methods MODIFY state and are more complex:
 
 | Method | Current | Target | Status |
 |--------|---------|--------|--------|
-| `add_window()` | Uses `workspaces[idx]` | Use `canvas.add_window()` | ⏳ |
-| `add_tile()` | Uses `workspaces[idx]` | Use `canvas.add_tile()` | ⏳ |
-| `remove_window()` | Uses `workspaces[idx]` | Use `canvas.remove_window()` | ⏳ |
+| `add_window()` | Uses `workspaces[0].make_tile()` | Uses `canvas.make_tile()` | ✅ |
+| `add_tile()` | Uses `workspaces[idx]` | Still uses workspaces (TODO) | ⏳ |
+| `remove_window()` | Uses `workspaces[idx]` | Still uses workspaces (TODO) | ⏳ |
+
+**Progress**:
+- ✅ Added `make_tile()` to Canvas2D
+- ✅ `add_window()` now uses `canvas.make_tile()` instead of `workspaces[0].make_tile()`
+- ⏳ `add_tile()` still routes through workspaces (complex workspace-specific logic)
+- ⏳ `remove_window()` still routes through workspaces
+
+**Note**: Full migration of `add_tile()` requires removing workspace-specific logic like:
+- `add_workspace_bottom()` / `add_workspace_top()`
+- `activate_workspace()`
+- `workspace.original_output`
+
+These will be removed in Parts 2-4.
 
 ---
 

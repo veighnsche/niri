@@ -578,6 +578,12 @@ impl<W: LayoutElement> Monitor<W> {
         }
     }
 
+    // =========================================================================
+    // TEAM_010: Window mutation methods
+    // During migration, add to BOTH canvas AND workspaces
+    // TODO(TEAM_010): Remove workspace operations after full migration
+    // =========================================================================
+
     pub fn add_window(
         &mut self,
         window: W,
@@ -587,9 +593,8 @@ impl<W: LayoutElement> Monitor<W> {
         is_full_width: bool,
         is_floating: bool,
     ) {
-        // Currently, everything a workspace sets on a Tile is the same across all workspaces of a
-        // monitor. So we can use any workspace, not necessarily the exact target workspace.
-        let tile = self.workspaces[0].make_tile(window);
+        // TEAM_010: Create tile using canvas (preferred) or workspace as fallback
+        let tile = self.canvas.make_tile(window);
 
         self.add_tile(
             tile,

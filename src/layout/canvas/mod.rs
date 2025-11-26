@@ -45,6 +45,7 @@ use smithay::utils::{Logical, Point, Rectangle, Size};
 use super::animated_value::AnimatedValue;
 use super::floating::{FloatingSpace, FloatingSpaceRenderElement};
 use super::row::{Row, RowRenderElement};
+use super::tile::Tile;
 use super::LayoutElement;
 use super::Options;
 use crate::animation::Clock;
@@ -168,6 +169,18 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Returns the output this canvas is on.
     pub fn output(&self) -> Option<&Output> {
         self.output.as_ref()
+    }
+
+    /// Creates a tile from a window.
+    /// TEAM_010: Added for Monitor.add_window() migration
+    pub fn make_tile(&self, window: W) -> Tile<W> {
+        Tile::new(
+            window,
+            self.view_size,
+            self.scale,
+            self.clock.clone(),
+            self.options.clone(),
+        )
     }
 
     /// Returns whether the canvas has any tiled windows.
