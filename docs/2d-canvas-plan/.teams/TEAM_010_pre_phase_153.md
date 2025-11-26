@@ -46,6 +46,36 @@ not this refactor branch. Added prominent warnings everywhere:
 - To change snapshot behavior: change on `golden-snapshots` branch first, then `cargo xtask golden-sync pull`
 - See `xtask/src/golden_sync/mod.rs` for the sync tool
 
+### Reorganized Planning Documents
+The planning docs were a mess with multiple overlapping files. Cleaned up:
+
+**Deleted:**
+- `MASTERPLAN.md` — Was just pre-1.5.3 notes, confusingly named
+
+**Archived to `phases/archive/`:**
+- `phase-0-preparation.md` — Completed
+- `phase-0.5-*.md` (6 files) — Completed golden snapshot phases
+- `phase-1-row-and-canvas.md` — Completed
+- `animation-golden-testing.md` — Reference only
+- `golden-test-scenarios.md` — Reference only
+
+**Updated:**
+- `README.md` — Added "CURRENT WORK" section at top with clear next steps
+- `phase-1.5.3-removal-checklist.md` — Added pre-work status and Step 0
+
+**New structure:**
+```
+phases/
+├── phase-1.5-integration.md      # Parent context
+├── phase-1.5.3-removal-checklist.md  # CURRENT WORK
+├── phase-2-row-spanning.md       # Future
+├── phase-3-camera.md             # Future
+├── phase-4-navigation.md         # Future
+├── phase-5-integration.md        # Future
+├── animation-regression-checklist.md  # Reference
+└── archive/                      # Completed phases
+```
+
 ### Added snapshot() to Row and Canvas2D
 - `src/layout/row/mod.rs` — Added `snapshot()` method for golden test compatibility
 - `src/layout/canvas/mod.rs` — Added `snapshot()` that delegates to active row

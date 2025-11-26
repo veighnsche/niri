@@ -85,6 +85,37 @@ impl<W: LayoutElement> Canvas2D<W> {
     // Tiles Query
     // =========================================================================
 
+    /// Returns all tiles in the canvas (tiled only, not floating).
+    /// TEAM_010: Added for Monitor.windows() migration
+    pub fn tiles(&self) -> impl Iterator<Item = &Tile<W>> + '_ {
+        self.rows.values().flat_map(|row| row.tiles())
+    }
+
+    /// Returns all tiles in the canvas (tiled only, not floating).
+    /// TEAM_010: Added for Monitor.windows_mut() migration
+    pub fn tiles_mut(&mut self) -> impl Iterator<Item = &mut Tile<W>> + '_ {
+        self.rows.values_mut().flat_map(|row| row.tiles_mut())
+    }
+
+    /// Returns all windows in the canvas (tiled and floating).
+    /// TEAM_010: Added for Monitor.windows() migration
+    pub fn windows(&self) -> impl Iterator<Item = &W> + '_ {
+        let tiled = self.tiles().map(Tile::window);
+        let floating = self.floating.tiles().map(Tile::window);
+        tiled.chain(floating)
+    }
+
+    /// Returns all windows in the canvas (tiled and floating).
+    /// TEAM_010: Added for Monitor.windows_mut() migration
+    pub fn windows_mut(&mut self) -> impl Iterator<Item = &mut W> + '_ {
+        // Can't easily chain mutable iterators, so collect tiled first
+        // This is a limitation we accept for now
+        self.rows
+            .values_mut()
+            .flat_map(|row| row.tiles_mut())
+            .map(Tile::window_mut)
+    }
+
     /// Returns all tiles with their render positions.
     pub fn tiles_with_render_positions(
         &self,

@@ -240,6 +240,18 @@ impl<W: LayoutElement> Row<W> {
         self.columns.iter().position(|col| col.contains(window))
     }
 
+    /// Returns all tiles in this row.
+    /// TEAM_010: Added for Canvas2D.windows() migration
+    pub fn tiles(&self) -> impl Iterator<Item = &Tile<W>> + '_ {
+        self.columns.iter().flat_map(|col| col.tiles_iter())
+    }
+
+    /// Returns all tiles in this row (mutable).
+    /// TEAM_010: Added for Canvas2D.windows_mut() migration
+    pub fn tiles_mut(&mut self) -> impl Iterator<Item = &mut Tile<W>> + '_ {
+        self.columns.iter_mut().flat_map(|col| col.tiles_iter_mut())
+    }
+
     // =========================================================================
     // Animation
     // =========================================================================

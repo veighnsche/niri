@@ -2,9 +2,54 @@
 
 > Transform niri from a 1D scrolling tiler to a 2D canvas with rows, row-spanning windows, and dynamic camera zoom — built from modular, well-encapsulated components.
 
-**AI Teams: Read [ai-teams-rules.md](ai-teams-rules.md) first. Check [.teams/](.teams/) for recent activity.**
+---
 
-⚠️ **Before ANY layout refactor**: Run `cargo insta test` to verify golden tests pass. See Rule 8.
+## 🚀 CURRENT WORK: Phase 1.5.3 — Replace Workspace with Canvas2D
+
+**Status**: IN PROGRESS (Part 1)  
+**Latest Team**: Check [.teams/](.teams/) for the most recent `TEAM_XXX_*.md` file
+
+### Phase 1.5.3 Parts
+
+| Part | Description | Status |
+|------|-------------|--------|
+| [Part 1](phases/phase-1.5.3-part1-monitor-methods.md) | Migrate Monitor methods to Canvas2D | 🔄 IN PROGRESS |
+| [Part 2](phases/phase-1.5.3-part2-remove-workspace-switching.md) | Remove workspace switching | ⏳ Pending |
+| [Part 3](phases/phase-1.5.3-part3-remove-overview.md) | Remove overview mode | ⏳ Pending |
+| [Part 4](phases/phase-1.5.3-part4-remove-workspace-fields.md) | Remove workspace fields from Monitor | ⏳ Pending |
+| [Part 5](phases/phase-1.5.3-part5-config-and-ipc.md) | Remove workspace config and IPC | ⏳ Pending |
+
+### Pre-Work Complete
+- ✅ Canvas2D field added to Monitor struct
+- ✅ `canvas()` and `canvas_mut()` accessors added
+- ✅ `snapshot()` methods added to Row and Canvas2D
+- ✅ `tiles()`, `windows()` methods added to Canvas2D and Row
+- ✅ Golden snapshot infrastructure fixed
+- ✅ Planning docs reorganized
+
+### Quick Start for New Teams
+```bash
+# 1. Read the rules
+cat docs/2d-canvas-plan/ai-teams-rules.md
+
+# 2. Check latest team file
+ls -la docs/2d-canvas-plan/.teams/
+
+# 3. Verify golden tests pass BEFORE starting
+./scripts/verify-golden.sh
+
+# 4. Claim your team number and create team file
+# 5. Continue Phase 1.5.3 work
+```
+
+---
+
+## AI Teams
+
+**Read [ai-teams-rules.md](ai-teams-rules.md) first.**
+
+⚠️ **Golden tests**: Run `./scripts/verify-golden.sh` before AND after changes.  
+⚠️ **Never accept**: `cargo insta accept` on golden tests — snapshots come from `golden-snapshots` branch.
 
 ---
 
@@ -271,26 +316,30 @@ src/layout/
 
 ## Quick Links
 
-### Planning Documents
-- [**MASTERPLAN**](MASTERPLAN.md) ⬅️ **START HERE** — Single source of truth for current work
-- [Animation Regression Checklist](phases/animation-regression-checklist.md) — Ensure no animation regressions
-- [Workspace Removal Checklist](phases/phase-1.5.3-removal-checklist.md) — Detailed removal steps
+### Current Phase
+- [**Phase 1.5.3: Workspace Removal**](phases/phase-1.5.3-removal-checklist.md) ⬅️ **CURRENT** — Detailed removal steps
+- [Phase 1.5: Integration](phases/phase-1.5-integration.md) — Parent phase context
 
-### Phase Documents
-- [Phase 0: Preparation](phases/phase-0-preparation.md) ✅
-- [Phase 0.5: Golden Snapshots](phases/phase-0.5-golden-snapshots.md) ✅ **REQUIRED**
-- [Phase 1: Row + Canvas2D](phases/phase-1-row-and-canvas.md) ✅ Core complete
-- [Phase 1.5: Integration](phases/phase-1.5-integration.md) ⬅️ **CURRENT**
+### Future Phases
 - [Phase 2: Row Spanning](phases/phase-2-row-spanning.md)
 - [Phase 3: Camera System](phases/phase-3-camera.md)
 - [Phase 4: Navigation + Polish](phases/phase-4-navigation.md)
-- [Phase 5: Integration](phases/phase-5-integration.md)
+- [Phase 5: Final Integration](phases/phase-5-integration.md)
+
+### Completed Phases (Archived)
+- [Phase 0: Preparation](phases/archive/phase-0-preparation.md) ✅
+- [Phase 1: Row + Canvas2D](phases/archive/phase-1-row-and-canvas.md) ✅
+- [Phase 0.5: Golden Snapshots](phases/archive/) ✅
+
+### Reference Documents
+- [Animation Regression Checklist](phases/animation-regression-checklist.md) — Ensure no animation regressions
+- [Golden Snapshot Testing](ai-teams-rules.md#rule-4-golden-snapshot-testing) — In ai-teams-rules.md
 
 ---
 
-## Context Documents
+## Archive
 
-- [Initial Questionnaire](.questions/2D_CANVAS_QUESTIONNAIRE.md) — First round of requirements gathering
-- [Feasibility Study](2D_CANVAS_FEASIBILITY.md) — Initial architectural analysis
-- [TEAM_009 Contradiction Sweep](.questions/TEAM_009_contradiction_sweep.md) — Alignment with USER answers
-- [TEAM_009 Follow-up Questions](.questions/TEAM_009_followup_planning_gaps.md) — Planning gaps with USER answers
+These documents are kept for historical reference but are no longer actively used:
+
+- [2D_CANVAS_FEASIBILITY.md](2D_CANVAS_FEASIBILITY.md) — Initial architectural analysis
+- [.questions/](.questions/) — Historical questionnaires and USER answers

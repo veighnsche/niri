@@ -5,6 +5,37 @@
 
 ---
 
+## ✅ Pre-Work Complete (TEAM_010)
+
+Before starting the removal, these were completed:
+
+- [x] Canvas2D field added to Monitor struct
+- [x] `canvas()` and `canvas_mut()` accessors added
+- [x] `snapshot()` methods added to Row and Canvas2D
+- [x] Golden snapshot infrastructure fixed
+
+## Current Status
+
+**Next Step**: Step 0 — Migrate Monitor methods to use Canvas2D
+
+---
+
+## Step 0: Migrate Monitor Methods (DO THIS FIRST)
+
+Before removing anything, migrate Monitor to use Canvas2D for window operations:
+
+| Method | Current | Target | Status |
+|--------|---------|--------|--------|
+| `add_window` | Uses `workspaces[idx]` | Use `canvas` | ⏳ |
+| `remove_window` | Uses `workspaces[idx]` | Use `canvas` | ⏳ |
+| `windows()` | Iterates workspaces | Iterate canvas rows | ⏳ |
+| `has_window()` | Checks workspaces | Check canvas | ⏳ |
+| `active_window()` | From workspace | From canvas | ⏳ |
+
+**Why first?** Once methods use Canvas2D, removing workspace fields becomes trivial.
+
+---
+
 ## Removal Order
 
 Remove in this order to minimize intermediate breakage:
