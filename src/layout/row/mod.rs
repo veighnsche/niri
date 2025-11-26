@@ -548,4 +548,84 @@ pub(crate) fn compute_working_area(
     area
 }
 
+// TEAM_022: Missing workspace-compatibility methods for Row
+impl<W: LayoutElement> Row<W> {
+    // =========================================================================
+    // Window configuration methods (migrated from Workspace)
+    // =========================================================================
+
+    /// Configure a new window with defaults.
+    /// TEAM_022: Stub implementation for compatibility
+    pub fn configure_new_window<R>(
+        &self,
+        _window: &W,
+        _width: Option<niri_config::PresetSize>,
+        _height: Option<niri_config::PresetSize>,
+        _is_floating: bool,
+        _rules: &R,
+    ) {
+        // TEAM_022: TODO - implement proper window configuration
+        // For now, this is a no-op as windows are configured when added
+    }
+
+    /// Resolve the default width for a window.
+    /// TEAM_022: Stub implementation
+    pub fn resolve_default_width<R>(&self, _rules: &R) -> Option<niri_config::PresetSize> {
+        // Return None for auto width
+        None
+    }
+
+    /// Resolve the default height for a window.
+    /// TEAM_022: Stub implementation
+    pub fn resolve_default_height<R>(&self, _rules: &R) -> Option<niri_config::PresetSize> {
+        // Return None for auto height
+        None
+    }
+
+    /// Move focus down within the active column.
+    /// TEAM_022: Returns false if cannot move down
+    pub fn focus_down(&mut self) -> bool {
+        if let Some(col) = self.active_column_mut() {
+            col.focus_down()
+        } else {
+            false
+        }
+    }
+
+    /// Move focus up within the active column.
+    /// TEAM_022: Returns false if cannot move up
+    pub fn focus_up(&mut self) -> bool {
+        if let Some(col) = self.active_column_mut() {
+            col.focus_up()
+        } else {
+            false
+        }
+    }
+
+    /// Move window down within the active column.
+    /// TEAM_022: Returns false if cannot move
+    pub fn move_down(&mut self) -> bool {
+        if let Some(col) = self.active_column_mut() {
+            col.move_down()
+        } else {
+            false
+        }
+    }
+
+    /// Move window up within the active column.
+    /// TEAM_022: Returns false if cannot move
+    pub fn move_up(&mut self) -> bool {
+        if let Some(col) = self.active_column_mut() {
+            col.move_up()
+        } else {
+            false
+        }
+    }
+
+    /// Check if any transitions are ongoing.
+    pub fn are_transitions_ongoing(&self) -> bool {
+        self.are_animations_ongoing()
+    }
+}
+
 // See docs/2d-canvas-plan/TODO.md for remaining work

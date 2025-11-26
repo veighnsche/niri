@@ -44,6 +44,16 @@ impl OutputId {
     }
 }
 
+/// Legacy workspace add window target for external compatibility
+/// TEAM_022: Still needed by layout/mod.rs callers
+#[derive(Debug, Clone, Copy)]
+pub enum WorkspaceAddWindowTarget<'a, W: super::LayoutElement> {
+    AtWindow(&'a W),
+    AtEnd,
+    Auto,
+    NextTo(&'a W),
+}
+
 /// Compute working area for an output
 /// This function is still needed by monitor configuration
 pub fn compute_working_area(output: &Output) -> Rectangle<f64, Logical> {
