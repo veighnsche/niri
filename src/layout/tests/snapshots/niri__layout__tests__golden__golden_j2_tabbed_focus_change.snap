@@ -1,0 +1,94 @@
+---
+source: src/layout/tests/golden.rs
+expression: "snapshot([Op::AddOutput(1), win(1), win(2), consume_left(),\nOp::ToggleColumnTabbedDisplay, Op::FocusWindowUp,])"
+---
+columns:
+  - x: 0
+    width: 100
+    tiles:
+      - x: 0
+        y: 16
+        width: 100
+        height: 200
+      - x: 0
+        y: 16
+        width: 100
+        height: 200
+    active_tile_idx: 0
+    is_full_width: false
+    is_fullscreen: false
+active_column_idx: 0
+view_offset: -16
+working_area:
+  x: 0
+  y: 0
+  w: 1280
+  h: 720
+view_size:
+  w: 1280
+  h: 720
+animations:
+  - target: tile_0_0_x_min
+    from: 0
+    to: 0
+    kind:
+      type: Spring
+      damping_ratio: 1
+      stiffness: 800
+    duration_ms: 325
+  - target: tile_0_0_x_max
+    from: 100
+    to: 100
+    kind:
+      type: Spring
+      damping_ratio: 1
+      stiffness: 800
+    duration_ms: 325
+  - target: tile_0_0_y_min
+    from: 16
+    to: 16
+    kind:
+      type: Spring
+      damping_ratio: 1
+      stiffness: 800
+    duration_ms: 325
+  - target: tile_0_0_y_max
+    from: 216
+    to: 216
+    kind:
+      type: Spring
+      damping_ratio: 1
+      stiffness: 800
+    duration_ms: 325
+  - target: tile_0_1_x_min
+    from: 116
+    to: 0
+    kind:
+      type: Spring
+      damping_ratio: 1
+      stiffness: 800
+    duration_ms: 325
+  - target: tile_0_1_x_max
+    from: 216
+    to: 100
+    kind:
+      type: Spring
+      damping_ratio: 1
+      stiffness: 800
+    duration_ms: 325
+  - target: tile_0_1_y_min
+    from: 16
+    to: 16
+    kind:
+      type: Spring
+      damping_ratio: 1
+      stiffness: 800
+    duration_ms: 325
+  - target: tile_0_1_y_max
+    from: 216
+    to: 216
+    kind:
+      type: Spring
+      damping_ratio: 1
+      stiffness: 800
+    duration_ms: 325

@@ -1,0 +1,15 @@
+---
+source: src/layout/tests/golden.rs
+expression: "snapshot([Op::AddOutput(1)])"
+---
+columns: []
+active_column_idx: 0
+view_offset: 0
+working_area:
+  x: 0
+  y: 0
+  w: 1280
+  h: 720
+view_size:
+  w: 1280
+  h: 720

@@ -85,6 +85,10 @@ pub mod tab_indicator;
 pub mod tile;
 pub mod workspace;
 
+// Golden snapshot infrastructure for regression testing
+#[cfg(test)]
+pub mod snapshot;
+
 #[cfg(test)]
 mod tests;
 

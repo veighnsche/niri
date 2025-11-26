@@ -337,6 +337,46 @@ impl Animation {
             spring.to += offset;
         }
     }
+
+    // ========================================================================
+    // Golden snapshot accessors (for regression testing)
+    // ========================================================================
+
+    /// Returns the easing curve name if this is an easing animation.
+    #[cfg(test)]
+    pub fn easing_curve_name(&self) -> Option<&'static str> {
+        match &self.kind {
+            Kind::Easing { curve } => Some(match curve {
+                Curve::Linear => "Linear",
+                Curve::EaseOutQuad => "EaseOutQuad",
+                Curve::EaseOutCubic => "EaseOutCubic",
+                Curve::EaseOutExpo => "EaseOutExpo",
+                Curve::CubicBezier(_) => "CubicBezier",
+            }),
+            _ => None,
+        }
+    }
+
+    /// Returns spring parameters if this is a spring animation.
+    #[cfg(test)]
+    pub fn spring_params(&self) -> Option<&SpringParams> {
+        match &self.kind {
+            Kind::Spring(spring) => Some(&spring.params),
+            _ => None,
+        }
+    }
+
+    /// Returns (initial_velocity, deceleration_rate) if this is a deceleration animation.
+    #[cfg(test)]
+    pub fn deceleration_params(&self) -> Option<(f64, f64)> {
+        match &self.kind {
+            Kind::Deceleration {
+                initial_velocity,
+                deceleration_rate,
+            } => Some((*initial_velocity, *deceleration_rate)),
+            _ => None,
+        }
+    }
 }
 
 impl Curve {

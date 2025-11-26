@@ -3781,6 +3781,185 @@ impl<W: LayoutElement> ScrollingSpace<W> {
             );
         }
     }
+
+    // ========================================================================
+    // Golden snapshot method for ScrollingSpace
+    // ========================================================================
+
+    /// Create a snapshot of the scrolling layout for golden testing.
+    #[cfg(test)]
+    pub fn snapshot(&self) -> crate::layout::snapshot::ScrollingSnapshot {
+        use crate::layout::snapshot::{
+            AnimationTimelineSnapshot, RectSnapshot, ScrollingSnapshot, SizeSnapshot,
+        };
+
+        let columns = self
+            .columns
+            .iter()
+            .enumerate()
+            .map(|(idx, col)| {
+                let col_x = self.column_x(idx);
+                col.snapshot(col_x)
+            })
+            .collect();
+
+        // Capture view_offset animation
+        let mut animations = Vec::new();
+
+        if let ViewOffset::Animation(anim) = &self.view_offset {
+            let kind = Self::extract_animation_kind(anim);
+            animations.push(AnimationTimelineSnapshot::view_offset(
+                anim.from(),
+                anim.to(),
+                kind,
+                anim.duration().as_millis() as u64,
+            ));
+        }
+
+        // Capture column and tile animations
+        for (col_idx, column) in self.columns.iter().enumerate() {
+            let col_x = self.column_x(col_idx);
+
+            if let Some((anim, from_offset)) = column.move_animation() {
+                let kind = Self::extract_animation_kind(anim);
+                animations.push(AnimationTimelineSnapshot {
+                    target: format!("column_{col_idx}_move_x"),
+                    from: from_offset,
+                    to: 0.0,
+                    kind,
+                    duration_ms: anim.duration().as_millis() as u64,
+                    pinned_edge: None,
+                });
+            }
+
+            for (tile, tile_idx) in column.tiles_with_animations() {
+                let tile_offset = column.tile_offset(tile_idx);
+                let tile_size = tile.tile_size();
+
+                if let Some(anim) = tile.resize_animation() {
+                    if let Some((_, tile_size_from)) = tile.resize_animation_from_sizes() {
+                        let kind = Self::extract_animation_kind(anim);
+
+                        if (tile_size_from.w - tile_size.w).abs() > 0.1 {
+                            animations.push(AnimationTimelineSnapshot::tile_edge(
+                                col_idx,
+                                tile_idx,
+                                "x_max",
+                                col_x + tile_offset.x + tile_size_from.w,
+                                col_x + tile_offset.x + tile_size.w,
+                                kind.clone(),
+                                anim.duration().as_millis() as u64,
+                            ));
+                        }
+
+                        if (tile_size_from.h - tile_size.h).abs() > 0.1 {
+                            animations.push(AnimationTimelineSnapshot::tile_edge(
+                                col_idx,
+                                tile_idx,
+                                "y_max",
+                                tile_offset.y + tile_size_from.h,
+                                tile_offset.y + tile_size.h,
+                                kind,
+                                anim.duration().as_millis() as u64,
+                            ));
+                        }
+                    }
+                }
+
+                if let Some((anim, from_x)) = tile.move_x_animation_with_from() {
+                    let kind = Self::extract_animation_kind(anim);
+                    let current_x = col_x + tile_offset.x;
+                    let from_abs_x = current_x + from_x;
+
+                    animations.push(AnimationTimelineSnapshot::tile_edge(
+                        col_idx,
+                        tile_idx,
+                        "x_min",
+                        from_abs_x,
+                        current_x,
+                        kind.clone(),
+                        anim.duration().as_millis() as u64,
+                    ));
+                    animations.push(AnimationTimelineSnapshot::tile_edge(
+                        col_idx,
+                        tile_idx,
+                        "x_max",
+                        from_abs_x + tile_size.w,
+                        current_x + tile_size.w,
+                        kind,
+                        anim.duration().as_millis() as u64,
+                    ));
+                }
+
+                if let Some((anim, from_y)) = tile.move_y_animation_with_from() {
+                    let kind = Self::extract_animation_kind(anim);
+                    let current_y = tile_offset.y;
+                    let from_abs_y = current_y + from_y;
+
+                    animations.push(AnimationTimelineSnapshot::tile_edge(
+                        col_idx,
+                        tile_idx,
+                        "y_min",
+                        from_abs_y,
+                        current_y,
+                        kind.clone(),
+                        anim.duration().as_millis() as u64,
+                    ));
+                    animations.push(AnimationTimelineSnapshot::tile_edge(
+                        col_idx,
+                        tile_idx,
+                        "y_max",
+                        from_abs_y + tile_size.h,
+                        current_y + tile_size.h,
+                        kind,
+                        anim.duration().as_millis() as u64,
+                    ));
+                }
+            }
+        }
+
+        ScrollingSnapshot {
+            columns,
+            active_column_idx: self.active_column_idx,
+            view_offset: self.view_offset.current(),
+            working_area: RectSnapshot::from(self.working_area),
+            view_size: SizeSnapshot::from(self.view_size),
+            animations,
+        }
+    }
+
+    /// Helper to extract animation kind for snapshots.
+    #[cfg(test)]
+    fn extract_animation_kind(anim: &Animation) -> crate::layout::snapshot::AnimationKindSnapshot {
+        use crate::layout::snapshot::AnimationKindSnapshot;
+
+        if let Some(curve_name) = anim.easing_curve_name() {
+            return AnimationKindSnapshot::Easing {
+                curve: curve_name.to_string(),
+                duration_ms: anim.duration().as_millis() as u64,
+            };
+        }
+
+        if let Some(params) = anim.spring_params() {
+            let damping_ratio = params.damping / (2.0 * params.stiffness.sqrt());
+            return AnimationKindSnapshot::Spring {
+                damping_ratio: (damping_ratio * 100.0).round() / 100.0,
+                stiffness: (params.stiffness * 10.0).round() / 10.0,
+            };
+        }
+
+        if let Some((initial_velocity, deceleration_rate)) = anim.deceleration_params() {
+            return AnimationKindSnapshot::Deceleration {
+                initial_velocity: (initial_velocity * 10.0).round() / 10.0,
+                deceleration_rate: (deceleration_rate * 1000.0).round() / 1000.0,
+            };
+        }
+
+        AnimationKindSnapshot::Easing {
+            curve: "Unknown".to_string(),
+            duration_ms: anim.duration().as_millis() as u64,
+        }
+    }
 }
 
 impl ViewOffset {
@@ -5434,6 +5613,52 @@ impl<W: LayoutElement> Column<W> {
                  (total height {total_height} > max height {max_height})"
             );
         }
+    }
+}
+
+// ============================================================================
+// Golden snapshot methods for Column
+// ============================================================================
+
+#[cfg(test)]
+impl<W: LayoutElement> Column<W> {
+    /// Create a snapshot of this column for golden testing.
+    pub fn snapshot(&self, column_x: f64) -> crate::layout::snapshot::ColumnSnapshot {
+        use crate::layout::snapshot::{ColumnSnapshot, TileSnapshot};
+
+        let tiles: Vec<TileSnapshot> = self
+            .tiles()
+            .enumerate()
+            .map(|(idx, (tile, _offset))| {
+                let offset = self.tile_offset(idx);
+                let tile_size = tile.tile_size();
+                TileSnapshot {
+                    x: column_x + offset.x,
+                    y: offset.y,
+                    width: tile_size.w,
+                    height: tile_size.h,
+                }
+            })
+            .collect();
+
+        ColumnSnapshot {
+            x: column_x,
+            width: self.width(),
+            tiles,
+            active_tile_idx: self.active_tile_idx,
+            is_full_width: self.is_full_width,
+            is_fullscreen: self.sizing_mode().is_fullscreen(),
+        }
+    }
+
+    /// Returns the column's move animation if present (animation, from_offset).
+    pub fn move_animation(&self) -> Option<(&crate::animation::Animation, f64)> {
+        self.move_animation.as_ref().map(|m| (&m.anim, m.from))
+    }
+
+    /// Returns iterator over tiles with their indices for golden testing.
+    pub fn tiles_with_animations(&self) -> impl Iterator<Item = (&Tile<W>, usize)> {
+        self.tiles.iter().enumerate().map(|(idx, tile)| (tile, idx))
     }
 }
 

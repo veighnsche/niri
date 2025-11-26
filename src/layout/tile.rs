@@ -1424,4 +1424,28 @@ impl<W: LayoutElement> Tile<W> {
         assert_abs_diff_eq!(size.w, rounded.w, epsilon = 1e-5);
         assert_abs_diff_eq!(size.h, rounded.h, epsilon = 1e-5);
     }
+
+    // ========================================================================
+    // Golden snapshot accessors (for regression testing)
+    // ========================================================================
+
+    /// Returns resize animation from sizes for golden testing.
+    #[cfg(test)]
+    pub fn resize_animation_from_sizes(&self) -> Option<(Size<f64, Logical>, Size<f64, Logical>)> {
+        self.resize_animation
+            .as_ref()
+            .map(|r| (r.size_from, r.tile_size_from))
+    }
+
+    /// Returns move_x animation with from value for golden testing.
+    #[cfg(test)]
+    pub fn move_x_animation_with_from(&self) -> Option<(&crate::animation::Animation, f64)> {
+        self.move_x_animation.as_ref().map(|m| (&m.anim, m.from))
+    }
+
+    /// Returns move_y animation with from value for golden testing.
+    #[cfg(test)]
+    pub fn move_y_animation_with_from(&self) -> Option<(&crate::animation::Animation, f64)> {
+        self.move_y_animation.as_ref().map(|m| (&m.anim, m.from))
+    }
 }
