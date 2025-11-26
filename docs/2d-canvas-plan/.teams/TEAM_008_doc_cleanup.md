@@ -46,12 +46,18 @@ Per user request:
 - [x] Port `render_above_top_layer` from ScrollingSpace — returns true when fullscreen and view stationary
 
 ### Refactoring (Rule 7 Compliance) ✅
-- [x] Split `operations.rs` (692 lines) into submodules:
+- [x] Split `row/operations.rs` (692 lines) into submodules:
   - `operations/add.rs` (159 lines)
   - `operations/remove.rs` (246 lines)
   - `operations/move_col.rs` (50 lines)
   - `operations/consume.rs` (250 lines)
   - `operations/mod.rs` (22 lines)
+- [x] Split `column/sizing.rs` (566 lines) into submodules:
+  - `sizing/tile_sizes.rs` (276 lines)
+  - `sizing/height.rs` (160 lines)
+  - `sizing/width.rs` (123 lines)
+  - `sizing/display.rs` (80 lines)
+  - `sizing/mod.rs` (22 lines)
 - [x] All files now under 500 lines ✅
 
 ## Changes Made
@@ -61,6 +67,7 @@ Per user request:
 - `src/layout/row/operations/` — Refactored into submodules (was 692 lines, now 5 files < 250 lines each)
 - `src/layout/row/navigation.rs` — Added `activate_column`
 - `src/layout/row/render.rs` — Added `render_above_top_layer`
+- `src/layout/column/sizing/` — Refactored into submodules (was 566 lines, now 5 files < 280 lines each)
 - `src/layout/mod.rs` — Added `RemovedTile::new` constructor and getters
 - `docs/2d-canvas-plan/.teams/TEAM_007_phase1_continuation.md` — Completed team file
 - `docs/2d-canvas-plan/TODO.md` — Updated with completed items
