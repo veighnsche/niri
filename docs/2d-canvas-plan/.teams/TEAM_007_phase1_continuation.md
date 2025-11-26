@@ -33,12 +33,23 @@ Refactored `row/mod.rs` (858 lines) into focused submodules:
 
 ```
 row/
-├── mod.rs          (303 lines) - Core struct, accessors, animation
-├── view_offset.rs  (323 lines) - View offset calculation & animation
+├── mod.rs          (306 lines) - Core struct, accessors, animation
+├── view_offset.rs  (322 lines) - View offset calculation & animation
 ├── operations.rs   (162 lines) - Add/remove/move columns
 ├── navigation.rs   (57 lines)  - Focus left/right/column
-└── layout.rs       (76 lines)  - Tile positions, config update
+├── layout.rs       (76 lines)  - Tile positions, config update
+└── render.rs       (170 lines) - Rendering
 ```
+
+### Priority 3: Rendering ✅
+- [x] Create `row/render.rs` module
+- [x] Define `RowRenderElement` type
+- [x] Port `columns_in_render_order` from ScrollingSpace
+- [x] Port `render_elements` from ScrollingSpace
+- [x] Port `update_render_elements` from ScrollingSpace
+- [x] Define `Canvas2DRenderElement` type
+- [x] Add `render_elements` to Canvas2D
+- [x] Add `update_render_elements` to Canvas2D
 
 ## Changes Made
 
@@ -47,6 +58,7 @@ row/
 - `src/layout/row/navigation.rs` — Focus navigation methods
 - `src/layout/row/operations.rs` — Column add/remove/move operations
 - `src/layout/row/layout.rs` — Tile position queries and config update
+- `src/layout/row/render.rs` — Rendering with RowRenderElement
 
 ### Modified Files
 - `src/layout/row/mod.rs` — Refactored from 858 → 303 lines
@@ -54,19 +66,17 @@ row/
   - Kept core struct, accessors, animation methods
   - Moved other methods to submodules
   
-- `src/layout/canvas/mod.rs` — Camera Y animation
+- `src/layout/canvas/mod.rs` — Camera Y animation + rendering
   - Added Animation import
   - `update_camera_y` now uses animated transitions
+  - Added `Canvas2DRenderElement` type
+  - Added `render_elements` and `update_render_elements` methods
 
 ### Documentation Updated
 - `docs/2d-canvas-plan/TODO.md` — Marked view offset TODOs as complete
 - `docs/2d-canvas-plan/phases/phase-1-row-and-canvas.md` — Updated checklist
 
 ## Remaining Work for Next Team
-
-### Priority 3: Rendering
-- [ ] Port `render_elements` from ScrollingSpace to Row
-- [ ] Add `render_elements` to Canvas2D
 
 ### Priority 4: Interactive Resize
 - [ ] Port `interactive_resize_begin/update/end`
@@ -79,6 +89,8 @@ row/
 - [ ] Port gesture handling (`view_offset_gesture_begin`, etc.)
 - [ ] Port consume/expel operations
 - [ ] Add `vertical_view_movement` config to niri-config
+- [ ] Apply camera offset to Canvas2D render elements
+- [ ] Port `render_above_top_layer` from ScrollingSpace
 
 ## Handoff
 - [x] Code compiles (`cargo check`)

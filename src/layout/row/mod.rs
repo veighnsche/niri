@@ -17,13 +17,17 @@
 //! ├── view_offset.rs  - View offset calculation and animation
 //! ├── navigation.rs   - Focus left/right/column
 //! ├── operations.rs   - Add/remove/move columns
-//! └── layout.rs       - Tile positions, config update
+//! ├── layout.rs       - Tile positions, config update
+//! └── render.rs       - Rendering
 //! ```
 
 mod layout;
 mod navigation;
 mod operations;
+mod render;
 mod view_offset;
+
+pub use render::RowRenderElement;
 
 use std::rc::Rc;
 

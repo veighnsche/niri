@@ -24,17 +24,27 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use smithay::output::Output;
-use smithay::utils::{Logical, Point, Rectangle, Size};
+use smithay::utils::{Logical, Point, Rectangle, Scale, Size};
 
 use super::animated_value::AnimatedValue;
-use super::row::Row;
+use super::row::{Row, RowRenderElement};
 use super::tile::Tile;
 use super::types::ColumnWidth;
 use super::{LayoutElement, Options};
 use crate::animation::{Animation, Clock};
+use crate::niri_render_elements;
+use crate::render_helpers::renderer::NiriRenderer;
+use crate::render_helpers::RenderTarget;
 
 // TEAM_006: FloatingSpace temporarily removed until Row has full functionality.
 // Will be re-added when Canvas2D is more complete.
+
+// TEAM_007: Canvas2D render element type
+niri_render_elements! {
+    Canvas2DRenderElement<R> => {
+        Row = RowRenderElement<R>,
+    }
+}
 
 /// A 2D infinite canvas containing multiple rows of columns.
 ///
@@ -349,11 +359,68 @@ impl<W: LayoutElement> Canvas2D<W> {
                 })
         })
     }
+
+    // =========================================================================
+    // Rendering
+    // =========================================================================
+
+    // TEAM_007: Added render_elements method
+
+    /// Renders all elements in the canvas.
+    ///
+    /// Returns render elements for all visible rows, with camera offset applied.
+    pub fn render_elements<R: NiriRenderer>(
+        &self,
+        renderer: &mut R,
+        target: RenderTarget,
+        focus_ring: bool,
+    ) -> Vec<Canvas2DRenderElement<R>> {
+        let mut rv = vec![];
+        // TODO(TEAM_007): Apply camera offset to render elements for proper scrolling
+        let _camera = self.camera_position();
+        let _scale = Scale::from(self.scale);
+
+        // Render rows in order (active row last so it appears on top)
+        let active_row_idx = self.active_row_idx;
+        
+        // First render non-active rows
+        for (&row_idx, row) in &self.rows {
+            if row_idx == active_row_idx {
+                continue;
+            }
+            
+            let row_elements = row.render_elements(renderer, target, false);
+            for elem in row_elements {
+                // Apply camera offset to each element
+                // Note: Row elements are already at row.y_offset, we just apply camera
+                rv.push(elem.into());
+            }
+        }
+
+        // Then render active row on top with focus ring
+        if let Some(row) = self.rows.get(&active_row_idx) {
+            let row_elements = row.render_elements(renderer, target, focus_ring);
+            for elem in row_elements {
+                rv.push(elem.into());
+            }
+        }
+
+        // TODO(TEAM_006): Add floating layer rendering
+
+        rv
+    }
+
+    /// Updates render elements for all rows.
+    pub fn update_render_elements(&mut self) {
+        let active_row_idx = self.active_row_idx;
+        for (&row_idx, row) in &mut self.rows {
+            let is_active_row = row_idx == active_row_idx;
+            row.update_render_elements(is_active_row);
+        }
+    }
 }
 
 // TODO(TEAM_006): Integrate FloatingSpace (after Row is complete)
 // TODO(TEAM_006): Add add_window that routes to correct row
 // TODO(TEAM_006): Add remove_window that finds window across rows
-// TODO(TEAM_006): Animate camera_y when changing rows (current is instant)
-// TODO(TEAM_006): Add render_elements method
 // See docs/2d-canvas-plan/TODO.md for full list

@@ -23,7 +23,9 @@ Row is a partial implementation. These methods need to be ported from `scrolling
 - [ ] TODO(TEAM_006): Port gesture handling (`view_offset_gesture_begin`, etc.)
 
 ### Rendering
-- [ ] TODO(TEAM_006): Port `render_elements` from ScrollingSpace
+- [x] TODO(TEAM_007): Port `render_elements` from ScrollingSpace — DONE
+- [x] TODO(TEAM_007): Port `columns_in_render_order` — DONE
+- [x] TODO(TEAM_007): Port `update_render_elements` — DONE
 - [ ] TODO(TEAM_006): Port `render_above_top_layer` from ScrollingSpace
 
 ### Interactive Resize
@@ -51,7 +53,9 @@ Canvas2D depends on Row completion. Additional work needed:
 - [ ] TODO(TEAM_006): Add camera_x tracking for horizontal scroll
 
 ### Rendering
-- [ ] TODO(TEAM_006): Add `render_elements` method
+- [x] TODO(TEAM_007): Add `render_elements` method — DONE
+- [x] TODO(TEAM_007): Add `update_render_elements` method — DONE
+- [ ] TODO(TEAM_007): Apply camera offset to render elements
 
 ---
 

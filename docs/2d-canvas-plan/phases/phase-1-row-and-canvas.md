@@ -335,18 +335,18 @@ pub struct Monitor<W: LayoutElement> {
 - [x] Navigation: focus_left, focus_right, focus_column (TEAM_006)
 - [x] Operations: add/remove, move_left/right (TEAM_006)
 - [x] Port full view offset animation logic (TEAM_007)
+- [x] Port render_elements (TEAM_007)
 - [ ] **NEXT**: Port column movement animations
 - [ ] **NEXT**: Port consume/expel operations
 - [ ] **NEXT**: Port gesture handling
-- [ ] **NEXT**: Port render_elements
 
 ### Step 1.2: Canvas2D Module
 - [x] Create `canvas/mod.rs` (TEAM_006)
 - [x] BTreeMap for rows (TEAM_006)
 - [x] Operations: add_tile, add_tile_to_row, contains, find_window (TEAM_006)
 - [x] Animate camera_y when changing rows (TEAM_007)
+- [x] Port render_elements (TEAM_007)
 - [ ] **NEXT**: Integrate FloatingSpace
-- [ ] **NEXT**: Port render_elements
 
 ### Step 1.3: Vertical Navigation
 - [x] focus_up, focus_down (TEAM_006)
