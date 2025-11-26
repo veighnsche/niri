@@ -4072,6 +4072,13 @@ impl<W: LayoutElement> Layout<W> {
                 }
 
                 // Fallback to workspace iteration for compatibility
+                for mon in self.monitors_mut() {
+                    for (ws_idx, ws) in mon.canvas.workspaces_mut() {
+                        let is_focused = is_active && ws_idx == mon.active_workspace_idx() as i32;
+                        ws.refresh(is_active, is_focused);
+                    }
+                }
+
                 for ws in self.workspaces_mut() {
                     if let Some(tile) = ws.tiles_mut().find(|tile| *tile.window().id() == window_id)
                     {
@@ -4773,38 +4780,16 @@ impl<W: LayoutElement> Layout<W> {
                                 mon.canvas_mut().dnd_scroll_gesture_end();
                             }
                         }
-                    } else {
-                        // Fallback to workspace iteration for compatibility
-                        for (ws_idx, ws) in mon.canvas.workspaces_mut() {
-                            let is_focused = is_active && ws_idx == mon.active_workspace_idx() as i32;
-                            // TODO: TEAM_023: Implement refresh equivalent for Row
-                            // ws.refresh(is_active, is_focused);
-
-                            if let Some(is_scrolling) = ongoing_scrolling_dnd {
-                                // Lock or unlock the view for scrolling interactive move.
-                                if is_scrolling {
-                                    ws.dnd_scroll_gesture_begin();
-                                } else {
-                                    ws.dnd_scroll_gesture_end();
-                                }
-                            } else {
-                                // Cancel the view offset gesture after workspace switches, moves, etc.
-                                // DEPRECATED(overview): Removed overview_open check
-                                if ws_idx != mon.active_workspace_idx() as i32 {
-                                    ws.view_offset_gesture_end(None);
-                                }
-                            }
-                        }
+                    }
+                }
             }
             MonitorSet::NoOutputs { canvas, .. } => {
-                for (_, ws) in canvas.workspaces() {
-                    // TODO: TEAM_023: Implement refresh equivalent for Row
-                    // ws.refresh(false, false); // Commented out since Row doesn't have this method
+                for (_, ws) in canvas.workspaces_mut() {
+                    ws.refresh(false, false);
                     ws.view_offset_gesture_end(None);
                 }
             }
         }
-    }
     }
 
     pub fn workspaces(
@@ -4878,7 +4863,6 @@ impl<W: LayoutElement> Layout<W> {
             .flat_map(|(mon, _, ws)| ws.windows().map(move |win| (mon, win)));
 
         moving_window.chain(rest)
-    }
     }
 
     pub fn has_window(&self, window: &W::Id) -> bool {

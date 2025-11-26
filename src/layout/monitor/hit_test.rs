@@ -88,7 +88,7 @@ impl<W: LayoutElement> Monitor<W> {
 
         // Check first.
         if contains(geo) {
-            return (InsertWorkspace::Existing(ws.id()), geo);
+            return (InsertWorkspace::Existing(crate::layout::workspace_types::WorkspaceId::specific(idx as u64)), geo);
         }
 
         let mut last_geo = geo;

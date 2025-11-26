@@ -40,15 +40,16 @@ pub use render::RowRenderElement;
 
 use std::rc::Rc;
 
-use niri_config::Struts;
+use niri_config::{Struts, Border};
+use niri_ipc::ColumnDisplay;
 use smithay::utils::{Logical, Rectangle, Size};
 
 use super::animated_value::AnimatedValue;
 use super::closing_window::ClosingWindow;
 use super::column::Column;
 use super::tile::Tile;
-use super::types::InteractiveResize;
-use super::{LayoutElement, Options};
+use super::types::{InteractiveResize};
+use super::{LayoutElement, Options, ConfigureIntent};
 use crate::animation::Clock;
 
 /// Extra per-column data.
@@ -319,6 +320,97 @@ impl<W: LayoutElement> Row<W> {
         self.view_offset_x.is_animation_ongoing()
             || self.columns.iter().any(|col| col.are_animations_ongoing())
             || !self.closing_windows.is_empty()
+    }
+
+    /// Refreshes all windows in this row, updating their configuration and state.
+    ///
+    /// This method handles window activation, configuration, and bounds updates.
+    /// It's the Row equivalent of the old ScrollingSpace::refresh() method.
+    ///
+    /// # Arguments
+    /// * `is_active` - Whether this row is on the active monitor
+    /// * `is_focused` - Whether this row is the focused row
+    pub fn refresh(&mut self, is_active: bool, is_focused: bool) {
+        for (col_idx, col) in self.columns.iter_mut().enumerate() {
+            let mut col_resize_data = None;
+            if let Some(resize) = &self.interactive_resize {
+                if col.contains(&resize.window) {
+                    col_resize_data = Some(resize.data);
+                }
+            }
+
+            let is_tabbed = col.display_mode() == ColumnDisplay::Tabbed;
+            let extra_size = col.extra_size();
+
+            // If transactions are disabled, also disable combined throttling, for more intuitive
+            // behavior. In tabbed display mode, only one window is visible, so individual
+            // throttling makes more sense.
+            let individual_throttling = self.options.disable_transactions || is_tabbed;
+
+            let intent = if self.options.disable_resize_throttling {
+                ConfigureIntent::CanSend
+            } else if individual_throttling {
+                // In this case, we don't use combined throttling, but rather compute throttling
+                // individually below.
+                ConfigureIntent::CanSend
+            } else {
+                col.tiles_iter()
+                    .fold(ConfigureIntent::NotNeeded, |intent, tile| {
+                        match (intent, tile.window().configure_intent()) {
+                            (_, ConfigureIntent::ShouldSend) => ConfigureIntent::ShouldSend,
+                            (ConfigureIntent::NotNeeded, tile_intent) => tile_intent,
+                            (ConfigureIntent::CanSend, ConfigureIntent::Throttled) => {
+                                ConfigureIntent::Throttled
+                            }
+                            (intent, _) => intent,
+                        }
+                    })
+            };
+
+            for (tile_idx, tile) in col.tiles_iter_mut().enumerate() {
+                let win = tile.window_mut();
+
+                let active_in_column = col.active_tile_idx() == Some(tile_idx);
+                win.set_active_in_column(active_in_column);
+                win.set_floating(false);
+
+                let mut active = is_active && self.active_column_idx == col_idx;
+                if self.options.deactivate_unfocused_windows {
+                    active &= active_in_column && is_focused;
+                } else {
+                    // In tabbed mode, all tabs have activated state to reduce unnecessary
+                    // animations when switching tabs.
+                    active &= active_in_column || is_tabbed;
+                }
+                win.set_activated(active);
+
+                win.set_interactive_resize(col_resize_data);
+
+                let border_config = self.options.layout.border.merged_with(&win.rules().border);
+                let bounds = compute_toplevel_bounds(
+                    border_config,
+                    self.working_area.size,
+                    extra_size,
+                    self.options.layout.gaps,
+                );
+                win.set_bounds(bounds);
+
+                let intent = if individual_throttling {
+                    win.configure_intent()
+                } else {
+                    intent
+                };
+
+                if matches!(
+                    intent,
+                    ConfigureIntent::CanSend | ConfigureIntent::ShouldSend
+                ) {
+                    win.send_pending_configure();
+                }
+
+                win.refresh();
+            }
+        }
     }
 
     // =========================================================================
@@ -626,6 +718,25 @@ impl<W: LayoutElement> Row<W> {
     pub fn are_transitions_ongoing(&self) -> bool {
         self.are_animations_ongoing()
     }
+}
+
+/// Computes the toplevel bounds for windows in a row.
+fn compute_toplevel_bounds(
+    border_config: Border,
+    working_area_size: Size<f64, Logical>,
+    extra_size: Size<f64, Logical>,
+    gaps: f64,
+) -> Size<i32, Logical> {
+    let mut border = 0.;
+    if !border_config.off {
+        border = border_config.width * 2.;
+    }
+
+    Size::from((
+        f64::max(working_area_size.w - gaps * 2. - extra_size.w - border, 1.),
+        f64::max(working_area_size.h - gaps * 2. - extra_size.h - border, 1.),
+    ))
+    .to_i32_floor()
 }
 
 // See docs/2d-canvas-plan/TODO.md for remaining work

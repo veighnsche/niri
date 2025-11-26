@@ -87,6 +87,89 @@ impl<W: LayoutElement> Monitor<W> {
         })
     }
 
+    // =========================================================================
+    // TEAM_023: Canvas2D workspace render geometry methods
+    // =========================================================================
+
+    /// Returns the render geometry for all rows in the canvas.
+    pub fn workspaces_render_geo(&self) -> impl Iterator<Item = Rectangle<f64, Logical>> + '_ {
+        self.canvas.workspaces().map(|(row_idx, row)| {
+            // For Canvas2D, each row occupies the full width and has its own height
+            let row_height = row.row_height();
+            let y_offset = row.y_offset();
+            
+            Rectangle::new(
+                Point::from((0.0, y_offset)),
+                Size::from((self.view_size.w, row_height)),
+            )
+        })
+    }
+
+    /// Returns an iterator over rows with their render geometry.
+    pub fn workspaces_with_render_geo(
+        &self,
+    ) -> impl Iterator<Item = (&crate::layout::row::Row<W>, Rectangle<f64, Logical>)> + '_ {
+        let output_geo = Rectangle::from_size(self.view_size);
+
+        self.canvas
+            .workspaces()
+            .map(|(row_idx, row)| {
+                let row_height = row.row_height();
+                let y_offset = row.y_offset();
+                let geo = Rectangle::new(
+                    Point::from((0.0, y_offset)),
+                    Size::from((self.view_size.w, row_height)),
+                );
+                (row, geo)
+            })
+            // Cull out rows outside the output.
+            .filter(move |(_row, geo)| geo.intersection(output_geo).is_some())
+    }
+
+    /// Returns an iterator over rows with their render geometry and indices.
+    pub fn workspaces_with_render_geo_idx(
+        &self,
+    ) -> impl Iterator<Item = ((i32, &crate::layout::row::Row<W>), Rectangle<f64, Logical>)> + '_ {
+        let output_geo = Rectangle::from_size(self.view_size);
+
+        self.canvas
+            .workspaces()
+            .map(|(row_idx, row)| {
+                let row_height = row.row_height();
+                let y_offset = row.y_offset();
+                let geo = Rectangle::new(
+                    Point::from((0.0, y_offset)),
+                    Size::from((self.view_size.w, row_height)),
+                );
+                ((row_idx, row), geo)
+            })
+            // Cull out rows outside the output.
+            .filter(move |(_row, geo)| geo.intersection(output_geo).is_some())
+    }
+
+    /// Returns a mutable iterator over rows with their render geometry.
+    pub fn workspaces_with_render_geo_mut(
+        &mut self,
+        cull: bool,
+    ) -> impl Iterator<Item = (&mut crate::layout::row::Row<W>, Rectangle<f64, Logical>)> + '_ {
+        let output_geo = Rectangle::from_size(self.view_size);
+        let view_size = self.view_size;
+
+        self.canvas
+            .workspaces_mut()
+            .map(move |row| {
+                let row_height = row.row_height();
+                let y_offset = row.y_offset();
+                let geo = Rectangle::new(
+                    Point::from((0.0, y_offset)),
+                    Size::from((view_size.w, row_height)),
+                );
+                (row, geo)
+            })
+            // Cull out rows outside the output.
+            .filter(move |(_row, geo)| !cull || geo.intersection(output_geo).is_some())
+    }
+
     /// TEAM_022: Simplified render_elements using Canvas2D
     pub fn render_elements<R: NiriRenderer>(
         &self,
