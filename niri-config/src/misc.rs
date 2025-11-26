@@ -1,6 +1,4 @@
-use crate::appearance::{Color, WorkspaceShadow, WorkspaceShadowPart, DEFAULT_BACKDROP_COLOR};
 use crate::utils::{Flag, MergeWith};
-use crate::FloatOrInt;
 
 #[derive(knuffel::Decode, Debug, Clone, PartialEq, Eq)]
 pub struct SpawnAtStartup {
@@ -115,40 +113,6 @@ pub struct ClipboardPart {
 impl MergeWith<ClipboardPart> for Clipboard {
     fn merge_with(&mut self, part: &ClipboardPart) {
         merge!((self, part), disable_primary);
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Overview {
-    pub zoom: f64,
-    pub backdrop_color: Color,
-    pub workspace_shadow: WorkspaceShadow,
-}
-
-impl Default for Overview {
-    fn default() -> Self {
-        Self {
-            zoom: 0.5,
-            backdrop_color: DEFAULT_BACKDROP_COLOR,
-            workspace_shadow: WorkspaceShadow::default(),
-        }
-    }
-}
-
-#[derive(knuffel::Decode, Debug, Clone, Copy, PartialEq)]
-pub struct OverviewPart {
-    #[knuffel(child, unwrap(argument))]
-    pub zoom: Option<FloatOrInt<0, 1>>,
-    #[knuffel(child)]
-    pub backdrop_color: Option<Color>,
-    #[knuffel(child)]
-    pub workspace_shadow: Option<WorkspaceShadowPart>,
-}
-
-impl MergeWith<OverviewPart> for Overview {
-    fn merge_with(&mut self, part: &OverviewPart) {
-        merge!((self, part), zoom, workspace_shadow);
-        merge_clone!((self, part), backdrop_color);
     }
 }
 

@@ -320,9 +320,6 @@ pub enum Action {
     SetDynamicCastWindowById(u64),
     SetDynamicCastMonitor(#[knuffel(argument)] Option<String>),
     ClearDynamicCastTarget,
-    ToggleOverview,
-    OpenOverview,
-    CloseOverview,
     #[knuffel(skip)]
     ToggleWindowUrgent(u64),
     #[knuffel(skip)]
@@ -598,9 +595,9 @@ impl From<niri_ipc::Action> for Action {
                 Self::SetDynamicCastMonitor(output)
             }
             niri_ipc::Action::ClearDynamicCastTarget {} => Self::ClearDynamicCastTarget,
-            niri_ipc::Action::ToggleOverview {} => Self::ToggleOverview,
-            niri_ipc::Action::OpenOverview {} => Self::OpenOverview,
-            niri_ipc::Action::CloseOverview {} => Self::CloseOverview,
+            niri_ipc::Action::ToggleOverview { .. } | niri_ipc::Action::OpenOverview { .. } | niri_ipc::Action::CloseOverview { .. } => {
+                unreachable!("overview actions should have been removed from IPC")
+            }
             niri_ipc::Action::ToggleWindowUrgent { id } => Self::ToggleWindowUrgent(id),
             niri_ipc::Action::SetWindowUrgent { id } => Self::SetWindowUrgent(id),
             niri_ipc::Action::UnsetWindowUrgent { id } => Self::UnsetWindowUrgent(id),

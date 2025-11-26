@@ -570,7 +570,7 @@ impl State {
     pub fn ipc_refresh_layout(&mut self) {
         self.ipc_refresh_workspaces();
         self.ipc_refresh_windows();
-        self.ipc_refresh_overview();
+        // Overview mode removed, no need to refresh overview
     }
 
     fn ipc_refresh_workspaces(&mut self) {
@@ -773,24 +773,6 @@ impl State {
             state.apply(event.clone());
             server.send_event(event);
         }
-    }
-
-    pub fn ipc_refresh_overview(&mut self) {
-        let Some(server) = &self.niri.ipc_server else {
-            return;
-        };
-
-        let mut state = server.event_stream_state.borrow_mut();
-        let state = &mut state.overview;
-        let is_open = self.niri.layout.is_overview_open();
-
-        if state.is_open == is_open {
-            return;
-        }
-
-        let event = Event::OverviewOpenedOrClosed { is_open };
-        state.apply(event.clone());
-        server.send_event(event);
     }
 
     pub fn ipc_config_loaded(&mut self, failed: bool) {

@@ -36,7 +36,6 @@ use smithay::wayland::keyboard_shortcuts_inhibit::KeyboardShortcutsInhibitor;
 use smithay::wayland::pointer_constraints::{with_pointer_constraint, PointerConstraint};
 use smithay::wayland::selection::data_device::DnDGrab;
 use smithay::wayland::tablet_manager::{TabletDescriptor, TabletSeatTrait};
-use touch_overview_grab::TouchOverviewGrab;
 
 use self::move_grab::MoveGrab;
 use self::resize_grab::ResizeGrab;
@@ -60,7 +59,6 @@ pub mod scroll_swipe_gesture;
 pub mod scroll_tracker;
 pub mod spatial_movement_grab;
 pub mod swipe_tracker;
-pub mod touch_overview_grab;
 pub mod touch_resize_grab;
 
 use backend_ext::{NiriInputBackend as InputBackend, NiriInputDevice as _};
@@ -2071,10 +2069,6 @@ impl State {
             Action::ClearDynamicCastTarget => {
                 self.set_dynamic_cast_target(CastTarget::Nothing);
             }
-            // TEAM_014: Overview actions are now no-ops (Part 3)
-            Action::ToggleOverview | Action::OpenOverview | Action::CloseOverview => {
-                // Overview mode has been removed.
-            }
             Action::ToggleWindowUrgent(id) => {
                 let window = self
                     .niri
@@ -2581,7 +2575,8 @@ impl State {
             self.niri.pointer_visibility = PointerVisibility::Visible;
             self.niri.tablet_cursor_location = None;
 
-            let is_overview_open = self.niri.layout.is_overview_open();
+            // Overview mode has been removed, this is always false
+            let is_overview_open = false;
 
             if is_overview_open && !pointer.is_grabbed() && button == Some(MouseButton::Right) {
                 if let Some((output, ws)) = self.niri.workspace_under_cursor(true) {
@@ -2828,7 +2823,8 @@ impl State {
         let horizontal_amount_v120 = event.amount_v120(Axis::Horizontal);
         let vertical_amount_v120 = event.amount_v120(Axis::Vertical);
 
-        let is_overview_open = self.niri.layout.is_overview_open();
+        // Overview mode has been removed, this is always false
+        let is_overview_open = false;
 
         // We should only handle scrolling in the overview if the pointer is not over a (top or
         // overlay) layer surface.
@@ -3340,7 +3336,8 @@ impl State {
         };
         let tip_state = event.tip_state();
 
-        let is_overview_open = self.niri.layout.is_overview_open();
+        // Overview mode has been removed, this is always false
+        let is_overview_open = false;
 
         match tip_state {
             TabletToolTipState::Down => {
@@ -3532,7 +3529,8 @@ impl State {
             }
         }
 
-        let is_overview_open = self.niri.layout.is_overview_open();
+        // Overview mode has been removed, this is always false
+        let is_overview_open = false;
 
         if let Some((cx, cy)) = &mut self.niri.gesture_swipe_3f_cumulative {
             *cx += delta_x;
@@ -3828,7 +3826,8 @@ impl State {
             let mods = modifiers_from_state(mods);
             let mod_down = mods.contains(mod_key.to_modifiers());
 
-            if self.niri.layout.is_overview_open()
+            if false
+                // self.niri.layout.is_overview_open() - overview mode removed
                 && !mod_down
                 && under.layer.is_none()
                 && under.output.is_some()
@@ -3847,22 +3846,7 @@ impl State {
                 let mapped = self.niri.window_under(pos);
                 let window = mapped.map(|mapped| mapped.window.clone());
 
-                let start_data = TouchGrabStartData {
-                    focus: None,
-                    slot,
-                    location: pos,
-                };
-                let start_timestamp = Duration::from_micros(evt.time());
-                let grab = TouchOverviewGrab::new(
-                    start_data,
-                    start_timestamp,
-                    output,
-                    pos_within_output,
-                    ws_id,
-                    matched_narrow,
-                    window,
-                );
-                handle.set_grab(self, grab, serial);
+                // TouchOverviewGrab removed - overview mode is disabled
             } else if let Some((window, _)) = under.window {
                 self.niri.layout.activate_window(&window);
 
@@ -4349,10 +4333,6 @@ fn hardcoded_overview_bind(raw: Keysym, mods: ModifiersState) -> Option<Bind> {
 
     let mut repeat = true;
     let action = match raw {
-        Keysym::Escape | Keysym::Return => {
-            repeat = false;
-            Action::ToggleOverview
-        }
         Keysym::Left => Action::FocusColumnLeft,
         Keysym::Right => Action::FocusColumnRight,
         Keysym::Up => Action::FocusWindowOrRowUp,

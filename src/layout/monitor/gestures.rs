@@ -53,7 +53,8 @@ impl<W: LayoutElement> Monitor<W> {
             return None;
         }
 
-        let zoom = self.overview_zoom();
+        // Overview mode has been removed, zoom is always 1.0
+        let zoom = 1.0;
         let total_height = if gesture.is_touchpad {
             WORKSPACE_GESTURE_MOVEMENT
         } else {
@@ -100,7 +101,8 @@ impl<W: LayoutElement> Monitor<W> {
             return false;
         }
 
-        let zoom = self.overview_zoom();
+        // Overview mode has been removed, zoom is always 1.0
+        let zoom = 1.0;
         let total_height = if gesture.dnd_last_event_time.is_some() {
             WORKSPACE_DND_EDGE_SCROLL_MOVEMENT
         } else if gesture.is_touchpad {
@@ -152,40 +154,9 @@ impl<W: LayoutElement> Monitor<W> {
     // DnD scroll gestures
     // =========================================================================
 
-    pub fn dnd_scroll_gesture_begin(&mut self) {
-        if let Some(WorkspaceSwitch::Gesture(WorkspaceSwitchGesture {
-            dnd_last_event_time: Some(_),
-            ..
-        })) = &self.workspace_switch
-        {
-            // Already active.
-            return;
-        }
-
-        // DEPRECATED(overview): DnD scroll gesture was only for overview, now always returns
-        // This gesture is only for the overview which has been removed.
-        return;
-
-        #[allow(unreachable_code)]
-        let center_idx = self.active_workspace_idx;
-        let current_idx = self.workspace_render_idx();
-
-        let gesture = WorkspaceSwitchGesture {
-            center_idx,
-            start_idx: current_idx,
-            current_idx,
-            animation: None,
-            tracker: SwipeTracker::new(),
-            is_touchpad: false,
-            is_clamped: false,
-            dnd_last_event_time: Some(self.clock.now_unadjusted()),
-            dnd_nonzero_start_time: None,
-        };
-        self.workspace_switch = Some(WorkspaceSwitch::Gesture(gesture));
-    }
-
     pub fn dnd_scroll_gesture_scroll(&mut self, pos: Point<f64, Logical>, speed: f64) -> bool {
-        let zoom = self.overview_zoom();
+        // Overview mode has been removed, zoom is always 1.0
+        let zoom = 1.0;
 
         let Some(WorkspaceSwitch::Gesture(gesture)) = &mut self.workspace_switch else {
             return false;

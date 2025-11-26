@@ -1182,7 +1182,8 @@ impl State {
             let focus_on_layer =
                 |layer| excl_focus_on_layer(layer).or_else(|| on_d_focus_on_layer(layer));
 
-            let is_overview_open = self.niri.layout.is_overview_open();
+            // Overview mode has been removed, this is always false
+            let is_overview_open = false;
 
             let mut surface = grab_on_layer(Layer::Overlay);
             // FIXME: we shouldn't prioritize the top layer grabs over regular overlay input or a
@@ -1559,9 +1560,7 @@ impl State {
         }
 
         // FIXME: move backdrop rendering into layout::Monitor, then this will become unnecessary.
-        if config.overview.backdrop_color != old_config.overview.backdrop_color {
-            output_config_changed = true;
-        }
+        // Overview mode has been removed, no backdrop color to check.
         if config.layout.background_color != old_config.layout.background_color {
             output_config_changed = true;
         }
@@ -1727,7 +1726,7 @@ impl State {
 
             let mut backdrop_color = config
                 .and_then(|c| c.backdrop_color)
-                .unwrap_or(full_config.overview.backdrop_color)
+                .unwrap_or(niri_config::appearance::DEFAULT_BACKDROP_COLOR)
                 .to_array_unpremul();
             backdrop_color[3] = 1.;
             let backdrop_color = Color32F::from(backdrop_color);
@@ -3037,7 +3036,7 @@ impl Niri {
 
         let mut backdrop_color = c
             .and_then(|c| c.backdrop_color)
-            .unwrap_or(config.overview.backdrop_color)
+            .unwrap_or(niri_config::appearance::DEFAULT_BACKDROP_COLOR)
             .to_array_unpremul();
         backdrop_color[3] = 1.;
 
@@ -3357,9 +3356,10 @@ impl Niri {
         output: &Output,
         pos_within_output: Point<f64, Logical>,
     ) -> bool {
-        if self.layout.is_overview_open() {
-            return false;
-        }
+        // Overview mode has been removed, this check is never triggered
+        // if self.layout.is_overview_open() {
+        //     return false;
+        // }
 
         // Check if some layer-shell surface is on top.
         let layers = layer_map_for_output(output);
@@ -3603,7 +3603,8 @@ impl Niri {
         let mut under =
             layer_popup_under(Layer::Overlay).or_else(|| layer_toplevel_under(Layer::Overlay));
 
-        let is_overview_open = self.layout.is_overview_open();
+        // Overview mode has been removed, this is always false
+        let is_overview_open = false;
 
         // When rendering above the top layer, we put the regular monitor elements first.
         // Otherwise, we will render all layer-shell pop-ups and the top layer on top.
@@ -4435,12 +4436,13 @@ impl Niri {
 
         // Get monitor elements.
         let mon = self.layout.monitor_for_output(output).unwrap();
-        let zoom = mon.overview_zoom();
+        // Overview mode has been removed, zoom is always 1.0
+        let zoom = 1.0;
         let monitor_elements = Vec::from_iter(
             mon.render_elements(renderer, target, focus_ring)
                 .map(|(geo, bg, iter)| (geo, bg, Vec::from_iter(iter))),
         );
-        let workspace_shadow_elements = Vec::from_iter(mon.render_workspace_shadows(renderer));
+        // render_workspace_shadows removed - workspace shadows no longer exist
         let insert_hint_elements = mon.render_insert_hint_between_workspaces(renderer);
         let int_move_elements: Vec<_> = self
             .layout
@@ -4501,11 +4503,7 @@ impl Niri {
                 elements.push(OutputRenderElements::from(ws_background));
             }
 
-            elements.extend(
-                workspace_shadow_elements
-                    .into_iter()
-                    .map(OutputRenderElements::from),
-            );
+            // workspace_shadow_elements removed - no longer exist
         } else {
             elements.extend(top_layer.into_iter().map(OutputRenderElements::from));
 
@@ -4548,11 +4546,7 @@ impl Niri {
                 elements.push(OutputRenderElements::from(ws_background));
             }
 
-            elements.extend(
-                workspace_shadow_elements
-                    .into_iter()
-                    .map(OutputRenderElements::from),
-            );
+        // workspace_shadow_elements removed - no longer exist
         }
 
         // Then the backdrop.
@@ -6280,7 +6274,8 @@ impl Niri {
         }
 
         if let Some(window) = &new_focus.window {
-            if !self.layout.is_overview_open() && current_focus.window.as_ref() != Some(window) {
+            // Overview mode has been removed, !self.layout.is_overview_open() is always true
+            if current_focus.window.as_ref() != Some(window) {
                 let (window, hit) = window;
 
                 // Don't trigger focus-follows-mouse over the tab indicator.

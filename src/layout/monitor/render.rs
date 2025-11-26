@@ -26,7 +26,8 @@ impl<W: LayoutElement> Monitor<W> {
 
     pub fn workspaces_render_geo(&self) -> impl Iterator<Item = Rectangle<f64, Logical>> {
         let scale = self.scale.fractional_scale();
-        let zoom = self.overview_zoom();
+        // Overview mode has been removed, zoom is always 1.0
+        let zoom = 1.0;
 
         let ws_size = self.workspace_size(zoom);
         let gap = self.workspace_gap(zoom);
@@ -115,7 +116,8 @@ impl<W: LayoutElement> Monitor<W> {
                                 hint.position,
                                 crate::layout::types::InsertPosition::NewColumn(_)
                             ) {
-                                let zoom = self.overview_zoom();
+                                // Overview mode has been removed, zoom is always 1.0
+        let zoom = 1.0;
                                 let geo = insert_hint_ws_geo.unwrap();
                                 let geo = geo.downscale(zoom);
 
@@ -145,7 +147,8 @@ impl<W: LayoutElement> Monitor<W> {
                 }
                 InsertWorkspace::NewAt(ws_idx) => {
                     let scale = self.scale.fractional_scale();
-                    let zoom = self.overview_zoom();
+                    // Overview mode has been removed, zoom is always 1.0
+        let zoom = 1.0;
                     let gap = self.workspace_gap(zoom);
 
                     let hint_gap = round_logical_in_physical(scale, gap * 0.1);
@@ -325,14 +328,5 @@ impl<W: LayoutElement> Monitor<W> {
 
             (geo, background, iter)
         })
-    }
-
-    // TEAM_014: Removed render_workspace_shadows (Part 3)
-    // Overview mode is no longer supported, so workspace shadows are not needed.
-    pub fn render_workspace_shadows<'a, R: NiriRenderer>(
-        &'a self,
-        _renderer: &'a mut R,
-    ) -> impl Iterator<Item = MonitorRenderElement<R>> + 'a {
-        std::iter::empty()
     }
 }

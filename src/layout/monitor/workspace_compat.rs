@@ -131,11 +131,6 @@ impl<W: LayoutElement> Monitor<W> {
     // TEAM_014: Removed overview methods (Part 3)
     // overview_zoom, set_overview_progress, overview_progress_value are no longer needed
 
-    // TEAM_014: overview_zoom now always returns 1.0
-    pub fn overview_zoom(&self) -> f64 {
-        1.0
-    }
-
     // =========================================================================
     // LEGACY: Helper methods (workspace geometry)
     // =========================================================================

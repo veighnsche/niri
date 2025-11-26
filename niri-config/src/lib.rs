@@ -79,7 +79,6 @@ pub struct Config {
     pub config_notification: ConfigNotification,
     pub animations: Animations,
     pub gestures: Gestures,
-    pub overview: Overview,
     pub environment: Environment,
     pub xwayland_satellite: XwaylandSatellite,
     pub window_rules: Vec<WindowRule>,
@@ -195,7 +194,6 @@ where
                 "config-notification" => m_merge!(config_notification),
                 "animations" => m_merge!(animations),
                 "gestures" => m_merge!(gestures),
-                "overview" => m_merge!(overview),
                 "xwayland-satellite" => m_merge!(xwayland_satellite),
                 "switch-events" => m_merge!(switch_events),
                 "debug" => m_merge!(debug),
@@ -1583,34 +1581,6 @@ mod tests {
                     top_right: false,
                     bottom_left: false,
                     bottom_right: false,
-                },
-            },
-            overview: Overview {
-                zoom: 0.5,
-                backdrop_color: Color {
-                    r: 0.15,
-                    g: 0.15,
-                    b: 0.15,
-                    a: 1.0,
-                },
-                workspace_shadow: WorkspaceShadow {
-                    off: false,
-                    offset: ShadowOffset {
-                        x: FloatOrInt(
-                            0.0,
-                        ),
-                        y: FloatOrInt(
-                            10.0,
-                        ),
-                    },
-                    softness: 40.0,
-                    spread: 10.0,
-                    color: Color {
-                        r: 0.0,
-                        g: 0.0,
-                        b: 0.0,
-                        a: 0.3137255,
-                    },
                 },
             },
             environment: Environment(

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use niri_config::utils::MergeWith as _;
 use niri_config::{
-    CenterFocusedColumn, CornerRadius, OutputName, PresetSize, Workspace as WorkspaceConfig,
+    CenterFocusedColumn, OutputName, PresetSize, Workspace as WorkspaceConfig,
 };
 use niri_ipc::{ColumnDisplay, PositionChange, SizeChange, WindowLayout};
 use smithay::backend::renderer::element::Kind;
@@ -22,13 +22,11 @@ use super::floating::{FloatingSpace, FloatingSpaceRenderElement};
 use super::column::Column;
 use super::scrolling::{ScrollingSpace, ScrollingSpaceRenderElement};
 use super::types::{ColumnWidth, ScrollDirection};
-use super::shadow::Shadow;
 use super::tile::{Tile, TileRenderSnapshot};
 use super::{ActivateWindow, HitType, InsertPosition, LayoutElement, Options, RemovedTile, SizeFrac};
 use crate::animation::Clock;
 use crate::niri_render_elements;
 use crate::render_helpers::renderer::NiriRenderer;
-use crate::render_helpers::shadow::ShadowRenderElement;
 use crate::render_helpers::solid_color::{SolidColorBuffer, SolidColorRenderElement};
 use crate::render_helpers::RenderTarget;
 use crate::utils::id::IdCounter;
@@ -84,9 +82,6 @@ pub struct Workspace<W: LayoutElement> {
     /// This is similar to view size, but takes into account things like layer shell exclusive
     /// zones.
     working_area: Rectangle<f64, Logical>,
-
-    /// This workspace's shadow in the overview.
-    shadow: Shadow,
 
     /// This workspace's background.
     background_buffer: SolidColorBuffer,
@@ -234,9 +229,6 @@ impl<W: LayoutElement> Workspace<W> {
             options.clone(),
         );
 
-        let shadow_config =
-            compute_workspace_shadow_config(options.overview.workspace_shadow, view_size);
-
         Self {
             scrolling,
             floating,
@@ -246,7 +238,6 @@ impl<W: LayoutElement> Workspace<W> {
             transform: output.current_transform(),
             view_size,
             working_area,
-            shadow: Shadow::new(shadow_config),
             background_buffer: SolidColorBuffer::new(view_size, options.layout.background_color),
             output: Some(output),
             clock,
@@ -298,9 +289,6 @@ impl<W: LayoutElement> Workspace<W> {
             options.clone(),
         );
 
-        let shadow_config =
-            compute_workspace_shadow_config(options.overview.workspace_shadow, view_size);
-
         Self {
             scrolling,
             floating,
@@ -311,7 +299,6 @@ impl<W: LayoutElement> Workspace<W> {
             original_output,
             view_size,
             working_area,
-            shadow: Shadow::new(shadow_config),
             background_buffer: SolidColorBuffer::new(view_size, options.layout.background_color),
             clock,
             base_options,
@@ -366,14 +353,6 @@ impl<W: LayoutElement> Workspace<W> {
         let view_rect = Rectangle::from_size(self.view_size);
         self.floating
             .update_render_elements(is_active && self.floating_is_active.get(), view_rect);
-
-        self.shadow.update_render_elements(
-            self.view_size,
-            true,
-            CornerRadius::default(),
-            self.scale.fractional_scale(),
-            1.,
-        );
     }
 
     pub fn update_config(&mut self, base_options: Rc<Options>) {
@@ -398,10 +377,6 @@ impl<W: LayoutElement> Workspace<W> {
             options.clone(),
         );
 
-        let shadow_config =
-            compute_workspace_shadow_config(options.overview.workspace_shadow, self.view_size);
-        self.shadow.update_config(shadow_config);
-
         self.background_buffer
             .set_color(options.layout.background_color);
 
@@ -421,7 +396,6 @@ impl<W: LayoutElement> Workspace<W> {
     pub fn update_shaders(&mut self) {
         self.scrolling.update_shaders();
         self.floating.update_shaders();
-        self.shadow.update_shaders();
     }
 
     pub fn windows(&self) -> impl Iterator<Item = &W> + '_ {
@@ -554,9 +528,6 @@ impl<W: LayoutElement> Workspace<W> {
                 self.options.clone(),
             );
 
-            let shadow_config =
-                compute_workspace_shadow_config(self.options.overview.workspace_shadow, size);
-            self.shadow.update_config(shadow_config);
         }
 
         self.background_buffer.resize(size);
@@ -1637,13 +1608,6 @@ impl<W: LayoutElement> Workspace<W> {
         (floating, scrolling)
     }
 
-    pub fn render_shadow<R: NiriRenderer>(
-        &self,
-        renderer: &mut R,
-    ) -> impl Iterator<Item = ShadowRenderElement> + '_ {
-        self.shadow.render(renderer, Point::from((0., 0.)))
-    }
-
     pub fn render_background(&self) -> SolidColorRenderElement {
         SolidColorRenderElement::from_buffer(
             &self.background_buffer,
@@ -2031,14 +1995,3 @@ pub(super) fn compute_working_area(output: &Output) -> Rectangle<f64, Logical> {
     layer_map_for_output(output).non_exclusive_zone().to_f64()
 }
 
-// DEPRECATED(overview): Workspace shadow was only used in overview mode
-fn compute_workspace_shadow_config(
-    _config: niri_config::WorkspaceShadow,
-    _view_size: Size<f64, Logical>,
-) -> niri_config::Shadow {
-    // Overview mode has been removed, so workspace shadows are disabled.
-    niri_config::Shadow {
-        on: false,
-        ..Default::default()
-    }
-}

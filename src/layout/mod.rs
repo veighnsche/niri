@@ -348,8 +348,6 @@ pub struct Options {
     pub layout: niri_config::Layout,
     pub animations: niri_config::Animations,
     pub gestures: niri_config::Gestures,
-    // DEPRECATED(overview): Keep overview field for workspace shadow config compatibility
-    pub overview: niri_config::Overview,
     // Debug flags.
     pub disable_resize_throttling: bool,
     pub disable_transactions: bool,
@@ -637,8 +635,6 @@ impl Options {
             layout: config.layout.clone(),
             animations: config.animations.clone(),
             gestures: config.gestures,
-            // DEPRECATED(overview): Keep for workspace shadow config compatibility
-            overview: config.overview,
             disable_resize_throttling: config.debug.disable_resize_throttling,
             disable_transactions: config.debug.disable_transactions,
             deactivate_unfocused_windows: config.debug.deactivate_unfocused_windows,
@@ -2335,17 +2331,6 @@ impl<W: LayoutElement> Layout<W> {
         }
     }
 
-    // TEAM_014: Removed overview_zoom method (Part 3) - always returns 1.0 now
-    pub fn overview_zoom(&self) -> f64 {
-        1.0
-    }
-
-    // TEAM_014: is_overview_open always returns false now (Part 3)
-    // Overview mode has been removed.
-    pub fn is_overview_open(&self) -> bool {
-        false
-    }
-
     #[cfg(test)]
     fn verify_invariants(&self) {
         use std::collections::HashSet;
@@ -3715,9 +3700,7 @@ impl<W: LayoutElement> Layout<W> {
             pointer_ratio_within_window,
         });
 
-        for mon in self.monitors_mut() {
-            mon.dnd_scroll_gesture_begin();
-        }
+        // dnd_scroll_gesture_begin removed - was overview-only
 
         // Lock the view for scrolling interactive move.
         if !is_floating {
@@ -4241,9 +4224,7 @@ impl<W: LayoutElement> Layout<W> {
         });
 
         if begin_gesture {
-            for mon in self.monitors_mut() {
-                mon.dnd_scroll_gesture_begin();
-            }
+            // dnd_scroll_gesture_begin removed - was overview-only
 
             for ws in self.workspaces_mut() {
                 ws.dnd_scroll_gesture_begin();
@@ -4544,7 +4525,8 @@ impl<W: LayoutElement> Layout<W> {
     ) {
         let _span = tracy_client::span!("Layout::start_close_animation_for_window");
 
-        let zoom = self.overview_zoom();
+        // Overview mode has been removed, zoom is always 1.0
+        let zoom = 1.0;
 
         if let Some(InteractiveMoveState::Moving(move_)) = &mut self.interactive_move {
             if move_.tile.window().id() == window {
@@ -4612,7 +4594,8 @@ impl<W: LayoutElement> Layout<W> {
         if let Some(InteractiveMoveState::Moving(move_)) = &self.interactive_move {
             if &move_.output == output {
                 let scale = Scale::from(move_.output.current_scale().fractional_scale());
-                let zoom = self.overview_zoom();
+                // Overview mode has been removed, zoom is always 1.0
+                let zoom = 1.0;
                 let location = move_.tile_render_location(zoom);
                 let iter = move_
                     .tile
@@ -4798,13 +4781,3 @@ impl<W: LayoutElement> Default for MonitorSet<W> {
     }
 }
 
-fn compute_overview_zoom(options: &Options, overview_progress: Option<f64>) -> f64 {
-    // Clamp to some sane values.
-    let zoom = options.overview.zoom.clamp(0.0001, 0.75);
-
-    if let Some(p) = overview_progress {
-        (1. - p * (1. - zoom)).max(0.0001)
-    } else {
-        1.
-    }
-}
