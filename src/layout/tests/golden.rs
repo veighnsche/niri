@@ -1,8 +1,24 @@
-// TEAM_004: Golden snapshot tests for layout regression testing.
+//! TEAM_004: Golden snapshot tests for layout regression testing.
 //!
-//! These tests use insta snapshots to verify that layout positions remain
-//! consistent across refactors. The refactored code must produce identical
-//! positions as the original code for single-row scenarios.
+//! ## ⚠️ READ BEFORE MODIFYING
+//!
+//! These tests compare current code against **locked baseline snapshots**.
+//! The snapshots were created from commit `75d5e3b0` (original main branch code).
+//!
+//! ### If tests fail:
+//! 1. **DO NOT** run `cargo insta accept`
+//! 2. **FIX YOUR CODE** — your refactor changed behavior
+//! 3. See `src/layout/tests/snapshots/README.md` for details
+//!
+//! ### To view original code:
+//! ```bash
+//! git show 75d5e3b0:src/layout/scrolling.rs
+//! ```
+//!
+//! ### Verification:
+//! ```bash
+//! ./scripts/verify-golden.sh
+//! ```
 
 use super::{check_ops, Op, TestWindowParams};
 use crate::layout::snapshot::ScrollingSnapshot;

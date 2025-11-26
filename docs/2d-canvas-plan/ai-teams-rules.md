@@ -53,17 +53,19 @@ When you modify code, add your team number:
 ### ⚠️ MANDATORY: If You Touch Layout Logic
 
 **Before ANY refactor that touches these files, you MUST:**
-1. Run `cargo insta test` — verify golden tests pass BEFORE your changes
+1. Run `./scripts/verify-golden.sh` — verify permissions and tests pass BEFORE your changes
 2. Make your changes
 3. Run `cargo insta test` again — verify they STILL pass
 4. If tests fail → you introduced a regression, fix it
 
 ### Key Files
-- `src/layout/golden/` — Original main branch code (reference, **READ-ONLY**)
 - `src/layout/snapshot.rs` — Snapshot types (positions, indices, etc.)
 - `src/layout/tests/golden.rs` — Snapshot comparison tests
+- `src/layout/tests/snapshots/*.snap` — Locked baseline snapshots (chmod 444)
+- `scripts/verify-golden.sh` — Verification script
 
-> ⚠️ Golden files are chmod read-only. **NEVER modify them.** They are the reference baseline.
+> ⚠️ Snapshot files are chmod 444 (read-only). **NEVER modify them.**
+> Source commit: `75d5e3b0` — use `git show 75d5e3b0:src/layout/scrolling.rs` to see original code
 
 ### What Snapshots Capture
 - Column X positions and widths
@@ -102,7 +104,20 @@ Be bold. Break things. Fix them properly.
 
 ---
 
-## Rule 6: Modular Refactoring
+## Rule 6: No Dead Code
+
+**Always remove dead code and unused files.**
+
+- Delete unused functions, structs, modules
+- Delete files that aren't wired up to anything
+- Delete commented-out code blocks
+- If code exists "for reference only" — delete it, use git history instead
+
+**The codebase should only contain code that compiles and runs.**
+
+---
+
+## Rule 7: Modular Refactoring
 
 **Goal**: Break monolithic files into small, focused modules.
 
@@ -114,7 +129,7 @@ Be bold. Break things. Fix them properly.
 
 ---
 
-## Rule 7: Ask Questions
+## Rule 8: Ask Questions
 
 **When uncertain, blocked, or plans don't add up**: ask the USER.
 
@@ -124,7 +139,7 @@ Create a question file: `.questions/TEAM_XXX_topic.md`
 
 ---
 
-## Rule 8: Maximize Context Window
+## Rule 9: Maximize Context Window
 
 **Do as much work as possible within your context window.**
 
@@ -138,7 +153,7 @@ If a single task takes > 1 hour or touches > 3 files: split it into sub-task fil
 
 ---
 
-## Rule 9: Before You Finish
+## Rule 10: Before You Finish
 
 1. **Update** your team file with all changes
 2. **Verify** code compiles: `cargo check`
@@ -166,8 +181,9 @@ If a single task takes > 1 hour or touches > 3 files: split it into sub-task fil
 | Current phase | `phases/phase-X-*.md` |
 | Team logs | `.teams/TEAM_XXX_*.md` |
 | Questions for USER | `.questions/TEAM_XXX_*.md` |
-| Golden reference code | `src/layout/golden/` |
+| Golden snapshots | `src/layout/tests/snapshots/*.snap` |
 | Snapshot types | `src/layout/snapshot.rs` |
+| Verification script | `scripts/verify-golden.sh` |
 | Your code comments | `// TEAM_XXX: ...` |
 
 ---

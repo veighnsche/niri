@@ -81,6 +81,31 @@ Execute Phase 0.5.A and 0.5.B: Set up golden snapshot testing infrastructure.
 - 58 baseline tests passing (Groups A-W)
 - Use `cargo insta test` to verify, `cargo insta review` to inspect changes
 
+## Golden Snapshot Infrastructure
+
+### Key Files
+- `src/layout/tests/golden.rs` — Test file with prominent warning header
+- `src/layout/tests/snapshots/*.snap` — 58 locked baseline snapshots (chmod 444)
+- `src/layout/tests/snapshots/README.md` — Instructions for future teams (chmod 444)
+- `scripts/verify-golden.sh` — Verification script
+
+### Source Commit
+- **Commit**: `75d5e3b0` (before TEAM_005 AnimatedValue refactor)
+- **View original**: `git show 75d5e3b0:src/layout/scrolling.rs`
+
+### File Permissions (Tamper-Proof)
+- `src/layout/tests/snapshots/*.snap` — chmod 444 (read-only)
+- `src/layout/tests/snapshots/README.md` — chmod 444 (read-only)
+
+### Verification
+```bash
+./scripts/verify-golden.sh
+```
+Checks:
+1. README exists and is read-only
+2. All .snap files are read-only
+3. All 58 golden tests pass
+
 ## Handoff
 - [x] Code compiles (`cargo check` passes)
 - [x] Tests pass (`cargo test` — 247 passed, including 58 golden)
