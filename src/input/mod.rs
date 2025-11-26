@@ -977,23 +977,25 @@ impl State {
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::MoveWindowDownOrToWorkspaceDown => {
+            // TEAM_012: Replaced MoveWindowDownOrToWorkspaceDown with MoveWindowDownOrToRowDown
+            Action::MoveWindowDownOrToRowDown => {
                 if self.niri.screenshot_ui.is_open() {
                     self.niri.screenshot_ui.move_down();
                 } else {
                     self.niri.layout.move_down_or_to_workspace_down();
-                    self.maybe_warp_cursor_to_focus();
                 }
+                self.maybe_warp_cursor_to_focus();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::MoveWindowUpOrToWorkspaceUp => {
+            // TEAM_012: Replaced MoveWindowUpOrToWorkspaceUp with MoveWindowUpOrToRowUp
+            Action::MoveWindowUpOrToRowUp => {
                 if self.niri.screenshot_ui.is_open() {
                     self.niri.screenshot_ui.move_up();
                 } else {
                     self.niri.layout.move_up_or_to_workspace_up();
-                    self.maybe_warp_cursor_to_focus();
                 }
+                self.maybe_warp_cursor_to_focus();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
@@ -1220,14 +1222,16 @@ impl State {
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::FocusWindowOrWorkspaceDown => {
+            // TEAM_012: Replaced FocusWindowOrWorkspaceDown with FocusWindowOrRowDown
+            Action::FocusWindowOrRowDown => {
                 self.niri.layout.focus_window_or_workspace_down();
                 self.maybe_warp_cursor_to_focus();
                 self.niri.layer_shell_on_demand_focus = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::FocusWindowOrWorkspaceUp => {
+            // TEAM_012: Replaced FocusWindowOrWorkspaceUp with FocusWindowOrRowUp
+            Action::FocusWindowOrRowUp => {
                 self.niri.layout.focus_window_or_workspace_up();
                 self.maybe_warp_cursor_to_focus();
                 self.niri.layer_shell_on_demand_focus = None;
@@ -1262,153 +1266,33 @@ impl State {
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::MoveWindowToWorkspaceDown(focus) => {
+            // TEAM_012: Replaced MoveWindowToWorkspaceDown with MoveWindowToRowDown
+            Action::MoveWindowToRowDown(focus) => {
                 self.niri.layout.move_to_workspace_down(focus);
                 self.maybe_warp_cursor_to_focus();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::MoveWindowToWorkspaceUp(focus) => {
+            // TEAM_012: Replaced MoveWindowToWorkspaceUp with MoveWindowToRowUp
+            Action::MoveWindowToRowUp(focus) => {
                 self.niri.layout.move_to_workspace_up(focus);
                 self.maybe_warp_cursor_to_focus();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::MoveWindowToWorkspace(reference, focus) => {
-                if let Some((mut output, index)) =
-                    self.niri.find_output_and_workspace_index(reference)
-                {
-                    // The source output is always the active output, so if the target output is
-                    // also the active output, we don't need to use move_to_output().
-                    if let Some(active) = self.niri.layout.active_output() {
-                        if output.as_ref() == Some(active) {
-                            output = None;
-                        }
-                    }
-
-                    let activate = if focus {
-                        ActivateWindow::Smart
-                    } else {
-                        ActivateWindow::No
-                    };
-
-                    if let Some(output) = output {
-                        self.niri
-                            .layout
-                            .move_to_output(None, &output, Some(index), activate);
-
-                        if focus {
-                            if !self.maybe_warp_cursor_to_focus_centered() {
-                                self.move_cursor_to_output(&output);
-                            }
-                        } else {
-                            self.maybe_warp_cursor_to_focus();
-                        }
-                    } else {
-                        self.niri.layout.move_to_workspace(None, index, activate);
-                        self.maybe_warp_cursor_to_focus();
-                    }
-
-                    // FIXME: granular
-                    self.niri.queue_redraw_all();
-                }
-            }
-            Action::MoveWindowToWorkspaceById {
-                window_id: id,
-                reference,
-                focus,
-            } => {
-                let window = self.niri.layout.windows().find(|(_, m)| m.id().get() == id);
-                let window = window.map(|(_, m)| m.window.clone());
-                if let Some(window) = window {
-                    if let Some((output, index)) =
-                        self.niri.find_output_and_workspace_index(reference)
-                    {
-                        let target_was_active = self
-                            .niri
-                            .layout
-                            .active_output()
-                            .is_some_and(|active| output.as_ref() == Some(active));
-
-                        let activate = if focus {
-                            ActivateWindow::Smart
-                        } else {
-                            ActivateWindow::No
-                        };
-
-                        if let Some(output) = output {
-                            self.niri.layout.move_to_output(
-                                Some(&window),
-                                &output,
-                                Some(index),
-                                activate,
-                            );
-
-                            // If the active output changed (window was moved and focused).
-                            #[allow(clippy::collapsible_if)]
-                            if !target_was_active
-                                && self.niri.layout.active_output() == Some(&output)
-                            {
-                                if !self.maybe_warp_cursor_to_focus_centered() {
-                                    self.move_cursor_to_output(&output);
-                                }
-                            }
-                        } else {
-                            self.niri
-                                .layout
-                                .move_to_workspace(Some(&window), index, activate);
-
-                            // If we focused the target window.
-                            let new_focus = self.niri.layout.focus();
-                            if new_focus.is_some_and(|win| win.window == window) {
-                                self.maybe_warp_cursor_to_focus();
-                            }
-                        }
-
-                        // FIXME: granular
-                        self.niri.queue_redraw_all();
-                    }
-                }
-            }
-            Action::MoveColumnToWorkspaceDown(focus) => {
+            // TEAM_012: Replaced MoveColumnToWorkspaceDown with MoveColumnToRowDown
+            Action::MoveColumnToRowDown(focus) => {
                 self.niri.layout.move_column_to_workspace_down(focus);
                 self.maybe_warp_cursor_to_focus();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::MoveColumnToWorkspaceUp(focus) => {
+            // TEAM_012: Replaced MoveColumnToWorkspaceUp with MoveColumnToRowUp
+            Action::MoveColumnToRowUp(focus) => {
                 self.niri.layout.move_column_to_workspace_up(focus);
                 self.maybe_warp_cursor_to_focus();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
-            }
-            Action::MoveColumnToWorkspace(reference, focus) => {
-                if let Some((mut output, index)) =
-                    self.niri.find_output_and_workspace_index(reference)
-                {
-                    if let Some(active) = self.niri.layout.active_output() {
-                        if output.as_ref() == Some(active) {
-                            output = None;
-                        }
-                    }
-
-                    if let Some(output) = output {
-                        self.niri
-                            .layout
-                            .move_column_to_output(&output, Some(index), focus);
-                        if focus && !self.maybe_warp_cursor_to_focus_centered() {
-                            self.move_cursor_to_output(&output);
-                        }
-                    } else {
-                        self.niri.layout.move_column_to_workspace(index, focus);
-                        if focus {
-                            self.maybe_warp_cursor_to_focus();
-                        }
-                    }
-
-                    // FIXME: granular
-                    self.niri.queue_redraw_all();
-                }
             }
             Action::MoveColumnToIndex(idx) => {
                 self.niri.layout.move_column_to_index(idx);
@@ -1416,14 +1300,16 @@ impl State {
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::FocusWorkspaceDown => {
+            // TEAM_012: Replaced FocusWorkspaceDown with FocusRowDown
+            Action::FocusRowDown => {
                 self.niri.layout.switch_workspace_down();
                 self.maybe_warp_cursor_to_focus();
                 self.niri.layer_shell_on_demand_focus = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::FocusWorkspaceDownUnderMouse => {
+            // TEAM_012: Replaced FocusWorkspaceDownUnderMouse with FocusRowDownUnderMouse
+            Action::FocusRowDownUnderMouse => {
                 if let Some(output) = self.niri.output_under_cursor() {
                     if let Some(mon) = self.niri.layout.monitor_for_output_mut(&output) {
                         mon.switch_workspace_down();
@@ -1433,14 +1319,16 @@ impl State {
                     }
                 }
             }
-            Action::FocusWorkspaceUp => {
+            // TEAM_012: Replaced FocusWorkspaceUp with FocusRowUp
+            Action::FocusRowUp => {
                 self.niri.layout.switch_workspace_up();
                 self.maybe_warp_cursor_to_focus();
                 self.niri.layer_shell_on_demand_focus = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::FocusWorkspaceUpUnderMouse => {
+            // TEAM_012: Replaced FocusWorkspaceUpUnderMouse with FocusRowUpUnderMouse
+            Action::FocusRowUpUnderMouse => {
                 if let Some(output) = self.niri.output_under_cursor() {
                     if let Some(mon) = self.niri.layout.monitor_for_output_mut(&output) {
                         mon.switch_workspace_up();
@@ -1450,79 +1338,40 @@ impl State {
                     }
                 }
             }
-            Action::FocusWorkspace(reference) => {
-                if let Some((mut output, index)) =
-                    self.niri.find_output_and_workspace_index(reference)
-                {
-                    if let Some(active) = self.niri.layout.active_output() {
-                        if output.as_ref() == Some(active) {
-                            output = None;
-                        }
-                    }
-
-                    if let Some(output) = output {
-                        self.niri.layout.focus_output(&output);
-                        self.niri.layout.switch_workspace(index);
-                        if !self.maybe_warp_cursor_to_focus_centered() {
-                            self.move_cursor_to_output(&output);
-                        }
-                    } else {
-                        let config = &self.niri.config;
-                        if config.borrow().input.workspace_auto_back_and_forth {
-                            self.niri.layout.switch_workspace_auto_back_and_forth(index);
-                        } else {
-                            self.niri.layout.switch_workspace(index);
-                        }
-                        self.maybe_warp_cursor_to_focus();
-                    }
-                    self.niri.layer_shell_on_demand_focus = None;
-
-                    // FIXME: granular
-                    self.niri.queue_redraw_all();
-                }
-            }
-            Action::FocusWorkspacePrevious => {
+            // TEAM_012: Replaced FocusWorkspacePrevious with FocusPreviousPosition
+            Action::FocusPreviousPosition => {
                 self.niri.layout.switch_workspace_previous();
                 self.maybe_warp_cursor_to_focus();
                 self.niri.layer_shell_on_demand_focus = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::MoveWorkspaceDown => {
+            // TEAM_012: Replaced MoveWorkspaceDown with MoveRowDown
+            Action::MoveRowDown => {
                 self.niri.layout.move_workspace_down();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::MoveWorkspaceUp => {
+            // TEAM_012: Replaced MoveWorkspaceUp with MoveRowUp
+            Action::MoveRowUp => {
                 self.niri.layout.move_workspace_up();
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::MoveWorkspaceToIndex(new_idx) => {
+            // TEAM_012: Replaced MoveWorkspaceToIndex with MoveRowToIndex
+            Action::MoveRowToIndex(new_idx) => {
                 let new_idx = new_idx.saturating_sub(1);
                 self.niri.layout.move_workspace_to_idx(None, new_idx);
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
-            Action::MoveWorkspaceToIndexByRef { new_idx, reference } => {
-                if let Some(res) = self.niri.find_output_and_workspace_index(reference) {
-                    let new_idx = new_idx.saturating_sub(1);
-                    self.niri.layout.move_workspace_to_idx(Some(res), new_idx);
-                    // FIXME: granular
-                    self.niri.queue_redraw_all();
-                }
-            }
-            Action::SetWorkspaceName(name) => {
+            // TEAM_012: Replaced SetWorkspaceName with SetRowName
+            Action::SetRowName(name) => {
                 self.niri.layout.set_workspace_name(name, None);
             }
-            Action::SetWorkspaceNameByRef { name, reference } => {
-                self.niri.layout.set_workspace_name(name, Some(reference));
-            }
-            Action::UnsetWorkspaceName => {
+            // TEAM_012: Replaced UnsetWorkspaceName with UnsetRowName
+            Action::UnsetRowName => {
                 self.niri.layout.unset_workspace_name(None);
-            }
-            Action::UnsetWorkSpaceNameByRef(reference) => {
-                self.niri.layout.unset_workspace_name(Some(reference));
             }
             Action::ConsumeWindowIntoColumn => {
                 self.niri.layout.consume_into_column();
@@ -2022,7 +1871,8 @@ impl State {
                     self.niri.a11y_announce_hotkey_overlay();
                 }
             }
-            Action::MoveWorkspaceToMonitorLeft => {
+            // TEAM_012: Replaced MoveWorkspaceToMonitorLeft with MoveRowToMonitorLeft
+            Action::MoveRowToMonitorLeft => {
                 if let Some(output) = self.niri.output_left() {
                     self.niri.layout.move_workspace_to_output(&output);
                     if !self.maybe_warp_cursor_to_focus_centered() {
@@ -2030,7 +1880,8 @@ impl State {
                     }
                 }
             }
-            Action::MoveWorkspaceToMonitorRight => {
+            // TEAM_012: Replaced MoveWorkspaceToMonitorRight with MoveRowToMonitorRight
+            Action::MoveRowToMonitorRight => {
                 if let Some(output) = self.niri.output_right() {
                     self.niri.layout.move_workspace_to_output(&output);
                     if !self.maybe_warp_cursor_to_focus_centered() {
@@ -2038,7 +1889,8 @@ impl State {
                     }
                 }
             }
-            Action::MoveWorkspaceToMonitorDown => {
+            // TEAM_012: Replaced MoveWorkspaceToMonitorDown with MoveRowToMonitorDown
+            Action::MoveRowToMonitorDown => {
                 if let Some(output) = self.niri.output_down() {
                     self.niri.layout.move_workspace_to_output(&output);
                     if !self.maybe_warp_cursor_to_focus_centered() {
@@ -2046,7 +1898,8 @@ impl State {
                     }
                 }
             }
-            Action::MoveWorkspaceToMonitorUp => {
+            // TEAM_012: Replaced MoveWorkspaceToMonitorUp with MoveRowToMonitorUp
+            Action::MoveRowToMonitorUp => {
                 if let Some(output) = self.niri.output_up() {
                     self.niri.layout.move_workspace_to_output(&output);
                     if !self.maybe_warp_cursor_to_focus_centered() {
@@ -2054,7 +1907,8 @@ impl State {
                     }
                 }
             }
-            Action::MoveWorkspaceToMonitorPrevious => {
+            // TEAM_012: Replaced MoveWorkspaceToMonitorPrevious with MoveRowToMonitorPrevious
+            Action::MoveRowToMonitorPrevious => {
                 if let Some(output) = self.niri.output_previous() {
                     self.niri.layout.move_workspace_to_output(&output);
                     if !self.maybe_warp_cursor_to_focus_centered() {
@@ -2062,7 +1916,8 @@ impl State {
                     }
                 }
             }
-            Action::MoveWorkspaceToMonitorNext => {
+            // TEAM_012: Replaced MoveWorkspaceToMonitorNext with MoveRowToMonitorNext
+            Action::MoveRowToMonitorNext => {
                 if let Some(output) = self.niri.output_next() {
                     self.niri.layout.move_workspace_to_output(&output);
                     if !self.maybe_warp_cursor_to_focus_centered() {
@@ -2070,34 +1925,13 @@ impl State {
                     }
                 }
             }
-            Action::MoveWorkspaceToMonitor(new_output) => {
+            // TEAM_012: Replaced MoveWorkspaceToMonitor with MoveRowToMonitor
+            Action::MoveRowToMonitor(new_output) => {
                 if let Some(new_output) = self.niri.output_by_name_match(&new_output).cloned() {
                     if self.niri.layout.move_workspace_to_output(&new_output)
                         && !self.maybe_warp_cursor_to_focus_centered()
                     {
                         self.move_cursor_to_output(&new_output);
-                    }
-                }
-            }
-            Action::MoveWorkspaceToMonitorByRef {
-                output_name,
-                reference,
-            } => {
-                if let Some((output, old_idx)) =
-                    self.niri.find_output_and_workspace_index(reference)
-                {
-                    if let Some(new_output) = self.niri.output_by_name_match(&output_name).cloned()
-                    {
-                        if self.niri.layout.move_workspace_to_output_by_id(
-                            old_idx,
-                            output,
-                            &new_output,
-                        ) {
-                            // Cursor warp already calls `queue_redraw_all`
-                            if !self.maybe_warp_cursor_to_focus_centered() {
-                                self.move_cursor_to_output(&new_output);
-                            }
-                        }
                     }
                 }
             }
@@ -3129,7 +2963,7 @@ impl State {
                                 trigger: Trigger::WheelScrollUp,
                                 modifiers: Modifiers::empty(),
                             },
-                            action: Action::FocusWorkspaceUpUnderMouse,
+                            action: Action::FocusRowUpUnderMouse,
                             repeat: true,
                             cooldown: Some(Duration::from_millis(50)),
                             allow_when_locked: false,
@@ -3141,7 +2975,7 @@ impl State {
                                 trigger: Trigger::WheelScrollDown,
                                 modifiers: Modifiers::empty(),
                             },
-                            action: Action::FocusWorkspaceDownUnderMouse,
+                            action: Action::FocusRowDownUnderMouse,
                             repeat: true,
                             cooldown: Some(Duration::from_millis(50)),
                             allow_when_locked: false,
@@ -4550,9 +4384,9 @@ fn allowed_during_screenshot(action: &Action) -> bool {
             | Action::MoveColumnRight
             | Action::MoveColumnRightOrToMonitorRight
             | Action::MoveWindowUp
-            | Action::MoveWindowUpOrToWorkspaceUp
+            | Action::MoveWindowUpOrToRowUp
             | Action::MoveWindowDown
-            | Action::MoveWindowDownOrToWorkspaceDown
+            | Action::MoveWindowDownOrToRowDown
             | Action::MoveColumnToMonitorLeft
             | Action::MoveColumnToMonitorRight
             | Action::MoveColumnToMonitorUp
@@ -4587,8 +4421,8 @@ fn hardcoded_overview_bind(raw: Keysym, mods: ModifiersState) -> Option<Bind> {
         }
         Keysym::Left => Action::FocusColumnLeft,
         Keysym::Right => Action::FocusColumnRight,
-        Keysym::Up => Action::FocusWindowOrWorkspaceUp,
-        Keysym::Down => Action::FocusWindowOrWorkspaceDown,
+        Keysym::Up => Action::FocusWindowOrRowUp,
+        Keysym::Down => Action::FocusWindowOrRowDown,
         _ => {
             return None;
         }

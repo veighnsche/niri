@@ -363,10 +363,10 @@ pub enum Action {
     FocusWindowUpOrColumnLeft {},
     /// Focus the window above or the column to the right.
     FocusWindowUpOrColumnRight {},
-    /// Focus the window or the workspace below.
-    FocusWindowOrWorkspaceDown {},
-    /// Focus the window or the workspace above.
-    FocusWindowOrWorkspaceUp {},
+    /// Focus the window or the row below.
+    FocusWindowOrRowDown {},
+    /// Focus the window or the row above.
+    FocusWindowOrRowUp {},
     /// Focus the topmost window.
     FocusWindowTop {},
     /// Focus the bottommost window.
@@ -399,10 +399,10 @@ pub enum Action {
     MoveWindowDown {},
     /// Move the focused window up in a column.
     MoveWindowUp {},
-    /// Move the focused window down in a column or to the workspace below.
-    MoveWindowDownOrToWorkspaceDown {},
-    /// Move the focused window up in a column or to the workspace above.
-    MoveWindowUpOrToWorkspaceUp {},
+    /// Move the focused window down in a column or to the row below.
+    MoveWindowDownOrToRowDown {},
+    /// Move the focused window up in a column or to the row above.
+    MoveWindowUpOrToRowUp {},
     /// Consume or expel a window left.
     #[cfg_attr(
         feature = "clap",
@@ -459,139 +459,74 @@ pub enum Action {
     },
     /// Center all fully visible columns on the screen.
     CenterVisibleColumns {},
-    /// Focus the workspace below.
-    FocusWorkspaceDown {},
-    /// Focus the workspace above.
-    FocusWorkspaceUp {},
-    /// Focus a workspace by reference (index or name).
-    FocusWorkspace {
-        /// Reference (index or name) of the workspace to focus.
-        #[cfg_attr(feature = "clap", arg())]
-        reference: WorkspaceReferenceArg,
-    },
-    /// Focus the previous workspace.
-    FocusWorkspacePrevious {},
-    /// Move the focused window to the workspace below.
-    MoveWindowToWorkspaceDown {
-        /// Whether the focus should follow the target workspace.
+    /// Focus the row below.
+    FocusRowDown {},
+    /// Focus the row above.
+    FocusRowUp {},
+    /// Focus the previous position (like browser back button).
+    FocusPreviousPosition {},
+    /// Move the focused window to the row below.
+    MoveWindowToRowDown {
+        /// Whether the focus should follow the target row.
         ///
-        /// If `true` (the default), the focus will follow the window to the new workspace. If
-        /// `false`, the focus will remain on the original workspace.
+        /// If `true` (the default), the focus will follow the window to the new row. If
+        /// `false`, the focus will remain on the original row.
         #[cfg_attr(feature = "clap", arg(long, action = clap::ArgAction::Set, default_value_t = true))]
         focus: bool,
     },
-    /// Move the focused window to the workspace above.
-    MoveWindowToWorkspaceUp {
-        /// Whether the focus should follow the target workspace.
+    /// Move the focused window to the row above.
+    MoveWindowToRowUp {
+        /// Whether the focus should follow the target row.
         ///
-        /// If `true` (the default), the focus will follow the window to the new workspace. If
-        /// `false`, the focus will remain on the original workspace.
+        /// If `true` (the default), the focus will follow the window to the new row. If
+        /// `false`, the focus will remain on the original row.
         #[cfg_attr(feature = "clap", arg(long, action = clap::ArgAction::Set, default_value_t = true))]
         focus: bool,
     },
-    /// Move a window to a workspace.
+    /// Move the focused column to the row below.
+    MoveColumnToRowDown {
+        /// Whether the focus should follow the target row.
+        ///
+        /// If `true` (the default), the focus will follow the column to the new row. If
+        /// `false`, the focus will remain on the original row.
+        #[cfg_attr(feature = "clap", arg(long, action = clap::ArgAction::Set, default_value_t = true))]
+        focus: bool,
+    },
+    /// Move the focused column to the row above.
+    MoveColumnToRowUp {
+        /// Whether the focus should follow the target row.
+        ///
+        /// If `true` (the default), the focus will follow the column to the new row. If
+        /// `false`, the focus will remain on the original row.
+        #[cfg_attr(feature = "clap", arg(long, action = clap::ArgAction::Set, default_value_t = true))]
+        focus: bool,
+    },
+    /// Move the focused row down (reorder).
+    MoveRowDown {},
+    /// Move the focused row up (reorder).
+    MoveRowUp {},
+    /// Move the focused row to a specific index.
     #[cfg_attr(
         feature = "clap",
-        clap(about = "Move the focused window to a workspace by reference (index or name)")
+        clap(about = "Move the focused row to a specific index")
     )]
-    MoveWindowToWorkspace {
-        /// Id of the window to move.
-        ///
-        /// If `None`, uses the focused window.
-        #[cfg_attr(feature = "clap", arg(long))]
-        window_id: Option<u64>,
-
-        /// Reference (index or name) of the workspace to move the window to.
-        #[cfg_attr(feature = "clap", arg())]
-        reference: WorkspaceReferenceArg,
-
-        /// Whether the focus should follow the moved window.
-        ///
-        /// If `true` (the default) and the window to move is focused, the focus will follow the
-        /// window to the new workspace. If `false`, the focus will remain on the original
-        /// workspace.
-        #[cfg_attr(feature = "clap", arg(long, action = clap::ArgAction::Set, default_value_t = true))]
-        focus: bool,
-    },
-    /// Move the focused column to the workspace below.
-    MoveColumnToWorkspaceDown {
-        /// Whether the focus should follow the target workspace.
-        ///
-        /// If `true` (the default), the focus will follow the column to the new workspace. If
-        /// `false`, the focus will remain on the original workspace.
-        #[cfg_attr(feature = "clap", arg(long, action = clap::ArgAction::Set, default_value_t = true))]
-        focus: bool,
-    },
-    /// Move the focused column to the workspace above.
-    MoveColumnToWorkspaceUp {
-        /// Whether the focus should follow the target workspace.
-        ///
-        /// If `true` (the default), the focus will follow the column to the new workspace. If
-        /// `false`, the focus will remain on the original workspace.
-        #[cfg_attr(feature = "clap", arg(long, action = clap::ArgAction::Set, default_value_t = true))]
-        focus: bool,
-    },
-    /// Move the focused column to a workspace by reference (index or name).
-    MoveColumnToWorkspace {
-        /// Reference (index or name) of the workspace to move the column to.
-        #[cfg_attr(feature = "clap", arg())]
-        reference: WorkspaceReferenceArg,
-
-        /// Whether the focus should follow the target workspace.
-        ///
-        /// If `true` (the default), the focus will follow the column to the new workspace. If
-        /// `false`, the focus will remain on the original workspace.
-        #[cfg_attr(feature = "clap", arg(long, action = clap::ArgAction::Set, default_value_t = true))]
-        focus: bool,
-    },
-    /// Move the focused workspace down.
-    MoveWorkspaceDown {},
-    /// Move the focused workspace up.
-    MoveWorkspaceUp {},
-    /// Move a workspace to a specific index on its monitor.
-    #[cfg_attr(
-        feature = "clap",
-        clap(about = "Move the focused workspace to a specific index on its monitor")
-    )]
-    MoveWorkspaceToIndex {
-        /// New index for the workspace.
+    MoveRowToIndex {
+        /// New index for the row.
         #[cfg_attr(feature = "clap", arg())]
         index: usize,
-
-        /// Reference (index or name) of the workspace to move.
-        ///
-        /// If `None`, uses the focused workspace.
-        #[cfg_attr(feature = "clap", arg(long))]
-        reference: Option<WorkspaceReferenceArg>,
     },
-    /// Set the name of a workspace.
+    /// Set the name of the focused row.
     #[cfg_attr(
         feature = "clap",
-        clap(about = "Set the name of the focused workspace")
+        clap(about = "Set the name of the focused row")
     )]
-    SetWorkspaceName {
-        /// New name for the workspace.
+    SetRowName {
+        /// New name for the row.
         #[cfg_attr(feature = "clap", arg())]
         name: String,
-
-        /// Reference (index or name) of the workspace to name.
-        ///
-        /// If `None`, uses the focused workspace.
-        #[cfg_attr(feature = "clap", arg(long))]
-        workspace: Option<WorkspaceReferenceArg>,
     },
-    /// Unset the name of a workspace.
-    #[cfg_attr(
-        feature = "clap",
-        clap(about = "Unset the name of the focused workspace")
-    )]
-    UnsetWorkspaceName {
-        /// Reference (index or name) of the workspace to unname.
-        ///
-        /// If `None`, uses the focused workspace.
-        #[cfg_attr(feature = "clap", arg())]
-        reference: Option<WorkspaceReferenceArg>,
-    },
+    /// Unset the name of the focused row.
+    UnsetRowName {},
     /// Focus the monitor to the left.
     FocusMonitorLeft {},
     /// Focus the monitor to the right.
@@ -762,33 +697,27 @@ pub enum Action {
     },
     /// Show the hotkey overlay.
     ShowHotkeyOverlay {},
-    /// Move the focused workspace to the monitor to the left.
-    MoveWorkspaceToMonitorLeft {},
-    /// Move the focused workspace to the monitor to the right.
-    MoveWorkspaceToMonitorRight {},
-    /// Move the focused workspace to the monitor below.
-    MoveWorkspaceToMonitorDown {},
-    /// Move the focused workspace to the monitor above.
-    MoveWorkspaceToMonitorUp {},
-    /// Move the focused workspace to the previous monitor.
-    MoveWorkspaceToMonitorPrevious {},
-    /// Move the focused workspace to the next monitor.
-    MoveWorkspaceToMonitorNext {},
-    /// Move a workspace to a specific monitor.
+    /// Move the focused row to the monitor to the left.
+    MoveRowToMonitorLeft {},
+    /// Move the focused row to the monitor to the right.
+    MoveRowToMonitorRight {},
+    /// Move the focused row to the monitor below.
+    MoveRowToMonitorDown {},
+    /// Move the focused row to the monitor above.
+    MoveRowToMonitorUp {},
+    /// Move the focused row to the previous monitor.
+    MoveRowToMonitorPrevious {},
+    /// Move the focused row to the next monitor.
+    MoveRowToMonitorNext {},
+    /// Move the focused row to a specific monitor.
     #[cfg_attr(
         feature = "clap",
-        clap(about = "Move the focused workspace to a specific monitor")
+        clap(about = "Move the focused row to a specific monitor")
     )]
-    MoveWorkspaceToMonitor {
+    MoveRowToMonitor {
         /// The target output name.
         #[cfg_attr(feature = "clap", arg())]
         output: String,
-
-        // Reference (index or name) of the workspace to move.
-        ///
-        /// If `None`, uses the focused workspace.
-        #[cfg_attr(feature = "clap", arg(long))]
-        reference: Option<WorkspaceReferenceArg>,
     },
     /// Toggle a debug tint on windows.
     ToggleDebugTint {},
@@ -944,18 +873,6 @@ pub enum PositionChange {
     AdjustFixed(f64),
     /// Add or subtract to the current position as a proportion of the working area.
     AdjustProportion(f64),
-}
-
-/// Workspace reference (id, index or name) to operate on.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
-pub enum WorkspaceReferenceArg {
-    /// Id of the workspace.
-    Id(u64),
-    /// Index of the workspace.
-    Index(u8),
-    /// Name of the workspace.
-    Name(String),
 }
 
 /// Layout to switch to.
@@ -1602,24 +1519,6 @@ impl From<Duration> for Timestamp {
 impl From<Timestamp> for Duration {
     fn from(value: Timestamp) -> Self {
         Duration::new(value.secs, value.nanos)
-    }
-}
-
-impl FromStr for WorkspaceReferenceArg {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let reference = if let Ok(index) = s.parse::<i32>() {
-            if let Ok(idx) = u8::try_from(index) {
-                Self::Index(idx)
-            } else {
-                return Err("workspace index must be between 0 and 255");
-            }
-        } else {
-            Self::Name(s.to_string())
-        };
-
-        Ok(reference)
     }
 }
 

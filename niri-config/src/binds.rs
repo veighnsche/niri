@@ -5,9 +5,7 @@ use std::time::Duration;
 use bitflags::bitflags;
 use knuffel::errors::DecodeError;
 use miette::miette;
-use niri_ipc::{
-    ColumnDisplay, LayoutSwitchTarget, PositionChange, SizeChange, WorkspaceReferenceArg,
-};
+use niri_ipc::{ColumnDisplay, LayoutSwitchTarget, PositionChange, SizeChange};
 use smithay::input::keyboard::keysyms::KEY_NoSymbol;
 use smithay::input::keyboard::xkb::{keysym_from_name, KEYSYM_CASE_INSENSITIVE, KEYSYM_NO_FLAGS};
 use smithay::input::keyboard::Keysym;
@@ -176,8 +174,8 @@ pub enum Action {
     FocusWindowDownOrColumnRight,
     FocusWindowUpOrColumnLeft,
     FocusWindowUpOrColumnRight,
-    FocusWindowOrWorkspaceDown,
-    FocusWindowOrWorkspaceUp,
+    FocusWindowOrRowDown,
+    FocusWindowOrRowUp,
     FocusWindowTop,
     FocusWindowBottom,
     FocusWindowDownOrTop,
@@ -191,8 +189,8 @@ pub enum Action {
     MoveColumnToIndex(#[knuffel(argument)] usize),
     MoveWindowDown,
     MoveWindowUp,
-    MoveWindowDownOrToWorkspaceDown,
-    MoveWindowUpOrToWorkspaceUp,
+    MoveWindowDownOrToRowDown,
+    MoveWindowUpOrToRowUp,
     ConsumeOrExpelWindowLeft,
     #[knuffel(skip)]
     ConsumeOrExpelWindowLeftById(u64),
@@ -210,55 +208,22 @@ pub enum Action {
     #[knuffel(skip)]
     CenterWindowById(u64),
     CenterVisibleColumns,
-    FocusWorkspaceDown,
+    FocusRowDown,
     #[knuffel(skip)]
-    FocusWorkspaceDownUnderMouse,
-    FocusWorkspaceUp,
+    FocusRowDownUnderMouse,
+    FocusRowUp,
     #[knuffel(skip)]
-    FocusWorkspaceUpUnderMouse,
-    FocusWorkspace(#[knuffel(argument)] WorkspaceReference),
-    FocusWorkspacePrevious,
-    MoveWindowToWorkspaceDown(#[knuffel(property(name = "focus"), default = true)] bool),
-    MoveWindowToWorkspaceUp(#[knuffel(property(name = "focus"), default = true)] bool),
-    MoveWindowToWorkspace(
-        #[knuffel(argument)] WorkspaceReference,
-        #[knuffel(property(name = "focus"), default = true)] bool,
-    ),
-    #[knuffel(skip)]
-    MoveWindowToWorkspaceById {
-        window_id: u64,
-        reference: WorkspaceReference,
-        focus: bool,
-    },
-    MoveColumnToWorkspaceDown(#[knuffel(property(name = "focus"), default = true)] bool),
-    MoveColumnToWorkspaceUp(#[knuffel(property(name = "focus"), default = true)] bool),
-    MoveColumnToWorkspace(
-        #[knuffel(argument)] WorkspaceReference,
-        #[knuffel(property(name = "focus"), default = true)] bool,
-    ),
-    MoveWorkspaceDown,
-    MoveWorkspaceUp,
-    MoveWorkspaceToIndex(#[knuffel(argument)] usize),
-    #[knuffel(skip)]
-    MoveWorkspaceToIndexByRef {
-        new_idx: usize,
-        reference: WorkspaceReference,
-    },
-    #[knuffel(skip)]
-    MoveWorkspaceToMonitorByRef {
-        output_name: String,
-        reference: WorkspaceReference,
-    },
-    MoveWorkspaceToMonitor(#[knuffel(argument)] String),
-    SetWorkspaceName(#[knuffel(argument)] String),
-    #[knuffel(skip)]
-    SetWorkspaceNameByRef {
-        name: String,
-        reference: WorkspaceReference,
-    },
-    UnsetWorkspaceName,
-    #[knuffel(skip)]
-    UnsetWorkSpaceNameByRef(#[knuffel(argument)] WorkspaceReference),
+    FocusRowUpUnderMouse,
+    FocusPreviousPosition,
+    MoveWindowToRowDown(#[knuffel(property(name = "focus"), default = true)] bool),
+    MoveWindowToRowUp(#[knuffel(property(name = "focus"), default = true)] bool),
+    MoveColumnToRowDown(#[knuffel(property(name = "focus"), default = true)] bool),
+    MoveColumnToRowUp(#[knuffel(property(name = "focus"), default = true)] bool),
+    MoveRowDown,
+    MoveRowUp,
+    MoveRowToIndex(#[knuffel(argument)] usize),
+    SetRowName(#[knuffel(argument)] String),
+    UnsetRowName,
     FocusMonitorLeft,
     FocusMonitorRight,
     FocusMonitorDown,
@@ -322,12 +287,13 @@ pub enum Action {
     ExpandColumnToAvailableWidth,
     SwitchLayout(#[knuffel(argument, str)] LayoutSwitchTarget),
     ShowHotkeyOverlay,
-    MoveWorkspaceToMonitorLeft,
-    MoveWorkspaceToMonitorRight,
-    MoveWorkspaceToMonitorDown,
-    MoveWorkspaceToMonitorUp,
-    MoveWorkspaceToMonitorPrevious,
-    MoveWorkspaceToMonitorNext,
+    MoveRowToMonitorLeft,
+    MoveRowToMonitorRight,
+    MoveRowToMonitorDown,
+    MoveRowToMonitorUp,
+    MoveRowToMonitorPrevious,
+    MoveRowToMonitorNext,
+    MoveRowToMonitor(#[knuffel(argument)] String),
     ToggleWindowFloating,
     #[knuffel(skip)]
     ToggleWindowFloatingById(u64),
@@ -451,8 +417,8 @@ impl From<niri_ipc::Action> for Action {
             niri_ipc::Action::FocusWindowDownOrColumnRight {} => Self::FocusWindowDownOrColumnRight,
             niri_ipc::Action::FocusWindowUpOrColumnLeft {} => Self::FocusWindowUpOrColumnLeft,
             niri_ipc::Action::FocusWindowUpOrColumnRight {} => Self::FocusWindowUpOrColumnRight,
-            niri_ipc::Action::FocusWindowOrWorkspaceDown {} => Self::FocusWindowOrWorkspaceDown,
-            niri_ipc::Action::FocusWindowOrWorkspaceUp {} => Self::FocusWindowOrWorkspaceUp,
+            niri_ipc::Action::FocusWindowOrRowDown {} => Self::FocusWindowOrRowDown,
+            niri_ipc::Action::FocusWindowOrRowUp {} => Self::FocusWindowOrRowUp,
             niri_ipc::Action::FocusWindowTop {} => Self::FocusWindowTop,
             niri_ipc::Action::FocusWindowBottom {} => Self::FocusWindowBottom,
             niri_ipc::Action::FocusWindowDownOrTop {} => Self::FocusWindowDownOrTop,
@@ -470,10 +436,10 @@ impl From<niri_ipc::Action> for Action {
             }
             niri_ipc::Action::MoveWindowDown {} => Self::MoveWindowDown,
             niri_ipc::Action::MoveWindowUp {} => Self::MoveWindowUp,
-            niri_ipc::Action::MoveWindowDownOrToWorkspaceDown {} => {
-                Self::MoveWindowDownOrToWorkspaceDown
+            niri_ipc::Action::MoveWindowDownOrToRowDown {} => {
+                Self::MoveWindowDownOrToRowDown
             }
-            niri_ipc::Action::MoveWindowUpOrToWorkspaceUp {} => Self::MoveWindowUpOrToWorkspaceUp,
+            niri_ipc::Action::MoveWindowUpOrToRowUp {} => Self::MoveWindowUpOrToRowUp,
             niri_ipc::Action::ConsumeOrExpelWindowLeft { id: None } => {
                 Self::ConsumeOrExpelWindowLeft
             }
@@ -496,58 +462,26 @@ impl From<niri_ipc::Action> for Action {
             niri_ipc::Action::CenterWindow { id: None } => Self::CenterWindow,
             niri_ipc::Action::CenterWindow { id: Some(id) } => Self::CenterWindowById(id),
             niri_ipc::Action::CenterVisibleColumns {} => Self::CenterVisibleColumns,
-            niri_ipc::Action::FocusWorkspaceDown {} => Self::FocusWorkspaceDown,
-            niri_ipc::Action::FocusWorkspaceUp {} => Self::FocusWorkspaceUp,
-            niri_ipc::Action::FocusWorkspace { reference } => {
-                Self::FocusWorkspace(WorkspaceReference::from(reference))
+            niri_ipc::Action::FocusRowDown {} => Self::FocusRowDown,
+            niri_ipc::Action::FocusRowUp {} => Self::FocusRowUp,
+            niri_ipc::Action::FocusPreviousPosition {} => Self::FocusPreviousPosition,
+            niri_ipc::Action::MoveWindowToRowDown { focus } => {
+                Self::MoveWindowToRowDown(focus)
             }
-            niri_ipc::Action::FocusWorkspacePrevious {} => Self::FocusWorkspacePrevious,
-            niri_ipc::Action::MoveWindowToWorkspaceDown { focus } => {
-                Self::MoveWindowToWorkspaceDown(focus)
+            niri_ipc::Action::MoveWindowToRowUp { focus } => {
+                Self::MoveWindowToRowUp(focus)
             }
-            niri_ipc::Action::MoveWindowToWorkspaceUp { focus } => {
-                Self::MoveWindowToWorkspaceUp(focus)
+            niri_ipc::Action::MoveColumnToRowDown { focus } => {
+                Self::MoveColumnToRowDown(focus)
             }
-            niri_ipc::Action::MoveWindowToWorkspace {
-                window_id: None,
-                reference,
-                focus,
-            } => Self::MoveWindowToWorkspace(WorkspaceReference::from(reference), focus),
-            niri_ipc::Action::MoveWindowToWorkspace {
-                window_id: Some(window_id),
-                reference,
-                focus,
-            } => Self::MoveWindowToWorkspaceById {
-                window_id,
-                reference: WorkspaceReference::from(reference),
-                focus,
-            },
-            niri_ipc::Action::MoveColumnToWorkspaceDown { focus } => {
-                Self::MoveColumnToWorkspaceDown(focus)
+            niri_ipc::Action::MoveColumnToRowUp { focus } => {
+                Self::MoveColumnToRowUp(focus)
             }
-            niri_ipc::Action::MoveColumnToWorkspaceUp { focus } => {
-                Self::MoveColumnToWorkspaceUp(focus)
-            }
-            niri_ipc::Action::MoveColumnToWorkspace { reference, focus } => {
-                Self::MoveColumnToWorkspace(WorkspaceReference::from(reference), focus)
-            }
-            niri_ipc::Action::MoveWorkspaceDown {} => Self::MoveWorkspaceDown,
-            niri_ipc::Action::MoveWorkspaceUp {} => Self::MoveWorkspaceUp,
-            niri_ipc::Action::SetWorkspaceName {
-                name,
-                workspace: None,
-            } => Self::SetWorkspaceName(name),
-            niri_ipc::Action::SetWorkspaceName {
-                name,
-                workspace: Some(reference),
-            } => Self::SetWorkspaceNameByRef {
-                name,
-                reference: WorkspaceReference::from(reference),
-            },
-            niri_ipc::Action::UnsetWorkspaceName { reference: None } => Self::UnsetWorkspaceName,
-            niri_ipc::Action::UnsetWorkspaceName {
-                reference: Some(reference),
-            } => Self::UnsetWorkSpaceNameByRef(WorkspaceReference::from(reference)),
+            niri_ipc::Action::MoveRowDown {} => Self::MoveRowDown,
+            niri_ipc::Action::MoveRowUp {} => Self::MoveRowUp,
+            niri_ipc::Action::MoveRowToIndex { index } => Self::MoveRowToIndex(index),
+            niri_ipc::Action::SetRowName { name } => Self::SetRowName(name),
+            niri_ipc::Action::UnsetRowName {} => Self::UnsetRowName,
             niri_ipc::Action::FocusMonitorLeft {} => Self::FocusMonitorLeft,
             niri_ipc::Action::FocusMonitorRight {} => Self::FocusMonitorRight,
             niri_ipc::Action::FocusMonitorDown {} => Self::FocusMonitorDown,
@@ -620,36 +554,15 @@ impl From<niri_ipc::Action> for Action {
             niri_ipc::Action::ExpandColumnToAvailableWidth {} => Self::ExpandColumnToAvailableWidth,
             niri_ipc::Action::SwitchLayout { layout } => Self::SwitchLayout(layout),
             niri_ipc::Action::ShowHotkeyOverlay {} => Self::ShowHotkeyOverlay,
-            niri_ipc::Action::MoveWorkspaceToMonitorLeft {} => Self::MoveWorkspaceToMonitorLeft,
-            niri_ipc::Action::MoveWorkspaceToMonitorRight {} => Self::MoveWorkspaceToMonitorRight,
-            niri_ipc::Action::MoveWorkspaceToMonitorDown {} => Self::MoveWorkspaceToMonitorDown,
-            niri_ipc::Action::MoveWorkspaceToMonitorUp {} => Self::MoveWorkspaceToMonitorUp,
-            niri_ipc::Action::MoveWorkspaceToMonitorPrevious {} => {
-                Self::MoveWorkspaceToMonitorPrevious
+            niri_ipc::Action::MoveRowToMonitorLeft {} => Self::MoveRowToMonitorLeft,
+            niri_ipc::Action::MoveRowToMonitorRight {} => Self::MoveRowToMonitorRight,
+            niri_ipc::Action::MoveRowToMonitorDown {} => Self::MoveRowToMonitorDown,
+            niri_ipc::Action::MoveRowToMonitorUp {} => Self::MoveRowToMonitorUp,
+            niri_ipc::Action::MoveRowToMonitorPrevious {} => {
+                Self::MoveRowToMonitorPrevious
             }
-            niri_ipc::Action::MoveWorkspaceToIndex {
-                index,
-                reference: Some(reference),
-            } => Self::MoveWorkspaceToIndexByRef {
-                new_idx: index,
-                reference: WorkspaceReference::from(reference),
-            },
-            niri_ipc::Action::MoveWorkspaceToIndex {
-                index,
-                reference: None,
-            } => Self::MoveWorkspaceToIndex(index),
-            niri_ipc::Action::MoveWorkspaceToMonitor {
-                output,
-                reference: Some(reference),
-            } => Self::MoveWorkspaceToMonitorByRef {
-                output_name: output,
-                reference: WorkspaceReference::from(reference),
-            },
-            niri_ipc::Action::MoveWorkspaceToMonitor {
-                output,
-                reference: None,
-            } => Self::MoveWorkspaceToMonitor(output),
-            niri_ipc::Action::MoveWorkspaceToMonitorNext {} => Self::MoveWorkspaceToMonitorNext,
+            niri_ipc::Action::MoveRowToMonitorNext {} => Self::MoveRowToMonitorNext,
+            niri_ipc::Action::MoveRowToMonitor { output } => Self::MoveRowToMonitor(output),
             niri_ipc::Action::ToggleDebugTint {} => Self::ToggleDebugTint,
             niri_ipc::Action::DebugToggleOpaqueRegions {} => Self::DebugToggleOpaqueRegions,
             niri_ipc::Action::DebugToggleDamage {} => Self::DebugToggleDamage,
@@ -696,59 +609,13 @@ impl From<niri_ipc::Action> for Action {
     }
 }
 
+// TEAM_012: WorkspaceReference is kept for internal use during transition.
+// It will be fully removed in a later phase when all internal uses are migrated.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum WorkspaceReference {
     Id(u64),
     Index(u8),
     Name(String),
-}
-
-impl From<WorkspaceReferenceArg> for WorkspaceReference {
-    fn from(reference: WorkspaceReferenceArg) -> WorkspaceReference {
-        match reference {
-            WorkspaceReferenceArg::Id(id) => Self::Id(id),
-            WorkspaceReferenceArg::Index(i) => Self::Index(i),
-            WorkspaceReferenceArg::Name(n) => Self::Name(n),
-        }
-    }
-}
-
-impl<S: knuffel::traits::ErrorSpan> knuffel::DecodeScalar<S> for WorkspaceReference {
-    fn type_check(
-        type_name: &Option<knuffel::span::Spanned<knuffel::ast::TypeName, S>>,
-        ctx: &mut knuffel::decode::Context<S>,
-    ) {
-        if let Some(type_name) = &type_name {
-            ctx.emit_error(DecodeError::unexpected(
-                type_name,
-                "type name",
-                "no type name expected for this node",
-            ));
-        }
-    }
-
-    fn raw_decode(
-        val: &knuffel::span::Spanned<knuffel::ast::Literal, S>,
-        ctx: &mut knuffel::decode::Context<S>,
-    ) -> Result<WorkspaceReference, DecodeError<S>> {
-        match &**val {
-            knuffel::ast::Literal::String(ref s) => Ok(WorkspaceReference::Name(s.clone().into())),
-            knuffel::ast::Literal::Int(ref value) => match value.try_into() {
-                Ok(v) => Ok(WorkspaceReference::Index(v)),
-                Err(e) => {
-                    ctx.emit_error(DecodeError::conversion(val, e));
-                    Ok(WorkspaceReference::Index(0))
-                }
-            },
-            _ => {
-                ctx.emit_error(DecodeError::unsupported(
-                    val,
-                    "Unsupported value, only numbers and strings are recognized",
-                ));
-                Ok(WorkspaceReference::Index(0))
-            }
-        }
-    }
 }
 
 impl<S> knuffel::Decode<S> for Binds

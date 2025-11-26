@@ -210,44 +210,45 @@ fn collect_actions(config: &Config) -> Vec<&Action> {
         actions.push(&Action::Quit(false));
     }
 
+    // TEAM_012: Replaced Workspace actions with Row actions
     actions.extend(&[
         &Action::CloseWindow,
         &Action::FocusColumnLeft,
         &Action::FocusColumnRight,
         &Action::MoveColumnLeft,
         &Action::MoveColumnRight,
-        &Action::FocusWorkspaceDown,
-        &Action::FocusWorkspaceUp,
+        &Action::FocusRowDown,
+        &Action::FocusRowUp,
     ]);
 
-    // Prefer move-column-to-workspace-down, but fall back to move-window-to-workspace-down.
+    // Prefer move-column-to-row-down, but fall back to move-window-to-row-down.
     if let Some(bind) = binds
         .iter()
-        .find(|bind| matches!(bind.action, Action::MoveColumnToWorkspaceDown(_)))
+        .find(|bind| matches!(bind.action, Action::MoveColumnToRowDown(_)))
     {
         actions.push(&bind.action);
     } else if binds
         .iter()
-        .any(|bind| matches!(bind.action, Action::MoveWindowToWorkspaceDown(_)))
+        .any(|bind| matches!(bind.action, Action::MoveWindowToRowDown(_)))
     {
-        actions.push(&Action::MoveWindowToWorkspaceDown(true));
+        actions.push(&Action::MoveWindowToRowDown(true));
     } else {
-        actions.push(&Action::MoveColumnToWorkspaceDown(true));
+        actions.push(&Action::MoveColumnToRowDown(true));
     }
 
     // Same for -up.
     if let Some(bind) = binds
         .iter()
-        .find(|bind| matches!(bind.action, Action::MoveColumnToWorkspaceUp(_)))
+        .find(|bind| matches!(bind.action, Action::MoveColumnToRowUp(_)))
     {
         actions.push(&bind.action);
     } else if binds
         .iter()
-        .any(|bind| matches!(bind.action, Action::MoveWindowToWorkspaceUp(_)))
+        .any(|bind| matches!(bind.action, Action::MoveWindowToRowUp(_)))
     {
-        actions.push(&Action::MoveWindowToWorkspaceUp(true));
+        actions.push(&Action::MoveWindowToRowUp(true));
     } else {
-        actions.push(&Action::MoveColumnToWorkspaceUp(true));
+        actions.push(&Action::MoveColumnToRowUp(true));
     }
 
     actions.extend(&[
@@ -464,12 +465,12 @@ fn action_name(action: &Action) -> String {
         Action::FocusColumnRight => String::from("Focus Column to the Right"),
         Action::MoveColumnLeft => String::from("Move Column Left"),
         Action::MoveColumnRight => String::from("Move Column Right"),
-        Action::FocusWorkspaceDown => String::from("Switch Workspace Down"),
-        Action::FocusWorkspaceUp => String::from("Switch Workspace Up"),
-        Action::MoveColumnToWorkspaceDown(_) => String::from("Move Column to Workspace Down"),
-        Action::MoveColumnToWorkspaceUp(_) => String::from("Move Column to Workspace Up"),
-        Action::MoveWindowToWorkspaceDown(_) => String::from("Move Window to Workspace Down"),
-        Action::MoveWindowToWorkspaceUp(_) => String::from("Move Window to Workspace Up"),
+        Action::FocusRowDown => String::from("Focus Row Down"),
+        Action::FocusRowUp => String::from("Focus Row Up"),
+        Action::MoveColumnToRowDown(_) => String::from("Move Column to Row Down"),
+        Action::MoveColumnToRowUp(_) => String::from("Move Column to Row Up"),
+        Action::MoveWindowToRowDown(_) => String::from("Move Window to Row Down"),
+        Action::MoveWindowToRowUp(_) => String::from("Move Window to Row Up"),
         Action::SwitchPresetColumnWidth => String::from("Switch Preset Column Widths"),
         Action::MaximizeColumn => String::from("Maximize Column"),
         Action::ConsumeOrExpelWindowLeft => String::from("Consume or Expel Window Left"),
