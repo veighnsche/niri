@@ -1,12 +1,15 @@
 # Phase 5: Integration
 
-> **Goal**: Replace workspaces, update overview, IPC, testing, documentation.
+> **Goal**: Update overview, IPC, testing, documentation.
+> 
+> ⚠️ **NOTE**: Workspace replacement moved to Phase 1.5.3 (done early as breaking change).
 
 ---
 
 ## Prerequisites
 
 - Phase 4 complete (navigation and polish done)
+- **Phase 1.5.3-4 complete** (workspaces already removed, Canvas2D integrated)
 
 ### Starting Point After Phase 4
 ```
@@ -16,84 +19,36 @@ src/layout/
 ├── row/                 # Row = horizontal strip (Phase 1)
 ├── canvas/              # Canvas2D with spanning + navigation (Phase 1-4)
 ├── camera/              # Camera with zoom (Phase 3)
-├── scrolling.rs         # Legacy mode (still works)
 ├── tile.rs              # Has row_span field
-├── workspace.rs         # Legacy mode
-└── monitor.rs           # Feature-flagged for 2D vs legacy
+└── monitor.rs           # Uses Canvas2D (workspaces removed in Phase 1.5.3)
 ```
 
-All 2D canvas features work. This phase integrates everything and removes legacy code paths.
+All 2D canvas features work. This phase polishes integration and adds documentation.
 
 ---
 
-## Step 5.1: Replace Workspaces
+## Step 5.1: ~~Replace Workspaces~~ ✅ DONE EARLY (Phase 1.5.3)
 
-### Current State
+> **Moved to Phase 1.5.3** — Workspaces are removed as a breaking change, not feature-flagged.
+> See `phase-1.5-integration.md` for the actual implementation.
 
-```rust
-// Monitor holds multiple workspaces
-pub struct Monitor<W: LayoutElement> {
-    workspaces: Vec<Workspace<W>>,
-    active_workspace_idx: usize,
-    // workspace switching logic
-}
-```
+### What Was Done in Phase 1.5.3
+- [x] Removed `workspaces: Vec<Workspace<W>>` from Monitor
+- [x] Added `canvas: Canvas2D<W>` to Monitor
+- [x] Removed workspace switching logic
+- [x] Removed overview mode
+- [x] Removed hot corner
+- [x] Disabled `Mod+1/2/3` (will be repurposed for camera bookmarks later)
 
-### Target State
-
-```rust
-// Monitor holds single Canvas2D
-pub struct Monitor<W: LayoutElement> {
-    #[cfg(feature = "canvas-2d")]
-    canvas: Canvas2D<W>,
-    
-    #[cfg(not(feature = "canvas-2d"))]
-    workspaces: Vec<Workspace<W>>,
-    // ...
-}
-```
-
-### Tasks
-
-- [ ] **5.1.1**: Remove workspace switching in 2D mode
-- [ ] **5.1.2**: Repurpose workspace keybinds:
-  - `Mod+1` → Jump to row -1 (above origin)
-  - `Mod+2` → Jump to row 0 (origin)
-  - `Mod+3` → Jump to row 1 (below origin)
-  - Or: `Mod+1-9` → Jump to saved locations
-- [ ] **5.1.3**: Remove `move-window-to-workspace` in 2D mode
-- [ ] **5.1.4**: Add `move-window-to-row` action
-- [ ] **5.1.5**: Handle workspace-related IPC gracefully (return empty/error)
-- [ ] **5.1.6**: Test migration: existing users don't break
-
-### Config Changes
-
+### Keybind Repurposing (Future — Phase 5.4)
+The `Mod+1/2/3` keybinds are currently disabled. They will be repurposed for camera bookmarks:
 ```kdl
-// 2D mode keybinds
+// Future keybinds (not implemented yet)
 binds {
-    // Navigation
-    Mod+Up { focus-up; }
-    Mod+Down { focus-down; }
-    Mod+Left { focus-left; }
-    Mod+Right { focus-right; }
-    
-    // Row jumping (replaces workspace switching)
-    Mod+1 { focus-row -1; }
-    Mod+2 { focus-row 0; }
-    Mod+3 { focus-row 1; }
-    
-    // Moving windows
-    Mod+Shift+Up { move-window-up; }
-    Mod+Shift+Down { move-window-down; }
-    
-    // Row span
-    Mod+Ctrl+Up { increase-row-span; }
-    Mod+Ctrl+Down { decrease-row-span; }
-    
-    // Zoom
-    Mod+WheelScrollDown { zoom-out; }
-    Mod+WheelScrollUp { zoom-in; }
-    Mod+0 { reset-zoom; }
+    Mod+1 { jump-to-bookmark 1; }
+    Mod+2 { jump-to-bookmark 2; }
+    Mod+Shift+1 { save-bookmark 1; }
+    // etc.
 }
 ```
 
@@ -177,11 +132,9 @@ pub struct Window {
     // ... existing fields
     
     /// Row index in 2D canvas (0 = origin row)
-    #[cfg(feature = "canvas-2d")]
     pub row: i32,
     
     /// Number of rows this window spans
-    #[cfg(feature = "canvas-2d")]
     pub row_span: u8,
 }
 
@@ -415,12 +368,12 @@ docs/wiki/
 
 ## Success Criteria
 
-- [ ] Workspaces fully replaced by 2D canvas
+- [x] Workspaces fully replaced by 2D canvas (Phase 1.5.3)
 - [ ] All keybinds work as documented
 - [ ] IPC updated and working
 - [ ] All tests pass
 - [ ] Documentation complete
-- [ ] Users can migrate without breaking changes
+- [ ] Breaking changes documented in migration guide
 
 ---
 
@@ -430,7 +383,6 @@ docs/wiki/
 
 - [ ] Gather user feedback
 - [ ] Performance optimization if needed
-- [ ] Consider removing feature flag (make 2D default)
 - [ ] Gutter-bar integration improvements
 - [ ] Additional row span limits (3+)
 

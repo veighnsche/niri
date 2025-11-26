@@ -236,8 +236,8 @@ Add any new TODOs to: `docs/2d-canvas-plan/TODO.md`
 
 **Branch**: `2d-canvas`  
 **Phase**: 1.5 IN PROGRESS (Integration)  
-**Completed**: Phase 0, Phase 1 Core, **Phase 1.5.1 (Row complete)**  
-**Next Step**: Phase 1.5.2 (Canvas2D), then feature flag
+**Completed**: Phase 0, Phase 1 Core, Phase 1.5.1 (Row), **Phase 1.5.2 (Canvas2D + FloatingSpace)**  
+**Next Step**: Phase 1.5.3 (Replace Workspace in Monitor — BREAKING CHANGE)
 
 **Key Decisions**:
 - Workspaces **removed** — one infinite canvas per output
@@ -252,7 +252,7 @@ Add any new TODOs to: `docs/2d-canvas-plan/TODO.md`
 ### 1. Phase Sizing
 Large phases should be split. Phase 1 became Phase 1 + Phase 1.5 because:
 - Creating modules is different from wiring them into the compositor
-- Feature flag integration is significant work on its own
+- Workspace replacement is significant work on its own
 - Each phase should have a clear "done" state
 
 ### 2. Module Structure
@@ -315,6 +315,32 @@ Create `.questions/TEAM_XXX_*.md` files for:
 - API design choices (e.g., should Row match ScrollingSpace exactly?)
 - Priority questions (e.g., is FloatingSpace critical for MVP?)
 
+### 8. Animation = Preservation, Not Implementation (TEAM_009)
+**Critical misunderstanding to avoid**: Animations already exist in the main branch. Refactoring means:
+- ❌ NOT implementing new animations
+- ✅ Ensuring existing animations still trigger in the same scenarios
+- ✅ Using the animation regression checklist to verify no regressions
+
+### 9. Test Before Breaking (TEAM_009)
+When doing breaking changes:
+1. Port existing tests to new code BEFORE removing old code
+2. Verify tests pass on new code
+3. THEN remove old code
+4. Don't accumulate breakage — fix failures immediately
+
+### 10. Document Removal Scope (TEAM_009)
+Before large removals (like workspace elimination):
+1. Create detailed removal checklist
+2. Document correct removal order (dependents before dependencies)
+3. Document what breaks and when it will be fixed
+4. Reference: `phases/phase-1.5.3-removal-checklist.md`
+
+### 11. Read the MASTERPLAN (TEAM_009)
+Before starting any work:
+1. Read `MASTERPLAN.md` first — it's the single source of truth
+2. Check pre-phase requirements (testing, animation audit)
+3. Don't skip blockers
+
 ---
 
-*Rules established by TEAM_000. Updated by TEAM_008.*
+*Rules established by TEAM_000. Updated by TEAM_009.*

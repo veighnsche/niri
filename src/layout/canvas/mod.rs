@@ -1,7 +1,7 @@
 //! TEAM_006: Canvas2D module for 2D tiling layout.
 //!
 //! Canvas2D is an infinite 2D surface containing multiple [`Row`]s.
-//! It replaces `Workspace` for 2D mode.
+//! It replaces `Workspace` entirely.
 //!
 //! ## Structure
 //!

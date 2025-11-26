@@ -239,8 +239,8 @@ src/layout/
   - [x] Window operations (add_window, remove_window, toggle_floating)
   - [x] Refactored mod.rs into submodules (TEAM_008)
   - [ ] Camera offset (deferred to Phase 3)
-- [ ] Step 1.5.3: Feature flag (canvas-2d)
-- [ ] Step 1.5.4: Monitor integration
+- [ ] Step 1.5.3: Replace Workspace with Canvas2D (BREAKING CHANGE)
+- [ ] Step 1.5.4: Monitor integration (wire Canvas2D)
 
 ### Phase 2: Row Spanning
 - [ ] Step 2.1: Add row_span to Tile
@@ -271,6 +271,12 @@ src/layout/
 
 ## Quick Links
 
+### Planning Documents
+- [**MASTERPLAN**](MASTERPLAN.md) ⬅️ **START HERE** — Single source of truth for current work
+- [Animation Regression Checklist](phases/animation-regression-checklist.md) — Ensure no animation regressions
+- [Workspace Removal Checklist](phases/phase-1.5.3-removal-checklist.md) — Detailed removal steps
+
+### Phase Documents
 - [Phase 0: Preparation](phases/phase-0-preparation.md) ✅
 - [Phase 0.5: Golden Snapshots](phases/phase-0.5-golden-snapshots.md) ✅ **REQUIRED**
 - [Phase 1: Row + Canvas2D](phases/phase-1-row-and-canvas.md) ✅ Core complete
@@ -284,6 +290,7 @@ src/layout/
 
 ## Context Documents
 
-- [Initial Questionnaire](2D_CANVAS_QUESTIONNAIRE.md) — First round of requirements gathering
-- [Follow-up Questionnaire](2D_CANVAS_QUESTIONNAIRE_2.md) — Refined requirements with answers
+- [Initial Questionnaire](.questions/2D_CANVAS_QUESTIONNAIRE.md) — First round of requirements gathering
 - [Feasibility Study](2D_CANVAS_FEASIBILITY.md) — Initial architectural analysis
+- [TEAM_009 Contradiction Sweep](.questions/TEAM_009_contradiction_sweep.md) — Alignment with USER answers
+- [TEAM_009 Follow-up Questions](.questions/TEAM_009_followup_planning_gaps.md) — Planning gaps with USER answers

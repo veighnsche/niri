@@ -109,40 +109,55 @@ src/layout/
 
 ---
 
-## Step 1.5.3: Feature Flag
+## Pre-Phase 1.5.3 Requirements ⚠️ MUST COMPLETE FIRST
 
-### Cargo.toml
-```toml
-[features]
-default = []
-canvas-2d = []
-```
+> **See**: [MASTERPLAN.md](../MASTERPLAN.md) for full context.
 
-### Conditional Compilation
-- [ ] **1.5.3.1**: Add `canvas-2d` feature to `Cargo.toml`
-- [ ] **1.5.3.2**: Conditional `Monitor` code for canvas vs workspaces
-- [ ] **1.5.3.3**: Ensure tests pass with feature off
-- [ ] **1.5.3.4**: Ensure tests pass with feature on
+### Testing Requirements (Block on these)
+- [ ] **T1**: Port ScrollingSpace unit tests to Row
+- [ ] **T2**: Port Workspace unit tests to Canvas2D  
+- [ ] **T3**: Write new tests for 2D-specific behavior
+- [ ] **T4**: Verify all 251+ tests pass
+- [ ] **T5**: Verify all 58 golden tests pass
+
+### Animation Regression Audit (Block on this)
+- [ ] **A1**: Complete [animation-regression-checklist.md](animation-regression-checklist.md)
+- [ ] **A2**: Verify all animations trigger correctly in Row/Canvas2D
+
+### Removal Checklist (Reference)
+- [ ] **R1**: Review [phase-1.5.3-removal-checklist.md](phase-1.5.3-removal-checklist.md)
+
+---
+
+## Step 1.5.3: Replace Workspace with Canvas2D ⚠️ BREAKING CHANGE
+
+> **Note**: Per Key Decisions in ai-teams-rules.md: "Workspaces **removed** — one infinite canvas per output"
+> This is NOT a feature flag. This is a full replacement.
+> **Detailed checklist**: [phase-1.5.3-removal-checklist.md](phase-1.5.3-removal-checklist.md)
+
+### Monitor Changes
+- [ ] **1.5.3.1**: Remove `workspaces: Vec<Workspace<W>>` from Monitor
+- [ ] **1.5.3.2**: Add `canvas: Canvas2D<W>` to Monitor
+- [ ] **1.5.3.3**: Remove workspace switching logic (`Mod+1/2/3`, etc.)
+- [ ] **1.5.3.4**: Remove overview mode entirely
+- [ ] **1.5.3.5**: Remove hot corner
+- [ ] **1.5.3.6**: Update all Monitor methods to use Canvas2D
 
 ---
 
 ## Step 1.5.4: Monitor Integration
 
-### Replace Workspaces (with feature flag)
+### Replace Workspaces
 ```rust
 // src/layout/monitor.rs
 
 pub struct Monitor<W: LayoutElement> {
-    #[cfg(feature = "canvas-2d")]
     canvas: Canvas2D<W>,
-    
-    #[cfg(not(feature = "canvas-2d"))]
-    workspaces: Vec<Workspace<W>>,
     // ...
 }
 ```
 
-- [ ] **1.5.4.1**: Add Canvas2D field to Monitor (feature-gated)
+- [ ] **1.5.4.1**: Add Canvas2D field to Monitor
 - [ ] **1.5.4.2**: Wire window operations through Canvas2D
 - [ ] **1.5.4.3**: Wire navigation through Canvas2D
 - [ ] **1.5.4.4**: Wire rendering through Canvas2D
@@ -156,9 +171,9 @@ pub struct Monitor<W: LayoutElement> {
 - [x] Interactive resize works in Row (TEAM_007)
 - [x] FloatingSpace integrated into Canvas2D (TEAM_009)
 - [x] All files < 500 lines (TEAM_008 refactoring)
-- [ ] Feature flag compiles both ways
-- [ ] With `canvas-2d` feature: can open windows, navigate, resize
-- [ ] Without feature: existing behavior unchanged
+- [ ] Workspaces fully replaced with Canvas2D
+- [ ] Can open windows, navigate, resize on Canvas2D
+- [ ] IPC updated for Canvas2D
 - [x] All 251+ tests pass
 - [x] All 58 golden tests pass
 

@@ -3,7 +3,7 @@
 > **Check this file first** to see where past teams planned to add features.
 > This maintains architectural consistency across teams.
 
-**Last updated**: TEAM_009 (Phase 1.5.2 in progress)
+**Last updated**: TEAM_009 (Phase 1.5.2 COMPLETE, Phase 1.5.3 next)
 
 ---
 
@@ -25,8 +25,14 @@ Row module is now feature-complete for Phase 1.5.1. All core ScrollingSpace meth
 - [x] `consume_or_expel_window_right` — consume into right column or expel as new column (TEAM_008)
 - [x] `consume_into_column` — consume first tile from right column into active (TEAM_008)
 
-### Remaining (Low Priority)
-- [ ] TODO(TEAM_006): Animate column movement during add/remove/move (lines 167, 447)
+### Remaining — ⚠️ ANIMATION GAP (See TEAM_009 questionnaire)
+- [ ] TODO(TEAM_006): Animate column movement during add/remove/move (`operations/add.rs:157`, `operations/move_col.rs:48`)
+
+### FIXMEs (Lower Priority)
+- [ ] FIXME: Smarter height distribution (`resize.rs:111`)
+- [ ] FIXME: Compute and use current velocity (`view_offset.rs:235`)
+- [ ] FIXME: Tiles can move by X too in centered/resizing layout (`operations/remove.rs:54`)
+- [ ] FIXME: Preserve activate_prev_column_on_removal (`operations/remove.rs:204`)
 
 ### View Offset / Animation
 - [x] TODO(TEAM_007): Port full `animate_view_offset_to_column` logic — DONE
@@ -73,7 +79,13 @@ Canvas2D depends on Row completion. Additional work needed:
 - [x] TODO(TEAM_007): Add `render_elements` method — DONE
 - [x] TODO(TEAM_007): Add `update_render_elements` method — DONE
 - [x] TEAM_009: Floating layer rendering integrated
-- [ ] TODO(TEAM_007): Apply camera offset to render elements (Phase 3 - full camera system)
+- [ ] TODO(TEAM_007): Apply camera offset to render elements (`render.rs:25`) — Phase 3
+
+### Floating Layer
+- [ ] TODO(TEAM_009): Add close animation for tiled windows in rows (`floating.rs:126`)
+
+### Navigation
+- [ ] TODO(TEAM_007): Add vertical_view_movement config to niri-config (`navigation.rs:79`) — Phase 3
 
 ---
 

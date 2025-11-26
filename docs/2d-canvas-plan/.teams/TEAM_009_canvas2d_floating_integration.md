@@ -1,9 +1,11 @@
-# TEAM_009: Canvas2D FloatingSpace Integration
+# TEAM_009: Canvas2D FloatingSpace Integration + Planning Update
 
 ## Status: COMPLETE
 
-## Objective
-Complete Phase 1.5.2: Integrate FloatingSpace into Canvas2D module.
+## Objectives
+1. Complete Phase 1.5.2: Integrate FloatingSpace into Canvas2D module
+2. Conduct comprehensive contradiction sweep and alignment with USER
+3. Create planning update masterplan for Phase 1.5.3
 
 ## Starting Point
 Per TEAM_008 handoff:
@@ -61,20 +63,49 @@ Per TEAM_008 handoff:
 - `src/layout/row/operations/remove.rs` — Added `remove_active_tile` method
 
 ### Documentation Updated
-- `docs/2d-canvas-plan/TODO.md` — Marked FloatingSpace integration complete
+- `docs/2d-canvas-plan/TODO.md` — Marked FloatingSpace integration complete, added all TODOs/FIXMEs
 - `docs/2d-canvas-plan/phases/phase-1.5-integration.md` — Updated with TEAM_009 progress
+- `docs/2d-canvas-plan/README.md` — Fixed Phase 1.5.3 to say "Replace Workspace" not "Feature flag"
+- `docs/2d-canvas-plan/phases/phase-5-integration.md` — Removed feature flag references, marked 5.1 done early
+- `docs/2d-canvas-plan/ai-teams-rules.md` — Updated current status and removed feature flag references
+- `src/layout/canvas/mod.rs` — Fixed comment to say "replaces Workspace entirely"
+
+### Questionnaires Created
+- `.questions/TEAM_009_contradiction_sweep.md` — Comprehensive contradiction sweep with USER answers
+- `.questions/TEAM_009_followup_planning_gaps.md` — Follow-up questionnaire for major planning gaps
+
+### Planning Documents Created (Masterplan)
+- `MASTERPLAN.md` — Single source of truth for Phase 1.5.3 requirements
+- `phases/animation-regression-checklist.md` — Audit of all animations to preserve
+- `phases/phase-1.5.3-removal-checklist.md` — Detailed workspace removal steps
 
 ## Remaining Work for Next Team
 
-### Phase 1.5.3: Feature Flag
-- [ ] Add `canvas-2d` feature to Cargo.toml
-- [ ] Conditional Monitor code (use Canvas2D vs Workspaces based on feature)
+### CRITICAL: Read MASTERPLAN.md First!
+The masterplan (`MASTERPLAN.md`) is now the single source of truth. It contains:
+- Pre-Phase 1.5.3 requirements (testing, animation audit)
+- Links to all planning documents
+- Success criteria
+
+### USER Has Answered Follow-up Questions
+See `.questions/TEAM_009_followup_planning_gaps.md` — USER answers are marked with `<-`
+
+### Phase 1.5.3: Replace Workspace with Canvas2D (BREAKING CHANGE)
+- [ ] Remove `workspaces: Vec<Workspace<W>>` from Monitor
+- [ ] Add `canvas: Canvas2D<W>` to Monitor
+- [ ] Remove workspace switching logic (`Mod+1/2/3`, etc.)
+- [ ] Remove overview mode entirely
+- [ ] Remove hot corner (top right)
+- [ ] Update all Monitor methods to use Canvas2D
 
 ### Phase 1.5.4: Monitor Integration
-- [ ] Wire Canvas2D into Monitor
-- [ ] Route window operations through Canvas2D
-- [ ] Route navigation through Canvas2D
-- [ ] Update IPC
+- [ ] Wire window operations through Canvas2D
+- [ ] Wire navigation through Canvas2D
+- [ ] Wire rendering through Canvas2D
+- [ ] Update IPC to work with Canvas2D
+
+### ⚠️ Animation Gap (USER flagged as emergency)
+See TODO.md for animation-related TODOs that need planning.
 
 ### Phase 3: Camera System
 - [ ] Apply camera offset to render elements
@@ -86,3 +117,5 @@ Per TEAM_008 handoff:
 - [x] Tests pass (`cargo test`) — 251 tests
 - [x] Golden tests pass (`cargo insta test`) — 58 tests
 - [x] Team file complete
+- [x] Contradiction sweep complete
+- [x] Follow-up questionnaire created
