@@ -2031,19 +2031,14 @@ pub(super) fn compute_working_area(output: &Output) -> Rectangle<f64, Logical> {
     layer_map_for_output(output).non_exclusive_zone().to_f64()
 }
 
+// DEPRECATED(overview): Workspace shadow was only used in overview mode
 fn compute_workspace_shadow_config(
-    config: niri_config::WorkspaceShadow,
-    view_size: Size<f64, Logical>,
+    _config: niri_config::WorkspaceShadow,
+    _view_size: Size<f64, Logical>,
 ) -> niri_config::Shadow {
-    // Gaps between workspaces are a multiple of the view height, so shadow settings should also be
-    // normalized to the view height to prevent them from overlapping on lower resolutions.
-    let norm = view_size.h / 1080.;
-
-    let mut config = niri_config::Shadow::from(config);
-    config.softness *= norm;
-    config.spread *= norm;
-    config.offset.x.0 *= norm;
-    config.offset.y.0 *= norm;
-
-    config
+    // Overview mode has been removed, so workspace shadows are disabled.
+    niri_config::Shadow {
+        on: false,
+        ..Default::default()
+    }
 }

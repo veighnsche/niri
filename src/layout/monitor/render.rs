@@ -189,7 +189,8 @@ impl<W: LayoutElement> Monitor<W> {
 
     pub fn render_above_top_layer(&self) -> bool {
         // Render above the top layer only if the view is stationary.
-        if self.workspace_switch.is_some() || self.overview_progress.is_some() {
+        // DEPRECATED(overview): Removed overview_progress check
+        if self.workspace_switch.is_some() {
             return false;
         }
 
@@ -249,7 +250,8 @@ impl<W: LayoutElement> Monitor<W> {
         // rendering for maximized GTK windows.
         //
         // FIXME: use proper bounds after fixing the Crop element.
-        let crop_bounds = if self.workspace_switch.is_some() || self.overview_progress.is_some() {
+        // TEAM_014: Removed overview_progress check (Part 3)
+        let crop_bounds = if self.workspace_switch.is_some() {
             Rectangle::new(
                 Point::from((-i32::MAX / 2, 0)),
                 Size::from((i32::MAX, height)),
@@ -261,7 +263,8 @@ impl<W: LayoutElement> Monitor<W> {
             )
         };
 
-        let zoom = self.overview_zoom();
+        // TEAM_014: overview_zoom always 1.0 now (Part 3)
+        let zoom = 1.0;
 
         // Draw the insert hint.
         let mut insert_hint = None;
@@ -324,33 +327,12 @@ impl<W: LayoutElement> Monitor<W> {
         })
     }
 
+    // TEAM_014: Removed render_workspace_shadows (Part 3)
+    // Overview mode is no longer supported, so workspace shadows are not needed.
     pub fn render_workspace_shadows<'a, R: NiriRenderer>(
         &'a self,
-        renderer: &'a mut R,
+        _renderer: &'a mut R,
     ) -> impl Iterator<Item = MonitorRenderElement<R>> + 'a {
-        let _span = tracy_client::span!("Monitor::render_workspace_shadows");
-
-        let scale = self.scale.fractional_scale();
-        let zoom = self.overview_zoom();
-        let overview_clamped_progress = self.overview_progress.as_ref().map(|p| p.clamped_value());
-
-        self.workspaces_with_render_geo()
-            .flat_map(move |(ws, geo)| {
-                let shadow = overview_clamped_progress.map(|value| {
-                    ws.render_shadow(renderer)
-                        .map(move |elem| elem.with_alpha(value.clamp(0., 1.) as f32))
-                        .map(MonitorInnerRenderElement::Shadow)
-                });
-                let iter = shadow.into_iter().flatten();
-
-                iter.map(move |elem| {
-                    let elem = RescaleRenderElement::from_element(elem, Point::from((0, 0)), zoom);
-                    RelocateRenderElement::from_element(
-                        elem,
-                        geo.loc.to_physical_precise_round(scale),
-                        Relocate::Relative,
-                    )
-                })
-            })
+        std::iter::empty()
     }
 }

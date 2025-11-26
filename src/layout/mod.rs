@@ -56,8 +56,8 @@ use workspace::{WorkspaceAddWindowTarget, WorkspaceId};
 pub use self::monitor::MonitorRenderElement;
 use self::monitor::{Monitor, WorkspaceSwitch};
 use self::workspace::{OutputId, Workspace};
-use crate::animation::{Animation, Clock};
-use crate::input::swipe_tracker::SwipeTracker;
+// DEPRECATED(overview): Removed Animation and SwipeTracker imports (no longer needed)
+use crate::animation::Clock;
 // TEAM_003: ScrollDirection now imported from types module above
 use crate::niri_render_elements;
 use crate::render_helpers::offscreen::OffscreenData;
@@ -113,13 +113,7 @@ const INTERACTIVE_MOVE_START_THRESHOLD: f64 = 256. * 256.;
 /// Opacity of interactively moved tiles targeting the scrolling layout.
 const INTERACTIVE_MOVE_ALPHA: f64 = 0.75;
 
-/// Amount of touchpad movement to toggle the overview.
-const OVERVIEW_GESTURE_MOVEMENT: f64 = 300.;
-
-const OVERVIEW_GESTURE_RUBBER_BAND: RubberBand = RubberBand {
-    stiffness: 0.5,
-    limit: 0.05,
-};
+// TEAM_014: Removed OVERVIEW_GESTURE_MOVEMENT and OVERVIEW_GESTURE_RUBBER_BAND (Part 3)
 
 /// Size-relative units.
 pub struct SizeFrac;
@@ -326,13 +320,7 @@ pub struct Layout<W: LayoutElement> {
     clock: Clock,
     /// Time that we last updated render elements for.
     update_render_elements_time: Duration,
-    /// Whether the overview is open.
-    ///
-    /// This is a boolean flag that controls things like where input goes to. The actual animation
-    /// is controlled by overview_progress.
-    overview_open: bool,
-    /// The overview zoom progress.
-    overview_progress: Option<OverviewProgress>,
+    // TEAM_014: Removed overview_open and overview_progress (Part 3)
     /// Configurable properties of the layout.
     options: Rc<Options>,
 }
@@ -360,6 +348,7 @@ pub struct Options {
     pub layout: niri_config::Layout,
     pub animations: niri_config::Animations,
     pub gestures: niri_config::Gestures,
+    // DEPRECATED(overview): Keep overview field for workspace shadow config compatibility
     pub overview: niri_config::Overview,
     // Debug flags.
     pub disable_resize_throttling: bool,
@@ -552,20 +541,7 @@ pub enum HitType {
     },
 }
 
-#[derive(Debug)]
-enum OverviewProgress {
-    Animation(Animation),
-    Gesture(OverviewGesture),
-}
-
-#[derive(Debug)]
-struct OverviewGesture {
-    tracker: SwipeTracker,
-    /// Start point.
-    start: f64,
-    /// Current progress.
-    value: f64,
-}
+// TEAM_014: Removed OverviewProgress and OverviewGesture types (Part 3)
 
 impl SizingMode {
     #[must_use]
@@ -661,6 +637,7 @@ impl Options {
             layout: config.layout.clone(),
             animations: config.animations.clone(),
             gestures: config.gestures,
+            // DEPRECATED(overview): Keep for workspace shadow config compatibility
             overview: config.overview,
             disable_resize_throttling: config.debug.disable_resize_throttling,
             disable_transactions: config.debug.disable_transactions,
@@ -681,18 +658,7 @@ impl Options {
     }
 }
 
-impl OverviewProgress {
-    fn value(&self) -> f64 {
-        match self {
-            OverviewProgress::Animation(anim) => anim.value(),
-            OverviewProgress::Gesture(gesture) => gesture.value,
-        }
-    }
-
-    fn is_animation(&self) -> bool {
-        matches!(self, OverviewProgress::Animation(_))
-    }
-}
+// TEAM_014: Removed OverviewProgress impl block (Part 3)
 
 impl<W: LayoutElement> Layout<W> {
     pub fn new(clock: Clock, config: &Config) -> Self {
@@ -708,8 +674,7 @@ impl<W: LayoutElement> Layout<W> {
             dnd: None,
             clock,
             update_render_elements_time: Duration::ZERO,
-            overview_open: false,
-            overview_progress: None,
+            // TEAM_014: Removed overview_open and overview_progress (Part 3)
             options: Rc::new(options),
         }
     }
@@ -733,8 +698,7 @@ impl<W: LayoutElement> Layout<W> {
             dnd: None,
             clock,
             update_render_elements_time: Duration::ZERO,
-            overview_open: false,
-            overview_progress: None,
+            // TEAM_014: Removed overview_open and overview_progress (Part 3)
             options: opts,
         }
     }
@@ -806,7 +770,7 @@ impl<W: LayoutElement> Layout<W> {
 
                 let ws_id_to_activate = self.last_active_workspace_id.remove(&output.name());
 
-                let mut monitor = Monitor::new(
+                let monitor = Monitor::new(
                     output,
                     workspaces,
                     ws_id_to_activate,
@@ -814,8 +778,7 @@ impl<W: LayoutElement> Layout<W> {
                     self.options.clone(),
                     layout_config,
                 );
-                monitor.overview_open = self.overview_open;
-                monitor.set_overview_progress(self.overview_progress.as_ref());
+                // DEPRECATED(overview): Removed overview state sync
                 monitors.push(monitor);
 
                 MonitorSet::Normal {
@@ -827,7 +790,7 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::NoOutputs { workspaces } => {
                 let ws_id_to_activate = self.last_active_workspace_id.remove(&output.name());
 
-                let mut monitor = Monitor::new(
+                let monitor = Monitor::new(
                     output,
                     workspaces,
                     ws_id_to_activate,
@@ -835,8 +798,7 @@ impl<W: LayoutElement> Layout<W> {
                     self.options.clone(),
                     layout_config,
                 );
-                monitor.overview_open = self.overview_open;
-                monitor.set_overview_progress(self.overview_progress.as_ref());
+                // DEPRECATED(overview): Removed overview state sync
 
                 MonitorSet::Normal {
                     monitors: vec![monitor],
@@ -2322,19 +2284,9 @@ impl<W: LayoutElement> Layout<W> {
     ) -> Option<(&W, HitType)> {
         if let Some(InteractiveMoveState::Moving(move_)) = &self.interactive_move {
             if move_.output == *output {
-                if self.overview_progress.is_some() {
-                    let zoom = self.overview_zoom();
-                    let tile_pos = move_.tile_render_location(zoom);
-                    let pos_within_tile = (pos_within_output - tile_pos).downscale(zoom);
-                    // During the overview animation, we cannot do input hits because we cannot
-                    // really represent scaled windows properly.
-                    let (win, hit) =
-                        HitType::hit_tile(&move_.tile, Point::from((0., 0.)), pos_within_tile)?;
-                    Some((win, hit.to_activate()))
-                } else {
-                    let tile_pos = move_.tile_render_location(1.);
-                    HitType::hit_tile(&move_.tile, tile_pos, pos_within_output)
-                }
+                // TEAM_014: Removed overview zoom handling (Part 3)
+                let tile_pos = move_.tile_render_location(1.);
+                HitType::hit_tile(&move_.tile, tile_pos, pos_within_output)
             } else {
                 None
             }
@@ -2383,9 +2335,15 @@ impl<W: LayoutElement> Layout<W> {
         }
     }
 
+    // TEAM_014: Removed overview_zoom method (Part 3) - always returns 1.0 now
     pub fn overview_zoom(&self) -> f64 {
-        let progress = self.overview_progress.as_ref().map(|p| p.value());
-        compute_overview_zoom(&self.options, progress)
+        1.0
+    }
+
+    // TEAM_014: is_overview_open always returns false now (Part 3)
+    // Overview mode has been removed.
+    pub fn is_overview_open(&self) -> bool {
+        false
     }
 
     #[cfg(test)]
@@ -2394,7 +2352,8 @@ impl<W: LayoutElement> Layout<W> {
 
         use approx::assert_abs_diff_eq;
 
-        let zoom = self.overview_zoom();
+        // TEAM_014: overview_zoom always 1.0 now (Part 3)
+        let zoom = 1.0;
 
         let mut move_win_id = None;
         if let Some(state) = &self.interactive_move {
@@ -2522,11 +2481,7 @@ impl<W: LayoutElement> Layout<W> {
                 "monitor base options must be synchronized with layout"
             );
 
-            assert_eq!(self.overview_open, monitor.overview_open);
-            assert_eq!(
-                self.overview_progress.as_ref().map(|p| p.value()),
-                monitor.overview_progress_value()
-            );
+            // TEAM_014: Removed overview state invariant checks (Part 3)
 
             monitor.verify_invariants();
 
@@ -2623,15 +2578,15 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        let is_overview_open = self.overview_open;
+        // TEAM_014: Removed is_overview_open (Part 3)
 
         // Scroll the view if needed.
         if let Some((output, pos_within_output, is_scrolling)) = dnd_scroll {
             if let Some(mon) = self.monitor_for_output_mut(&output) {
                 let mut scrolled = false;
 
-                let zoom = mon.overview_zoom();
-                scrolled |= mon.dnd_scroll_gesture_scroll(pos_within_output, 1. / zoom);
+                // TEAM_014: Removed overview zoom (Part 3) - always 1.0
+                scrolled |= mon.dnd_scroll_gesture_scroll(pos_within_output, 1.);
 
                 if is_scrolling {
                     if let Some((ws, geo)) = mon.workspace_under(pos_within_output) {
@@ -2644,8 +2599,9 @@ impl<W: LayoutElement> Layout<W> {
                         // As far as the DnD scroll gesture is concerned, the workspace spans across
                         // the whole monitor horizontally.
                         let ws_pos = Point::from((0., geo.loc.y));
+                        // TEAM_014: Removed overview zoom (Part 3) - always 1.0
                         scrolled |=
-                            ws.dnd_scroll_gesture_scroll(pos_within_output - ws_pos, 1. / zoom);
+                            ws.dnd_scroll_gesture_scroll(pos_within_output - ws_pos, 1.);
                     }
                 }
 
@@ -2685,10 +2641,8 @@ impl<W: LayoutElement> Layout<W> {
                         if delay <= now.saturating_sub(start_time) {
                             let hold = dnd.hold.take().unwrap();
 
-                            // Synchronize workspace switch to overview close to get a monotonic
-                            // animation.
-                            let config = is_overview_open
-                                .then_some(self.options.animations.overview_open_close.0);
+                            // TEAM_014: Removed overview animation sync (Part 3)
+                            let config = None;
 
                             let mon = self.monitor_for_output_mut(&output).unwrap();
 
@@ -2708,9 +2662,7 @@ impl<W: LayoutElement> Layout<W> {
 
                             self.focus_output(&output);
 
-                            if is_overview_open {
-                                self.close_overview();
-                            }
+                            // TEAM_014: Removed close_overview call (Part 3)
                         }
                     } else {
                         // No target, reset the hold timer.
@@ -2720,18 +2672,12 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        if !self.overview_open {
-            if let Some(OverviewProgress::Animation(anim)) = &mut self.overview_progress {
-                if anim.is_done() {
-                    self.overview_progress = None;
-                }
-            }
-        }
+        // TEAM_014: Removed overview_progress animation handling (Part 3)
 
         match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
-                    mon.set_overview_progress(self.overview_progress.as_ref());
+                    // TEAM_014: Removed set_overview_progress call (Part 3)
                     mon.advance_animations();
                 }
             }
@@ -2764,13 +2710,7 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        if self
-            .overview_progress
-            .as_ref()
-            .is_some_and(|p| p.is_animation())
-        {
-            return true;
-        }
+        // TEAM_014: Removed overview_progress animation check (Part 3)
 
         for mon in self.monitors() {
             if output.is_some_and(|output| mon.output != *output) {
@@ -2790,10 +2730,10 @@ impl<W: LayoutElement> Layout<W> {
 
         self.update_render_elements_time = self.clock.now();
 
-        let zoom = self.overview_zoom();
+        // TEAM_014: Removed overview_zoom (Part 3) - always 1.0
         if let Some(InteractiveMoveState::Moving(move_)) = &mut self.interactive_move {
             if output.map_or(true, |output| move_.output == *output) {
-                let pos_within_output = move_.tile_render_location(zoom);
+                let pos_within_output = move_.tile_render_location(1.);
                 let view_rect =
                     Rectangle::new(pos_within_output.upscale(-1.), output_size(&move_.output));
                 move_.tile.update_render_elements(true, view_rect);
@@ -2817,7 +2757,7 @@ impl<W: LayoutElement> Layout<W> {
                 let is_active = self.is_active
                     && idx == *active_monitor_idx
                     && !matches!(self.interactive_move, Some(InteractiveMoveState::Moving(_)));
-                mon.set_overview_progress(self.overview_progress.as_ref());
+                // TEAM_014: Removed set_overview_progress call (Part 3)
                 mon.update_render_elements(is_active);
             }
         }
@@ -2863,7 +2803,7 @@ impl<W: LayoutElement> Layout<W> {
         let _span = tracy_client::span!("Layout::update_insert_hint::update");
 
         if let Some(mon) = self.monitor_for_output_mut(&move_.output) {
-            let zoom = mon.overview_zoom();
+            // TEAM_014: Removed overview_zoom (Part 3) - always 1.0
             let (insert_ws, geo) = mon.insert_position(move_.pointer_pos_within_output);
             match insert_ws {
                 InsertWorkspace::Existing(ws_id) => {
@@ -2872,8 +2812,7 @@ impl<W: LayoutElement> Layout<W> {
                         .iter_mut()
                         .find(|ws| ws.id() == ws_id)
                         .unwrap();
-                    let pos_within_workspace =
-                        (move_.pointer_pos_within_output - geo.loc).downscale(zoom);
+                    let pos_within_workspace = move_.pointer_pos_within_output - geo.loc;
                     let position = if move_.is_floating {
                         InsertPosition::Floating
                     } else {
@@ -3685,8 +3624,7 @@ impl<W: LayoutElement> Layout<W> {
         timestamp: Duration,
         is_touchpad: bool,
     ) -> Option<Option<Output>> {
-        let zoom = self.overview_zoom();
-        let delta_x = delta_x / zoom;
+        // TEAM_014: Removed overview_zoom (Part 3) - always 1.0
 
         let monitors = match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => monitors,
@@ -3727,76 +3665,8 @@ impl<W: LayoutElement> Layout<W> {
         None
     }
 
-    pub fn overview_gesture_begin(&mut self) {
-        self.overview_open = true;
-
-        let value = self.overview_progress.take().map_or(0., |p| p.value());
-        let gesture = OverviewGesture {
-            tracker: SwipeTracker::new(),
-            start: value,
-            value,
-        };
-        self.overview_progress = Some(OverviewProgress::Gesture(gesture));
-
-        self.set_monitors_overview_state();
-    }
-
-    pub fn overview_gesture_update(&mut self, delta_y: f64, timestamp: Duration) -> Option<bool> {
-        let Some(OverviewProgress::Gesture(gesture)) = &mut self.overview_progress else {
-            return None;
-        };
-
-        gesture.tracker.push(delta_y, timestamp);
-
-        let total_height = OVERVIEW_GESTURE_MOVEMENT;
-        let pos = gesture.tracker.pos() / total_height;
-        let new_value = gesture.start + pos;
-        let new_value = OVERVIEW_GESTURE_RUBBER_BAND.clamp(0., 1., new_value);
-
-        if gesture.value == new_value {
-            return Some(false);
-        }
-
-        gesture.value = new_value;
-        self.set_monitors_overview_state();
-
-        Some(true)
-    }
-
-    pub fn overview_gesture_end(&mut self) -> bool {
-        let Some(OverviewProgress::Gesture(gesture)) = &mut self.overview_progress else {
-            return false;
-        };
-
-        // Take into account any idle time between the last event and now.
-        let now = self.clock.now_unadjusted();
-        gesture.tracker.push(0., now);
-
-        let total_height = OVERVIEW_GESTURE_MOVEMENT;
-
-        let mut velocity = gesture.tracker.velocity() / total_height;
-        let current_pos = gesture.tracker.pos() / total_height;
-        let pos = gesture.tracker.projected_end_pos() / total_height;
-
-        let new_value = gesture.start + pos;
-        let new_value = new_value.clamp(0., 1.).round();
-
-        velocity *=
-            OVERVIEW_GESTURE_RUBBER_BAND.clamp_derivative(0., 1., gesture.start + current_pos);
-
-        self.overview_open = new_value == 1.;
-        self.overview_progress = Some(OverviewProgress::Animation(Animation::new(
-            self.clock.clone(),
-            gesture.value,
-            new_value,
-            velocity,
-            self.options.animations.overview_open_close.0,
-        )));
-
-        self.set_monitors_overview_state();
-
-        true
-    }
+    // TEAM_014: Removed overview_gesture_begin, overview_gesture_update, overview_gesture_end (Part 3)
+    // These methods are no longer needed as overview mode is removed.
 
     pub fn interactive_move_begin(
         &mut self,
@@ -3820,7 +3690,7 @@ impl<W: LayoutElement> Layout<W> {
             return false;
         }
 
-        let zoom = mon.overview_zoom();
+        // TEAM_014: Removed overview_zoom (Part 3) - always 1.0
 
         let is_floating = ws.is_floating(&window_id);
         let (tile, tile_offset, _visible) = ws
@@ -3829,11 +3699,11 @@ impl<W: LayoutElement> Layout<W> {
             .unwrap();
         let window_offset = tile.window_loc();
 
-        let tile_pos = ws_geo.loc + tile_offset.upscale(zoom);
+        let tile_pos = ws_geo.loc + tile_offset;
 
         let pointer_offset_within_window =
-            start_pos_within_output - tile_pos - window_offset.upscale(zoom);
-        let window_size = tile.window_size().upscale(zoom);
+            start_pos_within_output - tile_pos - window_offset;
+        let window_size = tile.window_size();
         let pointer_ratio_within_window = (
             f64::clamp(pointer_offset_within_window.x / window_size.w, 0., 1.),
             f64::clamp(pointer_offset_within_window.y / window_size.h, 0., 1.),
@@ -3885,8 +3755,7 @@ impl<W: LayoutElement> Layout<W> {
                     return false;
                 }
 
-                let zoom = self.overview_zoom();
-                let delta = delta.downscale(zoom);
+                // TEAM_014: Removed overview_zoom (Part 3) - always 1.0
 
                 pointer_delta += delta;
 
@@ -3950,8 +3819,8 @@ impl<W: LayoutElement> Layout<W> {
                             .find(|(tile, _, _)| tile.window().id() == window)
                             .unwrap();
 
-                        let zoom = mon.overview_zoom();
-                        tile_pos = Some((ws_geo.loc + tile_offset.upscale(zoom), zoom));
+                        // TEAM_014: Removed overview_zoom (Part 3) - always 1.0
+                        tile_pos = Some((ws_geo.loc + tile_offset, 1.0));
                     }
                 }
 
@@ -4158,8 +4027,8 @@ impl<W: LayoutElement> Layout<W> {
             );
         }
 
-        // Dragging in the overview shouldn't switch the workspace and so on.
-        let allow_to_activate_workspace = !self.overview_open;
+        // TEAM_014: Removed overview check (Part 3) - always allow workspace activation
+        let allow_to_activate_workspace = true;
 
         match &mut self.monitor_set {
             MonitorSet::Normal {
@@ -4169,7 +4038,7 @@ impl<W: LayoutElement> Layout<W> {
             } => {
                 let (mon, insert_ws, position, offset, zoom) =
                     if let Some(mon) = monitors.iter_mut().find(|mon| mon.output == move_.output) {
-                        let zoom = mon.overview_zoom();
+                        // TEAM_014: Removed overview_zoom (Part 3) - always 1.0
 
                         let (insert_ws, geo) = mon.insert_position(move_.pointer_pos_within_output);
                         let (position, offset) = match insert_ws {
@@ -4184,7 +4053,7 @@ impl<W: LayoutElement> Layout<W> {
                                     InsertPosition::Floating
                                 } else {
                                     let pos_within_workspace =
-                                        (move_.pointer_pos_within_output - geo.loc).downscale(zoom);
+                                        move_.pointer_pos_within_output - geo.loc;
                                     let ws = &mut mon.workspaces[ws_idx];
                                     ws.scrolling_insert_position(pos_within_workspace)
                                 };
@@ -4202,10 +4071,11 @@ impl<W: LayoutElement> Layout<W> {
                             }
                         };
 
-                        (mon, insert_ws, position, offset, zoom)
+                        // TEAM_014: zoom always 1.0 (Part 3)
+                        (mon, insert_ws, position, offset, 1.0)
                     } else {
                         let mon = &mut monitors[*active_monitor_idx];
-                        let zoom = mon.overview_zoom();
+                        // TEAM_014: Removed overview_zoom (Part 3) - always 1.0
                         // No point in trying to use the pointer position on the wrong output.
                         let ws = &mon.workspaces[0];
                         let ws_geo = mon.workspaces_render_geo().next().unwrap();
@@ -4217,7 +4087,8 @@ impl<W: LayoutElement> Layout<W> {
                         };
 
                         let insert_ws = InsertWorkspace::Existing(ws.id());
-                        (mon, insert_ws, position, Some(ws_geo.loc), zoom)
+                        // TEAM_014: zoom always 1.0 (Part 3)
+                        (mon, insert_ws, position, Some(ws_geo.loc), 1.0)
                     };
 
                 let win_id = move_.tile.window().id().clone();
@@ -4585,59 +4456,9 @@ impl<W: LayoutElement> Layout<W> {
         self.unname_workspace_by_id(id);
     }
 
-    pub fn set_monitors_overview_state(&mut self) {
-        let MonitorSet::Normal { monitors, .. } = &mut self.monitor_set else {
-            return;
-        };
-
-        for mon in monitors {
-            mon.overview_open = self.overview_open;
-            mon.set_overview_progress(self.overview_progress.as_ref());
-        }
-    }
-
-    pub fn toggle_overview(&mut self) {
-        self.overview_open = !self.overview_open;
-
-        let from = self.overview_progress.take().map_or(0., |p| p.value());
-        let to = if self.overview_open { 1. } else { 0. };
-
-        self.overview_progress = Some(OverviewProgress::Animation(Animation::new(
-            self.clock.clone(),
-            from,
-            to,
-            0.,
-            self.options.animations.overview_open_close.0,
-        )));
-
-        self.set_monitors_overview_state();
-    }
-
-    pub fn open_overview(&mut self) -> bool {
-        if self.overview_open {
-            return false;
-        }
-
-        self.toggle_overview();
-        true
-    }
-
-    pub fn close_overview(&mut self) -> bool {
-        if !self.overview_open {
-            return false;
-        }
-
-        self.toggle_overview();
-        true
-    }
-
-    pub fn toggle_overview_to_workspace(&mut self, ws_idx: usize) {
-        let config = self.options.animations.overview_open_close.0;
-        if let Some(mon) = self.active_monitor() {
-            mon.activate_workspace_with_anim_config(ws_idx, Some(config));
-        }
-        self.toggle_overview();
-    }
+    // TEAM_014: Removed set_monitors_overview_state, toggle_overview, open_overview,
+    // close_overview, toggle_overview_to_workspace (Part 3)
+    // Overview mode is no longer supported.
 
     pub fn start_open_animation_for_window(&mut self, window: &W::Id) {
         if let Some(InteractiveMoveState::Moving(move_)) = &self.interactive_move {
@@ -4855,12 +4676,9 @@ impl<W: LayoutElement> Layout<W> {
                         && idx == *active_monitor_idx
                         && !matches!(self.interactive_move, Some(InteractiveMoveState::Moving(_)));
 
-                    if ongoing_scrolling_dnd.is_some() && self.overview_open {
-                        // Begin the scroll on new monitors and when opening the overview.
-                        mon.dnd_scroll_gesture_begin();
-                    } else if !self.overview_open {
-                        mon.dnd_scroll_gesture_end();
-                    }
+                    // DEPRECATED(overview): Removed overview_open checks
+                    // Overview is no longer supported, so always end DnD scroll gesture
+                    mon.dnd_scroll_gesture_end();
 
                     for (ws_idx, ws) in mon.workspaces.iter_mut().enumerate() {
                         let is_focused = is_active && ws_idx == mon.active_workspace_idx;
@@ -4875,7 +4693,8 @@ impl<W: LayoutElement> Layout<W> {
                             }
                         } else {
                             // Cancel the view offset gesture after workspace switches, moves, etc.
-                            if !self.overview_open && ws_idx != mon.active_workspace_idx {
+                            // DEPRECATED(overview): Removed overview_open check
+                            if ws_idx != mon.active_workspace_idx {
                                 ws.view_offset_gesture_end(None);
                             }
                         }
@@ -4970,9 +4789,7 @@ impl<W: LayoutElement> Layout<W> {
         self.windows().any(|(_, win)| win.id() == window)
     }
 
-    pub fn is_overview_open(&self) -> bool {
-        self.overview_open
-    }
+    // TEAM_014: Removed duplicate is_overview_open (Part 3) - see line 2343
 }
 
 impl<W: LayoutElement> Default for MonitorSet<W> {

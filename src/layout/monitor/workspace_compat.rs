@@ -7,7 +7,8 @@
 
 use smithay::utils::{Logical, Size};
 
-use crate::layout::monitor::{Monitor, OverviewProgress, WorkspaceSwitch};
+// TEAM_014: Removed OverviewProgress import (Part 3)
+use crate::layout::monitor::{Monitor, WorkspaceSwitch};
 use crate::layout::workspace::Workspace;
 use crate::layout::LayoutElement;
 
@@ -127,33 +128,12 @@ impl<W: LayoutElement> Monitor<W> {
                 .any(|ws| ws.are_transitions_ongoing())
     }
 
-    // =========================================================================
-    // LEGACY: Overview methods
-    // =========================================================================
+    // TEAM_014: Removed overview methods (Part 3)
+    // overview_zoom, set_overview_progress, overview_progress_value are no longer needed
 
+    // TEAM_014: overview_zoom now always returns 1.0
     pub fn overview_zoom(&self) -> f64 {
-        let progress = self.overview_progress.as_ref().map(|p| p.value());
-        crate::layout::compute_overview_zoom(&self.options, progress)
-    }
-
-    pub(in crate::layout) fn set_overview_progress(
-        &mut self,
-        progress: Option<&crate::layout::OverviewProgress>,
-    ) {
-        let prev_render_idx = self.workspace_render_idx();
-        self.overview_progress = progress.map(OverviewProgress::from);
-        let new_render_idx = self.workspace_render_idx();
-
-        if prev_render_idx != new_render_idx {
-            if let Some(WorkspaceSwitch::Animation(anim)) = &mut self.workspace_switch {
-                *anim = anim.restarted(prev_render_idx, anim.to(), 0.);
-            }
-        }
-    }
-
-    #[cfg(test)]
-    pub(in crate::layout) fn overview_progress_value(&self) -> Option<f64> {
-        self.overview_progress.as_ref().map(|p| p.value())
+        1.0
     }
 
     // =========================================================================

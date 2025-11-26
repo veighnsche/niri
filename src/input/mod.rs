@@ -2071,19 +2071,9 @@ impl State {
             Action::ClearDynamicCastTarget => {
                 self.set_dynamic_cast_target(CastTarget::Nothing);
             }
-            Action::ToggleOverview => {
-                self.niri.layout.toggle_overview();
-                self.niri.queue_redraw_all();
-            }
-            Action::OpenOverview => {
-                if self.niri.layout.open_overview() {
-                    self.niri.queue_redraw_all();
-                }
-            }
-            Action::CloseOverview => {
-                if self.niri.layout.close_overview() {
-                    self.niri.queue_redraw_all();
-                }
+            // TEAM_014: Overview actions are now no-ops (Part 3)
+            Action::ToggleOverview | Action::OpenOverview | Action::CloseOverview => {
+                // Overview mode has been removed.
             }
             Action::ToggleWindowUrgent(id) => {
                 let window = self
@@ -2400,16 +2390,11 @@ impl State {
 
         pointer.frame(self);
 
+        // TEAM_014: Removed hot corner overview toggle (Part 3)
         // contents_under() will return no surface when the hot corner should trigger, so
         // pointer.motion() will set the current focus to None.
         if under.hot_corner && pointer.current_focus().is_none() {
-            if !was_inside_hot_corner
-                && pointer
-                    .with_grab(|_, grab| grab_allows_hot_corner(grab))
-                    .unwrap_or(true)
-            {
-                self.niri.layout.toggle_overview();
-            }
+            // Hot corner no longer triggers overview (overview removed).
             self.niri.pointer_inside_hot_corner = true;
         }
 
@@ -2494,16 +2479,11 @@ impl State {
 
         pointer.frame(self);
 
+        // TEAM_014: Removed hot corner overview toggle (Part 3)
         // contents_under() will return no surface when the hot corner should trigger, so
         // pointer.motion() will set the current focus to None.
         if under.hot_corner && pointer.current_focus().is_none() {
-            if !was_inside_hot_corner
-                && pointer
-                    .with_grab(|_, grab| grab_allows_hot_corner(grab))
-                    .unwrap_or(true)
-            {
-                self.niri.layout.toggle_overview();
-            }
+            // Hot corner no longer triggers overview (overview removed).
             self.niri.pointer_inside_hot_corner = true;
         }
 
@@ -2773,17 +2753,7 @@ impl State {
 
                 // FIXME: granular.
                 self.niri.queue_redraw_all();
-            } else if let Some((output, ws)) = is_overview_open
-                .then(|| self.niri.workspace_under_cursor(false))
-                .flatten()
-            {
-                let ws_idx = self.niri.layout.find_workspace_by_id(ws.id()).unwrap().0;
-
-                self.niri.layout.focus_output(&output);
-                self.niri.layout.toggle_overview_to_workspace(ws_idx);
-
-                // FIXME: granular.
-                self.niri.queue_redraw_all();
+            // TEAM_014: Removed overview workspace activation (Part 3)
             } else if let Some(output) = self.niri.output_under_cursor() {
                 self.niri.layout.focus_output(&output);
 
@@ -3411,32 +3381,12 @@ impl State {
                             }
                         }
                     } else if let Some((window, _)) = under.window {
-                        if let Some(output) = is_overview_open.then_some(under.output).flatten() {
-                            let mut workspaces = self.niri.layout.workspaces();
-                            if let Some(ws_idx) = workspaces.find_map(|(_, ws_idx, ws)| {
-                                ws.windows().any(|w| w.window == window).then_some(ws_idx)
-                            }) {
-                                drop(workspaces);
-                                self.niri.layout.focus_output(&output);
-                                self.niri.layout.toggle_overview_to_workspace(ws_idx);
-                            }
-                        }
-
+                        // DEPRECATED(overview): Removed overview-specific window activation
                         self.niri.layout.activate_window(&window);
 
                         // FIXME: granular.
                         self.niri.queue_redraw_all();
-                    } else if let Some((output, ws)) = is_overview_open
-                        .then(|| self.niri.workspace_under(false, pos))
-                        .flatten()
-                    {
-                        let ws_idx = self.niri.layout.find_workspace_by_id(ws.id()).unwrap().0;
-
-                        self.niri.layout.focus_output(&output);
-                        self.niri.layout.toggle_overview_to_workspace(ws_idx);
-
-                        // FIXME: granular.
-                        self.niri.queue_redraw_all();
+                    // DEPRECATED(overview): Removed overview workspace activation block
                     } else if let Some(output) = under.output {
                         self.niri.layout.focus_output(&output);
 
@@ -3535,10 +3485,7 @@ impl State {
             // We handled this event.
             return;
         } else if event.fingers() == 4 {
-            self.niri.layout.overview_gesture_begin();
-            self.niri.queue_redraw_all();
-
-            // We handled this event.
+            // DEPRECATED(overview): 4-finger gesture used to open overview, now does nothing
             return;
         }
 
@@ -3649,16 +3596,7 @@ impl State {
             handled = true;
         }
 
-        let res = self
-            .niri
-            .layout
-            .overview_gesture_update(-uninverted_delta_y, timestamp);
-        if let Some(redraw) = res {
-            if redraw {
-                self.niri.queue_redraw_all();
-            }
-            handled = true;
-        }
+        // DEPRECATED(overview): Removed overview_gesture_update call
 
         if handled {
             // We handled this event.
@@ -3696,11 +3634,7 @@ impl State {
             handled = true;
         }
 
-        let res = self.niri.layout.overview_gesture_end();
-        if res {
-            self.niri.queue_redraw_all();
-            handled = true;
-        }
+        // DEPRECATED(overview): Removed overview_gesture_end call
 
         if handled {
             // We handled this event.

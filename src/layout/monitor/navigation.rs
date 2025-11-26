@@ -300,72 +300,8 @@ impl<W: LayoutElement> Monitor<W> {
     // =========================================================================
 
     pub fn workspace_render_idx(&self) -> f64 {
-        // If workspace switch and overview progress are matching animations, then compute a
-        // correction term to make the movement appear monotonic.
-        if let (
-            Some(WorkspaceSwitch::Animation(switch_anim)),
-            Some(super::OverviewProgress::Animation(progress_anim)),
-        ) = (&self.workspace_switch, &self.overview_progress)
-        {
-            if switch_anim.start_time() == progress_anim.start_time()
-                && (switch_anim.duration().as_secs_f64() - progress_anim.duration().as_secs_f64())
-                    .abs()
-                    <= 0.001
-            {
-                #[rustfmt::skip]
-                // How this was derived:
-                //
-                // - Assume we're animating a zoom + switch. Consider switch "from" and "to".
-                //   These are render_idx values, so first workspace to second would have switch
-                //   from = 0. and to = 1. regardless of the zoom level.
-                //
-                // - At the start, the point at "from" is at Y = 0. We're moving the point at "to"
-                //   to Y = 0. We want this to be a monotonic motion in apparent coordinates (after
-                //   zoom).
-                //
-                // - Height at the start:
-                //   from_height = (size.h + gap) * from_zoom.
-                //
-                // - Current height:
-                //   current_height = (size.h + gap) * zoom.
-                //
-                // - We're moving the "to" point to Y = 0:
-                //   to_y = 0.
-                //
-                // - The initial position of the point we're moving:
-                //   from_y = (to - from) * from_height.
-                //
-                // - We want this point to travel monotonically in apparent coordinates:
-                //   current_y = from_y + (to_y - from_y) * progress,
-                //   where progress is from 0 to 1, equals to the animation progress (switch and
-                //   zoom are the same since they are synchronized).
-                //
-                // - Derive the Y of the first workspace from this:
-                //   first_y = current_y - to * current_height.
-                //
-                // Now, let's substitute and rearrange the terms.
-                //
-                // - current_y = from_y + (0 - (to - from) * from_height) * progress
-                // - progress = (switch_anim.value() - from) / (to - from)
-                // - current_y = from_y - (to - from) * from_height * (switch_anim.value() - from) / (to - from)
-                // - current_y = from_y - from_height * (switch_anim.value() - from)
-                // - first_y = from_y - from_height * (switch_anim.value() - from) - to * current_height
-                // - first_y = (to - from) * from_height - from_height * (switch_anim.value() - from) - to * current_height
-                // - first_y = to * from_height - switch_anim.value() * from_height - to * current_height
-                // - first_y = -switch_anim.value() * from_height + to * (from_height - current_height)
-                let from = progress_anim.from();
-                let from_zoom = crate::layout::compute_overview_zoom(&self.options, Some(from));
-                let from_ws_height_with_gap = self.workspace_size_with_gap(from_zoom).h;
-
-                let zoom = self.overview_zoom();
-                let ws_height_with_gap = self.workspace_size_with_gap(zoom).h;
-
-                let first_ws_y = -switch_anim.value() * from_ws_height_with_gap
-                    + switch_anim.to() * (from_ws_height_with_gap - ws_height_with_gap);
-
-                return -first_ws_y / ws_height_with_gap;
-            }
-        };
+        // TEAM_014: Removed overview animation synchronization (Part 3)
+        // Overview mode is no longer supported, so no need for monotonic animation correction.
 
         if let Some(switch) = &self.workspace_switch {
             switch.current_idx()

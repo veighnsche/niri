@@ -34,9 +34,10 @@ mod config;
 mod gestures;         // LEGACY: Workspace gestures
 
 // TEAM_013: Re-exports
+// TEAM_014: Removed OverviewProgress from re-exports (Part 3)
 pub use types::{
     InsertHint, InsertHintRenderLoc, InsertPosition, InsertWorkspace, MonitorAddWindowTarget,
-    OverviewProgress, WorkspaceSwitch, WorkspaceSwitchGesture,
+    WorkspaceSwitch, WorkspaceSwitchGesture,
     WORKSPACE_DND_EDGE_SCROLL_MOVEMENT, WORKSPACE_GESTURE_MOVEMENT, WORKSPACE_GESTURE_RUBBER_BAND,
 };
 
@@ -91,12 +92,7 @@ pub struct Monitor<W: LayoutElement> {
     insert_hint_element: InsertHintElement,
     /// Location to render the insert hint element.
     insert_hint_render_loc: Option<InsertHintRenderLoc>,
-    /// Whether the overview is open.
-    /// LEGACY: Overview will be removed in Phase 1.5.3
-    pub(in crate::layout) overview_open: bool,
-    /// Progress of the overview zoom animation, 1 is fully in overview.
-    /// LEGACY: Overview will be removed in Phase 1.5.3
-    overview_progress: Option<OverviewProgress>,
+    // TEAM_014: Removed overview_open and overview_progress fields (Part 3)
     /// Clock for driving animations.
     pub(in crate::layout) clock: Clock,
     /// Configurable properties of the layout as received from the parent layout.
@@ -186,8 +182,7 @@ impl<W: LayoutElement> Monitor<W> {
             insert_hint: None,
             insert_hint_element: InsertHintElement::new(options.layout.insert_hint),
             insert_hint_render_loc: None,
-            overview_open: false,
-            overview_progress: None,
+            // TEAM_014: Removed overview_open and overview_progress (Part 3)
             workspace_switch: None,
             clock,
             base_options,

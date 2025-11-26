@@ -247,7 +247,7 @@ fn move_pending_unfullscreen_window_out_of_active_column() {
         Op::ConsumeWindowIntoColumn,
         // Window 1 is now pending unfullscreen.
         // Moving it out should reset view_offset_before_fullscreen.
-        Op::MoveWindowToWorkspaceDown(true),
+        Op::MoveWindowToRowDown(true),
     ];
 
     check_ops(ops);
@@ -269,9 +269,9 @@ fn move_unfocused_pending_unfullscreen_window_out_of_active_column() {
         // Window 1 is now pending unfullscreen.
         // Moving it out should reset view_offset_before_fullscreen.
         Op::FocusWindowDown,
-        Op::MoveWindowToWorkspace {
+        Op::MoveWindowToRow {
             window_id: Some(1),
-            workspace_idx: 1,
+            row_idx: 1,
         },
     ];
 

@@ -89,8 +89,10 @@ impl TouchOverviewGrab {
                         None
                     };
 
+                    // TEAM_014: Removed toggle_overview_to_workspace call (Part 3)
+                    // Just activate the row directly.
                     if let Some(ws_idx) = ws_idx {
-                        layout.toggle_overview_to_workspace(ws_idx);
+                        layout.focus_row(ws_idx);
                     }
                 }
 

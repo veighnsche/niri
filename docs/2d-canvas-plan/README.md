@@ -13,14 +13,15 @@
 
 | Part | Description | Status |
 |------|-------------|--------|
-| [Part 1](phases/phase-1.5.3-part1-monitor-methods.md) | Migrate Monitor methods to Canvas2D | 🔄 IN PROGRESS |
-| **[Part 2: Workspace → Row](phases/phase-1.5.3-part2-remove-workspace-switching.md)** | Replace + Refactor (alphabetical = execution order) | |
-| [Part 2A](phases/phase-1.5.3-part2a-config-workspace-actions.md) | Replace Config Actions (Workspace → Row) | ⏳ Pending |
-| [Part 2B](phases/phase-1.5.3-part2b-input-workspace-actions.md) | Replace Input Handlers | ⏳ Pending |
-| [Part 2C](phases/phase-1.5.3-part2c-layout-workspace-switching.md) | Replace Layout Methods | ⏳ Pending |
-| [Part 2D](phases/phase-1.5.3-part2d-monitor-workspace-switching.md) | Refactor Monitor → Modules + Row Nav | ⏳ Pending |
-| [Part 2E](phases/phase-1.5.3-part2e-remove-workspace-tests.md) | Replace/Remove Tests | ⏳ Pending |
-| [Part 3](phases/phase-1.5.3-part3-remove-overview.md) | Remove overview mode | ⏳ Pending |
+| [Part 1](phases/phase-1.5.3-part1-monitor-methods.md) | Migrate Monitor methods to Canvas2D | ✅ Complete |
+| **[Part 2: Workspace → Row](phases/phase-1.5.3-part2-remove-workspace-switching.md)** | Replace + Refactor (alphabetical = execution order) | ✅ Complete |
+| [Part 2A](phases/phase-1.5.3-part2a-config-workspace-actions.md) | Replace Config Actions (Workspace → Row) | ✅ Complete (TEAM_012) |
+| [Part 2B](phases/phase-1.5.3-part2b-input-workspace-actions.md) | Replace Input Handlers | ✅ Complete (TEAM_012) |
+| [Part 2C](phases/phase-1.5.3-part2c-layout-workspace-switching.md) | Replace Layout Methods | ✅ Complete (TEAM_012) |
+| [Part 2D](phases/phase-1.5.3-part2d-monitor-workspace-switching.md) | Refactor Monitor → Modules + Row Nav | ✅ Complete (TEAM_013) |
+| [Part 2E](phases/phase-1.5.3-part2e-remove-workspace-tests.md) | Replace/Remove Tests | ✅ Complete (TEAM_014) |
+| [Part 3](phases/phase-1.5.3-part3-remove-overview.md) | Remove overview mode | ⚠️ DISABLED (TEAM_014) |
+| [Part 3 Cleanup](phases/phase-1.5.3-part3-overview-removal-guide.md) | Delete all `DEPRECATED(overview)` code | 🔄 NEXT |
 | [Part 4](phases/phase-1.5.3-part4-remove-workspace-fields.md) | Remove workspace fields from Monitor | ⏳ Pending |
 | [Part 5](phases/phase-1.5.3-part5-config-and-ipc.md) | Remove workspace config and IPC | ⏳ Pending |
 

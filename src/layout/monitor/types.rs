@@ -90,13 +90,7 @@ pub struct InsertHintRenderLoc {
     pub location: Point<f64, Logical>,
 }
 
-/// Progress of the overview zoom animation, 1 is fully in overview.
-/// LEGACY: Overview will be removed in Phase 1.5.3
-#[derive(Debug)]
-pub enum OverviewProgress {
-    Animation(Animation),
-    Value(f64),
-}
+// TEAM_014: Removed OverviewProgress enum (Part 3)
 
 /// Where to put a newly added window.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -198,27 +192,4 @@ impl InsertWorkspace {
     }
 }
 
-impl OverviewProgress {
-    pub fn value(&self) -> f64 {
-        match self {
-            OverviewProgress::Animation(anim) => anim.value(),
-            OverviewProgress::Value(v) => *v,
-        }
-    }
-
-    pub fn clamped_value(&self) -> f64 {
-        match self {
-            OverviewProgress::Animation(anim) => anim.clamped_value(),
-            OverviewProgress::Value(v) => *v,
-        }
-    }
-}
-
-impl From<&crate::layout::OverviewProgress> for OverviewProgress {
-    fn from(value: &crate::layout::OverviewProgress) -> Self {
-        match value {
-            crate::layout::OverviewProgress::Animation(anim) => Self::Animation(anim.clone()),
-            crate::layout::OverviewProgress::Gesture(gesture) => Self::Value(gesture.value),
-        }
-    }
-}
+// TEAM_014: Removed OverviewProgress impl blocks (Part 3)

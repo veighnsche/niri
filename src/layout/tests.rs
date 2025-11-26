@@ -487,8 +487,9 @@ enum Op {
     FocusWindowDownOrColumnRight,
     FocusWindowUpOrColumnLeft,
     FocusWindowUpOrColumnRight,
-    FocusWindowOrWorkspaceDown,
-    FocusWindowOrWorkspaceUp,
+    // TEAM_014: Renamed from FocusWindowOrWorkspaceDown/Up
+    FocusWindowOrRowDown,
+    FocusWindowOrRowUp,
     FocusWindow(#[proptest(strategy = "1..=5usize")] usize),
     FocusWindowInColumn(#[proptest(strategy = "1..=5u8")] u8),
     FocusWindowTop,
@@ -504,8 +505,9 @@ enum Op {
     MoveColumnToIndex(#[proptest(strategy = "1..=5usize")] usize),
     MoveWindowDown,
     MoveWindowUp,
-    MoveWindowDownOrToWorkspaceDown,
-    MoveWindowUpOrToWorkspaceUp,
+    // TEAM_014: Renamed from MoveWindowDownOrToWorkspaceDown/Up
+    MoveWindowDownOrToRowDown,
+    MoveWindowUpOrToRowUp,
     ConsumeOrExpelWindowLeft {
         #[proptest(strategy = "proptest::option::of(1..=5usize)")]
         id: Option<usize>,
@@ -525,43 +527,48 @@ enum Op {
         id: Option<usize>,
     },
     CenterVisibleColumns,
-    FocusWorkspaceDown,
-    FocusWorkspaceUp,
-    FocusWorkspace(#[proptest(strategy = "0..=4usize")] usize),
-    FocusWorkspaceAutoBackAndForth(#[proptest(strategy = "0..=4usize")] usize),
-    FocusWorkspacePrevious,
-    MoveWindowToWorkspaceDown(bool),
-    MoveWindowToWorkspaceUp(bool),
-    MoveWindowToWorkspace {
+    // TEAM_014: Renamed from FocusWorkspace* to FocusRow*
+    FocusRowDown,
+    FocusRowUp,
+    FocusRow(#[proptest(strategy = "0..=4usize")] usize),
+    FocusRowAutoBackAndForth(#[proptest(strategy = "0..=4usize")] usize),
+    FocusPreviousPosition,
+    // TEAM_014: Renamed from MoveWindowToWorkspace* to MoveWindowToRow*
+    MoveWindowToRowDown(bool),
+    MoveWindowToRowUp(bool),
+    MoveWindowToRow {
         #[proptest(strategy = "proptest::option::of(1..=5usize)")]
         window_id: Option<usize>,
         #[proptest(strategy = "0..=4usize")]
-        workspace_idx: usize,
+        row_idx: usize,
     },
-    MoveColumnToWorkspaceDown(bool),
-    MoveColumnToWorkspaceUp(bool),
-    MoveColumnToWorkspace(#[proptest(strategy = "0..=4usize")] usize, bool),
-    MoveWorkspaceDown,
-    MoveWorkspaceUp,
-    MoveWorkspaceToIndex {
+    // TEAM_014: Renamed from MoveColumnToWorkspace* to MoveColumnToRow*
+    MoveColumnToRowDown(bool),
+    MoveColumnToRowUp(bool),
+    MoveColumnToRow(#[proptest(strategy = "0..=4usize")] usize, bool),
+    // TEAM_014: Renamed from MoveWorkspace* to MoveRow*
+    MoveRowDown,
+    MoveRowUp,
+    MoveRowToIndex {
         #[proptest(strategy = "proptest::option::of(1..=5usize)")]
         ws_name: Option<usize>,
         #[proptest(strategy = "0..=4usize")]
         target_idx: usize,
     },
-    MoveWorkspaceToMonitor {
+    MoveRowToMonitor {
         #[proptest(strategy = "proptest::option::of(1..=5usize)")]
         ws_name: Option<usize>,
         #[proptest(strategy = "0..=5usize")]
         output_id: usize,
     },
-    SetWorkspaceName {
+    // TEAM_014: Renamed from SetWorkspaceName/UnsetWorkspaceName to SetRowName/UnsetRowName
+    SetRowName {
         #[proptest(strategy = "1..=5usize")]
         new_ws_name: usize,
         #[proptest(strategy = "proptest::option::of(1..=5usize)")]
         ws_name: Option<usize>,
     },
-    UnsetWorkspaceName {
+    UnsetRowName {
         #[proptest(strategy = "proptest::option::of(1..=5usize)")]
         ws_name: Option<usize>,
     },
@@ -663,7 +670,8 @@ enum Op {
         msec_delta: i32,
     },
     CompleteAnimations,
-    MoveWorkspaceToOutput(#[proptest(strategy = "1..=5usize")] usize),
+    // TEAM_014: Renamed from MoveWorkspaceToOutput
+    MoveRowToOutput(#[proptest(strategy = "1..=5usize")] usize),
     ViewOffsetGestureBegin {
         #[proptest(strategy = "1..=5usize")]
         output_idx: usize,
@@ -680,18 +688,19 @@ enum Op {
     ViewOffsetGestureEnd {
         is_touchpad: Option<bool>,
     },
-    WorkspaceSwitchGestureBegin {
+    // TEAM_014: Renamed from WorkspaceSwitchGesture* to RowPanGesture*
+    RowPanGestureBegin {
         #[proptest(strategy = "1..=5usize")]
         output_idx: usize,
         is_touchpad: bool,
     },
-    WorkspaceSwitchGestureUpdate {
+    RowPanGestureUpdate {
         #[proptest(strategy = "-400f64..400f64")]
         delta: f64,
         timestamp: Duration,
         is_touchpad: bool,
     },
-    WorkspaceSwitchGestureEnd {
+    RowPanGestureEnd {
         is_touchpad: Option<bool>,
     },
     OverviewGestureBegin,
@@ -888,15 +897,14 @@ impl Op {
 
                 ws.update_layout_config(layout_config.map(|x| *x));
             }
-            // TEAM_012: Simplified to only work on active workspace
-            Op::SetWorkspaceName {
+            // TEAM_014: Renamed from SetWorkspaceName/UnsetWorkspaceName
+            Op::SetRowName {
                 new_ws_name,
                 ws_name: _,
             } => {
                 layout.set_row_name(format!("ws{new_ws_name}"));
             }
-            // TEAM_012: Simplified to only work on active workspace
-            Op::UnsetWorkspaceName { ws_name: _ } => {
+            Op::UnsetRowName { ws_name: _ } => {
                 layout.unset_row_name();
             }
             Op::AddWindow { mut params } => {
@@ -1133,9 +1141,9 @@ impl Op {
             Op::FocusWindowDownOrColumnRight => layout.focus_down_or_right(),
             Op::FocusWindowUpOrColumnLeft => layout.focus_up_or_left(),
             Op::FocusWindowUpOrColumnRight => layout.focus_up_or_right(),
-            // TEAM_012: Renamed from focus_window_or_workspace_down/up
-            Op::FocusWindowOrWorkspaceDown => layout.focus_window_or_row_down(),
-            Op::FocusWindowOrWorkspaceUp => layout.focus_window_or_row_up(),
+            // TEAM_014: Renamed from FocusWindowOrWorkspaceDown/Up
+            Op::FocusWindowOrRowDown => layout.focus_window_or_row_down(),
+            Op::FocusWindowOrRowUp => layout.focus_window_or_row_up(),
             Op::FocusWindow(id) => layout.activate_window(&id),
             Op::FocusWindowInColumn(index) => layout.focus_window_in_column(index),
             Op::FocusWindowTop => layout.focus_window_top(),
@@ -1165,9 +1173,9 @@ impl Op {
             Op::MoveColumnToIndex(index) => layout.move_column_to_index(index),
             Op::MoveWindowDown => layout.move_down(),
             Op::MoveWindowUp => layout.move_up(),
-            // TEAM_012: Renamed from move_down_or_to_workspace_down/up
-            Op::MoveWindowDownOrToWorkspaceDown => layout.move_down_or_to_row_down(),
-            Op::MoveWindowUpOrToWorkspaceUp => layout.move_up_or_to_row_up(),
+            // TEAM_014: Renamed from MoveWindowDownOrToWorkspaceDown/Up
+            Op::MoveWindowDownOrToRowDown => layout.move_down_or_to_row_down(),
+            Op::MoveWindowUpOrToRowUp => layout.move_up_or_to_row_up(),
             Op::ConsumeOrExpelWindowLeft { id } => {
                 let id = id.filter(|id| layout.has_window(id));
                 layout.consume_or_expel_window_left(id.as_ref());
@@ -1187,28 +1195,28 @@ impl Op {
                 layout.center_window(id.as_ref());
             }
             Op::CenterVisibleColumns => layout.center_visible_columns(),
-            // TEAM_012: Renamed from switch_workspace_* to focus_row_*
-            Op::FocusWorkspaceDown => layout.focus_row_down(),
-            Op::FocusWorkspaceUp => layout.focus_row_up(),
-            Op::FocusWorkspace(idx) => layout.focus_row(idx),
-            Op::FocusWorkspaceAutoBackAndForth(idx) => {
+            // TEAM_014: Renamed from FocusWorkspace* to FocusRow*
+            Op::FocusRowDown => layout.focus_row_down(),
+            Op::FocusRowUp => layout.focus_row_up(),
+            Op::FocusRow(idx) => layout.focus_row(idx),
+            Op::FocusRowAutoBackAndForth(idx) => {
                 layout.focus_row_auto_back_and_forth(idx)
             }
-            Op::FocusWorkspacePrevious => layout.focus_previous_position(),
-            // TEAM_012: Renamed from move_to_workspace_* to move_to_row_*
-            Op::MoveWindowToWorkspaceDown(focus) => layout.move_to_row_down(focus),
-            Op::MoveWindowToWorkspaceUp(focus) => layout.move_to_row_up(focus),
-            Op::MoveWindowToWorkspace {
+            Op::FocusPreviousPosition => layout.focus_previous_position(),
+            // TEAM_014: Renamed from MoveWindowToWorkspace* to MoveWindowToRow*
+            Op::MoveWindowToRowDown(focus) => layout.move_to_row_down(focus),
+            Op::MoveWindowToRowUp(focus) => layout.move_to_row_up(focus),
+            Op::MoveWindowToRow {
                 window_id,
-                workspace_idx,
+                row_idx,
             } => {
                 let window_id = window_id.filter(|id| layout.has_window(id));
-                layout.move_to_workspace(window_id.as_ref(), workspace_idx, ActivateWindow::Smart);
+                layout.move_to_workspace(window_id.as_ref(), row_idx, ActivateWindow::Smart);
             }
-            // TEAM_012: Renamed from move_column_to_workspace_* to move_column_to_row_*
-            Op::MoveColumnToWorkspaceDown(focus) => layout.move_column_to_row_down(focus),
-            Op::MoveColumnToWorkspaceUp(focus) => layout.move_column_to_row_up(focus),
-            Op::MoveColumnToWorkspace(idx, focus) => layout.move_column_to_row(idx, focus),
+            // TEAM_014: Renamed from MoveColumnToWorkspace* to MoveColumnToRow*
+            Op::MoveColumnToRowDown(focus) => layout.move_column_to_row_down(focus),
+            Op::MoveColumnToRowUp(focus) => layout.move_column_to_row_up(focus),
+            Op::MoveColumnToRow(idx, focus) => layout.move_column_to_row(idx, focus),
             Op::MoveWindowToOutput {
                 window_id,
                 output_id: id,
@@ -1241,10 +1249,10 @@ impl Op {
 
                 layout.move_column_to_output(&output, target_ws_idx, activate);
             }
-            // TEAM_012: Renamed from move_workspace_* to move_row_*
-            Op::MoveWorkspaceDown => layout.move_row_down(),
-            Op::MoveWorkspaceUp => layout.move_row_up(),
-            Op::MoveWorkspaceToIndex {
+            // TEAM_014: Renamed from MoveWorkspace* to MoveRow*
+            Op::MoveRowDown => layout.move_row_down(),
+            Op::MoveRowUp => layout.move_row_up(),
+            Op::MoveRowToIndex {
                 ws_name: Some(ws_name),
                 target_idx,
             } => {
@@ -1271,11 +1279,11 @@ impl Op {
 
                 layout.move_row_to_index(Some((Some(old_output), old_idx)), target_idx)
             }
-            Op::MoveWorkspaceToIndex {
+            Op::MoveRowToIndex {
                 ws_name: None,
                 target_idx,
             } => layout.move_row_to_index(None, target_idx),
-            Op::MoveWorkspaceToMonitor {
+            Op::MoveRowToMonitor {
                 ws_name: None,
                 output_id: id,
             } => {
@@ -1285,7 +1293,7 @@ impl Op {
                 };
                 layout.move_workspace_to_output(&output);
             }
-            Op::MoveWorkspaceToMonitor {
+            Op::MoveRowToMonitor {
                 ws_name: Some(ws_name),
                 output_id: id,
             } => {
@@ -1513,7 +1521,8 @@ impl Op {
                 layout.advance_animations();
                 layout.clock.set_complete_instantly(false);
             }
-            Op::MoveWorkspaceToOutput(id) => {
+            // TEAM_014: Renamed from MoveWorkspaceToOutput
+            Op::MoveRowToOutput(id) => {
                 let name = format!("output{id}");
                 let Some(output) = layout.outputs().find(|o| o.name() == name).cloned() else {
                     return;
@@ -1543,7 +1552,8 @@ impl Op {
             Op::ViewOffsetGestureEnd { is_touchpad } => {
                 layout.view_offset_gesture_end(is_touchpad);
             }
-            Op::WorkspaceSwitchGestureBegin {
+            // TEAM_014: Renamed from WorkspaceSwitchGesture* to RowPanGesture*
+            Op::RowPanGestureBegin {
                 output_idx: id,
                 is_touchpad,
             } => {
@@ -1554,25 +1564,20 @@ impl Op {
 
                 layout.workspace_switch_gesture_begin(&output, is_touchpad);
             }
-            Op::WorkspaceSwitchGestureUpdate {
+            Op::RowPanGestureUpdate {
                 delta,
                 timestamp,
                 is_touchpad,
             } => {
                 layout.workspace_switch_gesture_update(delta, timestamp, is_touchpad);
             }
-            Op::WorkspaceSwitchGestureEnd { is_touchpad } => {
+            Op::RowPanGestureEnd { is_touchpad } => {
                 layout.workspace_switch_gesture_end(is_touchpad);
             }
-            Op::OverviewGestureBegin => {
-                layout.overview_gesture_begin();
-            }
-            Op::OverviewGestureUpdate { delta, timestamp } => {
-                layout.overview_gesture_update(delta, timestamp);
-            }
-            Op::OverviewGestureEnd => {
-                layout.overview_gesture_end();
-            }
+            // DEPRECATED(overview): Overview gestures are now no-ops
+            Op::OverviewGestureBegin => {}
+            Op::OverviewGestureUpdate { delta: _, timestamp: _ } => {}
+            Op::OverviewGestureEnd => {}
             Op::InteractiveMoveBegin {
                 window,
                 output_idx,
@@ -1626,9 +1631,8 @@ impl Op {
             Op::InteractiveResizeEnd { window } => {
                 layout.interactive_resize_end(&window);
             }
-            Op::ToggleOverview => {
-                layout.toggle_overview();
-            }
+            // DEPRECATED(overview): ToggleOverview is now a no-op
+            Op::ToggleOverview => {}
             Op::UpdateConfig { layout_config } => {
                 let options = Options {
                     layout: niri_config::Layout::from_part(&layout_config),
@@ -1723,11 +1727,11 @@ fn operations_dont_panic() {
         Op::FocusWindowUp,
         Op::FocusWindowUpOrColumnLeft,
         Op::FocusWindowUpOrColumnRight,
-        Op::FocusWindowOrWorkspaceUp,
+        Op::FocusWindowOrRowUp,
         Op::FocusWindowDown,
         Op::FocusWindowDownOrColumnLeft,
         Op::FocusWindowDownOrColumnRight,
-        Op::FocusWindowOrWorkspaceDown,
+        Op::FocusWindowOrRowDown,
         Op::MoveColumnLeft,
         Op::MoveColumnRight,
         Op::MoveColumnLeftOrToMonitorLeft(0),
@@ -1735,31 +1739,31 @@ fn operations_dont_panic() {
         Op::ConsumeWindowIntoColumn,
         Op::ExpelWindowFromColumn,
         Op::CenterColumn,
-        Op::FocusWorkspaceDown,
-        Op::FocusWorkspaceUp,
-        Op::FocusWorkspace(1),
-        Op::FocusWorkspace(2),
-        Op::MoveWindowToWorkspaceDown(true),
-        Op::MoveWindowToWorkspaceUp(true),
-        Op::MoveWindowToWorkspace {
+        Op::FocusRowDown,
+        Op::FocusRowUp,
+        Op::FocusRow(1),
+        Op::FocusRow(2),
+        Op::MoveWindowToRowDown(true),
+        Op::MoveWindowToRowUp(true),
+        Op::MoveWindowToRow {
             window_id: None,
-            workspace_idx: 1,
+            row_idx: 1,
         },
-        Op::MoveWindowToWorkspace {
+        Op::MoveWindowToRow {
             window_id: None,
-            workspace_idx: 2,
+            row_idx: 2,
         },
-        Op::MoveColumnToWorkspaceDown(true),
-        Op::MoveColumnToWorkspaceUp(true),
-        Op::MoveColumnToWorkspace(1, true),
-        Op::MoveColumnToWorkspace(2, true),
+        Op::MoveColumnToRowDown(true),
+        Op::MoveColumnToRowUp(true),
+        Op::MoveColumnToRow(1, true),
+        Op::MoveColumnToRow(2, true),
         Op::MoveWindowDown,
-        Op::MoveWindowDownOrToWorkspaceDown,
+        Op::MoveWindowDownOrToRowDown,
         Op::MoveWindowUp,
-        Op::MoveWindowUpOrToWorkspaceUp,
+        Op::MoveWindowUpOrToRowUp,
         Op::ConsumeOrExpelWindowLeft { id: None },
         Op::ConsumeOrExpelWindowRight { id: None },
-        Op::MoveWorkspaceToOutput(1),
+        Op::MoveRowToOutput(1),
         Op::ToggleColumnTabbedDisplay,
     ];
 
@@ -1795,7 +1799,7 @@ fn operations_from_starting_state_dont_panic() {
         Op::AddWindow {
             params: TestWindowParams::new(1),
         },
-        Op::MoveWindowToWorkspaceDown(true),
+        Op::MoveWindowToRowDown(true),
         Op::AddWindow {
             params: TestWindowParams::new(2),
         },
@@ -1897,11 +1901,11 @@ fn operations_from_starting_state_dont_panic() {
         Op::FocusWindowUp,
         Op::FocusWindowUpOrColumnLeft,
         Op::FocusWindowUpOrColumnRight,
-        Op::FocusWindowOrWorkspaceUp,
+        Op::FocusWindowOrRowUp,
         Op::FocusWindowDown,
         Op::FocusWindowDownOrColumnLeft,
         Op::FocusWindowDownOrColumnRight,
-        Op::FocusWindowOrWorkspaceDown,
+        Op::FocusWindowOrRowDown,
         Op::MoveColumnLeft,
         Op::MoveColumnRight,
         Op::MoveColumnLeftOrToMonitorLeft(0),
@@ -1909,34 +1913,34 @@ fn operations_from_starting_state_dont_panic() {
         Op::ConsumeWindowIntoColumn,
         Op::ExpelWindowFromColumn,
         Op::CenterColumn,
-        Op::FocusWorkspaceDown,
-        Op::FocusWorkspaceUp,
-        Op::FocusWorkspace(1),
-        Op::FocusWorkspace(2),
-        Op::FocusWorkspace(3),
-        Op::MoveWindowToWorkspaceDown(true),
-        Op::MoveWindowToWorkspaceUp(true),
-        Op::MoveWindowToWorkspace {
+        Op::FocusRowDown,
+        Op::FocusRowUp,
+        Op::FocusRow(1),
+        Op::FocusRow(2),
+        Op::FocusRow(3),
+        Op::MoveWindowToRowDown(true),
+        Op::MoveWindowToRowUp(true),
+        Op::MoveWindowToRow {
             window_id: None,
-            workspace_idx: 1,
+            row_idx: 1,
         },
-        Op::MoveWindowToWorkspace {
+        Op::MoveWindowToRow {
             window_id: None,
-            workspace_idx: 2,
+            row_idx: 2,
         },
-        Op::MoveWindowToWorkspace {
+        Op::MoveWindowToRow {
             window_id: None,
-            workspace_idx: 3,
+            row_idx: 3,
         },
-        Op::MoveColumnToWorkspaceDown(true),
-        Op::MoveColumnToWorkspaceUp(true),
-        Op::MoveColumnToWorkspace(1, true),
-        Op::MoveColumnToWorkspace(2, true),
-        Op::MoveColumnToWorkspace(3, true),
+        Op::MoveColumnToRowDown(true),
+        Op::MoveColumnToRowUp(true),
+        Op::MoveColumnToRow(1, true),
+        Op::MoveColumnToRow(2, true),
+        Op::MoveColumnToRow(3, true),
         Op::MoveWindowDown,
-        Op::MoveWindowDownOrToWorkspaceDown,
+        Op::MoveWindowDownOrToRowDown,
         Op::MoveWindowUp,
-        Op::MoveWindowUpOrToWorkspaceUp,
+        Op::MoveWindowUpOrToRowUp,
         Op::ConsumeOrExpelWindowLeft { id: None },
         Op::ConsumeOrExpelWindowRight { id: None },
         Op::ToggleColumnTabbedDisplay,
@@ -1978,7 +1982,7 @@ fn primary_active_workspace_idx_not_updated_on_output_add() {
             params: TestWindowParams::new(1),
         },
         Op::RemoveOutput(2),
-        Op::FocusWorkspace(3),
+        Op::FocusRow(3),
         Op::AddOutput(2),
     ];
 
@@ -1992,7 +1996,7 @@ fn window_closed_on_previous_workspace() {
         Op::AddWindow {
             params: TestWindowParams::new(0),
         },
-        Op::FocusWorkspaceDown,
+        Op::FocusRowDown,
         Op::CloseWindow(0),
     ];
 
@@ -2034,9 +2038,9 @@ fn move_to_workspace_by_idx_does_not_leave_empty_workspaces() {
             params: TestWindowParams::new(1),
         },
         Op::RemoveOutput(1),
-        Op::MoveWindowToWorkspace {
+        Op::MoveWindowToRow {
             window_id: Some(0),
-            workspace_idx: 2,
+            row_idx: 2,
         },
     ];
 
@@ -2056,13 +2060,13 @@ fn empty_workspaces_dont_move_back_to_original_output() {
         Op::AddWindow {
             params: TestWindowParams::new(1),
         },
-        Op::FocusWorkspaceDown,
+        Op::FocusRowDown,
         Op::AddWindow {
             params: TestWindowParams::new(2),
         },
         Op::AddOutput(2),
         Op::RemoveOutput(1),
-        Op::FocusWorkspace(1),
+        Op::FocusRow(1),
         Op::CloseWindow(1),
         Op::AddOutput(1),
     ];
@@ -2074,13 +2078,13 @@ fn empty_workspaces_dont_move_back_to_original_output() {
 fn named_workspaces_dont_update_original_output_on_adding_window() {
     let ops = [
         Op::AddOutput(1),
-        Op::SetWorkspaceName {
+        Op::SetRowName {
             new_ws_name: 1,
             ws_name: None,
         },
         Op::AddOutput(2),
         Op::RemoveOutput(1),
-        Op::FocusWorkspaceUp,
+        Op::FocusRowUp,
         // Adding a window updates the original output for unnamed workspaces.
         Op::AddWindow {
             params: TestWindowParams::new(1),
@@ -2104,14 +2108,14 @@ fn named_workspaces_dont_update_original_output_on_adding_window() {
 fn workspaces_update_original_output_on_moving_to_same_output() {
     let ops = [
         Op::AddOutput(1),
-        Op::SetWorkspaceName {
+        Op::SetRowName {
             new_ws_name: 1,
             ws_name: None,
         },
         Op::AddOutput(2),
         Op::RemoveOutput(1),
-        Op::FocusWorkspaceUp,
-        Op::MoveWorkspaceToOutput(2),
+        Op::FocusRowUp,
+        Op::MoveRowToOutput(2),
         Op::AddOutput(1),
     ];
 
@@ -2129,14 +2133,14 @@ fn workspaces_update_original_output_on_moving_to_same_output() {
 fn workspaces_update_original_output_on_moving_to_same_monitor() {
     let ops = [
         Op::AddOutput(1),
-        Op::SetWorkspaceName {
+        Op::SetRowName {
             new_ws_name: 1,
             ws_name: None,
         },
         Op::AddOutput(2),
         Op::RemoveOutput(1),
-        Op::FocusWorkspaceUp,
-        Op::MoveWorkspaceToMonitor {
+        Op::FocusRowUp,
+        Op::MoveRowToMonitor {
             ws_name: Some(1),
             output_id: 2,
         },
@@ -2199,7 +2203,7 @@ fn workspace_cleanup_during_switch() {
         Op::AddWindow {
             params: TestWindowParams::new(1),
         },
-        Op::FocusWorkspaceDown,
+        Op::FocusRowDown,
         Op::CloseWindow(1),
     ];
 
@@ -2219,8 +2223,8 @@ fn workspace_transfer_during_switch() {
             params: TestWindowParams::new(2),
         },
         Op::RemoveOutput(1),
-        Op::FocusWorkspaceDown,
-        Op::FocusWorkspaceDown,
+        Op::FocusRowDown,
+        Op::FocusRowDown,
         Op::AddOutput(1),
     ];
 
@@ -2236,7 +2240,7 @@ fn workspace_transfer_during_switch_from_last() {
         },
         Op::AddOutput(2),
         Op::RemoveOutput(1),
-        Op::FocusWorkspaceUp,
+        Op::FocusRowUp,
         Op::AddOutput(1),
     ];
 
@@ -2252,8 +2256,8 @@ fn workspace_transfer_during_switch_gets_cleaned_up() {
         },
         Op::RemoveOutput(1),
         Op::AddOutput(2),
-        Op::MoveColumnToWorkspaceDown(true),
-        Op::MoveColumnToWorkspaceDown(true),
+        Op::MoveColumnToRowDown(true),
+        Op::MoveColumnToRowDown(true),
         Op::AddOutput(1),
     ];
 
@@ -2269,7 +2273,7 @@ fn move_workspace_to_output() {
         Op::AddWindow {
             params: TestWindowParams::new(0),
         },
-        Op::MoveWorkspaceToOutput(2),
+        Op::MoveRowToOutput(2),
     ];
 
     let layout = check_ops(ops);
@@ -2298,7 +2302,7 @@ fn open_right_of_on_different_workspace() {
         Op::AddWindow {
             params: TestWindowParams::new(1),
         },
-        Op::FocusWorkspaceDown,
+        Op::FocusRowDown,
         Op::AddWindow {
             params: TestWindowParams::new(2),
         },
@@ -2334,7 +2338,7 @@ fn open_right_of_on_different_workspace_ewaf() {
         Op::AddWindow {
             params: TestWindowParams::new(1),
         },
-        Op::FocusWorkspaceDown,
+        Op::FocusRowDown,
         Op::AddWindow {
             params: TestWindowParams::new(2),
         },
@@ -2646,7 +2650,7 @@ fn interactive_move_onto_last_workspace() {
             px: 0.,
             py: 0.,
         },
-        Op::FocusWorkspaceDown,
+        Op::FocusRowDown,
         Op::AdvanceAnimations { msec_delta: 1000 },
         Op::InteractiveMoveEnd { window: 0 },
     ];
@@ -2675,7 +2679,7 @@ fn interactive_move_onto_first_empty_workspace() {
             px: 0.,
             py: 0.,
         },
-        Op::FocusWorkspaceUp,
+        Op::FocusRowUp,
         Op::AdvanceAnimations { msec_delta: 1000 },
         Op::InteractiveMoveEnd { window: 1 },
     ];
@@ -2696,7 +2700,7 @@ fn output_active_workspace_is_preserved() {
         Op::AddWindow {
             params: TestWindowParams::new(1),
         },
-        Op::FocusWorkspaceDown,
+        Op::FocusRowDown,
         Op::AddWindow {
             params: TestWindowParams::new(2),
         },
@@ -2721,7 +2725,7 @@ fn output_active_workspace_is_preserved_with_other_outputs() {
         Op::AddWindow {
             params: TestWindowParams::new(1),
         },
-        Op::FocusWorkspaceDown,
+        Op::FocusRowDown,
         Op::AddWindow {
             params: TestWindowParams::new(2),
         },
@@ -2747,8 +2751,8 @@ fn named_workspace_to_output() {
             layout_config: None,
         },
         Op::AddOutput(1),
-        Op::MoveWorkspaceToOutput(1),
-        Op::FocusWorkspaceUp,
+        Op::MoveRowToOutput(1),
+        Op::FocusRowUp,
     ];
     check_ops(ops);
 }
@@ -2782,10 +2786,10 @@ fn move_window_to_empty_workspace_above_first() {
         Op::AddWindow {
             params: TestWindowParams::new(1),
         },
-        Op::MoveWorkspaceUp,
-        Op::MoveWorkspaceDown,
-        Op::FocusWorkspaceUp,
-        Op::MoveWorkspaceDown,
+        Op::MoveRowUp,
+        Op::MoveRowDown,
+        Op::FocusRowUp,
+        Op::MoveRowDown,
     ];
     let options = Options {
         layout: niri_config::Layout {
@@ -2805,7 +2809,7 @@ fn move_window_to_different_output() {
         },
         Op::AddOutput(1),
         Op::AddOutput(2),
-        Op::MoveWorkspaceToOutput(2),
+        Op::MoveRowToOutput(2),
     ];
     let options = Options {
         layout: niri_config::Layout {
@@ -2910,7 +2914,7 @@ fn interactive_move_drop_on_other_output_during_animation() {
             px: 0.0,
             py: 0.0,
         },
-        Op::FocusWorkspaceDown,
+        Op::FocusRowDown,
         Op::AddOutput(4),
         Op::InteractiveMoveUpdate {
             window: 3,
@@ -3031,8 +3035,8 @@ fn interactive_move_from_workspace_with_layout_config() {
             px: 0.0,
             py: 0.0,
         },
-        // Now move onto a different workspace.
-        Op::FocusWorkspaceDown,
+        // Now move onto a different row.
+        Op::FocusRowDown,
         Op::CompleteAnimations,
         Op::InteractiveMoveUpdate {
             window: 2,
@@ -3104,7 +3108,7 @@ fn windows_on_other_workspaces_remain_activated() {
         Op::AddWindow {
             params: TestWindowParams::new(3),
         },
-        Op::FocusWorkspaceDown,
+        Op::FocusRowDown,
         Op::Refresh { is_active: true },
     ];
 
@@ -3234,9 +3238,9 @@ fn move_window_to_workspace_with_different_active_output() {
             params: TestWindowParams::new(0),
         },
         Op::FocusOutput(1),
-        Op::MoveWindowToWorkspace {
+        Op::MoveWindowToRow {
             window_id: Some(0),
-            workspace_idx: 2,
+            row_idx: 2,
         },
     ];
 
@@ -3247,7 +3251,7 @@ fn move_window_to_workspace_with_different_active_output() {
 fn set_first_workspace_name() {
     let ops = [
         Op::AddOutput(0),
-        Op::SetWorkspaceName {
+        Op::SetRowName {
             new_ws_name: 0,
             ws_name: None,
         },
@@ -3260,7 +3264,7 @@ fn set_first_workspace_name() {
 fn set_first_workspace_name_ewaf() {
     let ops = [
         Op::AddOutput(0),
-        Op::SetWorkspaceName {
+        Op::SetRowName {
             new_ws_name: 0,
             ws_name: None,
         },
@@ -3283,8 +3287,8 @@ fn set_last_workspace_name() {
         Op::AddWindow {
             params: TestWindowParams::new(0),
         },
-        Op::FocusWorkspaceDown,
-        Op::SetWorkspaceName {
+        Op::FocusRowDown,
+        Op::SetRowName {
             new_ws_name: 0,
             ws_name: None,
         },
@@ -3297,21 +3301,21 @@ fn set_last_workspace_name() {
 fn move_workspace_to_same_monitor_doesnt_reorder() {
     let ops = [
         Op::AddOutput(0),
-        Op::SetWorkspaceName {
+        Op::SetRowName {
             new_ws_name: 0,
             ws_name: None,
         },
         Op::AddWindow {
             params: TestWindowParams::new(0),
         },
-        Op::FocusWorkspaceDown,
+        Op::FocusRowDown,
         Op::AddWindow {
             params: TestWindowParams::new(1),
         },
         Op::AddWindow {
             params: TestWindowParams::new(2),
         },
-        Op::MoveWorkspaceToMonitor {
+        Op::MoveRowToMonitor {
             ws_name: Some(0),
             output_id: 0,
         },
@@ -3428,15 +3432,15 @@ fn preset_column_width_reset_after_set_width() {
 fn move_column_to_workspace_unfocused_with_multiple_monitors() {
     let ops = [
         Op::AddOutput(1),
-        Op::SetWorkspaceName {
+        Op::SetRowName {
             new_ws_name: 101,
             ws_name: None,
         },
         Op::AddWindow {
             params: TestWindowParams::new(1),
         },
-        Op::FocusWorkspaceDown,
-        Op::SetWorkspaceName {
+        Op::FocusRowDown,
+        Op::SetRowName {
             new_ws_name: 102,
             ws_name: None,
         },
@@ -3445,7 +3449,7 @@ fn move_column_to_workspace_unfocused_with_multiple_monitors() {
         },
         Op::AddOutput(2),
         Op::FocusOutput(2),
-        Op::SetWorkspaceName {
+        Op::SetRowName {
             new_ws_name: 201,
             ws_name: None,
         },
@@ -3498,7 +3502,7 @@ fn move_column_to_workspace_down_focus_false_on_floating_window() {
             params: TestWindowParams::new(2),
         },
         Op::ToggleWindowFloating { id: None },
-        Op::MoveColumnToWorkspaceDown(false),
+        Op::MoveColumnToRowDown(false),
     ];
 
     let layout = check_ops(ops);
@@ -3521,7 +3525,7 @@ fn move_column_to_workspace_focus_false_on_floating_window() {
             params: TestWindowParams::new(2),
         },
         Op::ToggleWindowFloating { id: None },
-        Op::MoveColumnToWorkspace(1, false),
+        Op::MoveColumnToRow(1, false),
     ];
 
     let layout = check_ops(ops);
@@ -3606,7 +3610,7 @@ fn move_column_to_workspace_maximize_and_fullscreen() {
         },
         Op::MaximizeWindowToEdges { id: None },
         Op::FullscreenWindow(1),
-        Op::MoveColumnToWorkspaceDown(true),
+        Op::MoveColumnToRowDown(true),
         Op::FullscreenWindow(1),
     ];
 
@@ -3626,7 +3630,7 @@ fn move_window_to_workspace_maximize_and_fullscreen() {
         },
         Op::MaximizeWindowToEdges { id: None },
         Op::FullscreenWindow(1),
-        Op::MoveWindowToWorkspaceDown(true),
+        Op::MoveWindowToRowDown(true),
         Op::FullscreenWindow(1),
     ];
 

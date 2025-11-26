@@ -43,24 +43,13 @@ impl<W: LayoutElement> Monitor<W> {
     pub fn window_under(&self, pos_within_output: Point<f64, Logical>) -> Option<(&W, HitType)> {
         let (ws, geo) = self.workspace_under(pos_within_output)?;
 
-        if self.overview_progress.is_some() {
-            let zoom = self.overview_zoom();
-            let pos_within_workspace = (pos_within_output - geo.loc).downscale(zoom);
-            let (win, hit) = ws.window_under(pos_within_workspace)?;
-            // During the overview animation, we cannot do input hits because we cannot really
-            // represent scaled windows properly.
-            Some((win, hit.to_activate()))
-        } else {
-            let (win, hit) = ws.window_under(pos_within_output - geo.loc)?;
-            Some((win, hit.offset_win_pos(geo.loc)))
-        }
+        // DEPRECATED(overview): Removed overview_progress zoom handling
+        let (win, hit) = ws.window_under(pos_within_output - geo.loc)?;
+        Some((win, hit.offset_win_pos(geo.loc)))
     }
 
     pub fn resize_edges_under(&self, pos_within_output: Point<f64, Logical>) -> Option<ResizeEdge> {
-        if self.overview_progress.is_some() {
-            return None;
-        }
-
+        // DEPRECATED(overview): Removed overview_progress check
         let (ws, geo) = self.workspace_under(pos_within_output)?;
         ws.resize_edges_under(pos_within_output - geo.loc)
     }
@@ -126,10 +115,7 @@ impl<W: LayoutElement> Monitor<W> {
     ///
     /// During animations, assumes the final view position.
     pub fn active_tile_visual_rectangle(&self) -> Option<Rectangle<f64, Logical>> {
-        if self.overview_open {
-            return None;
-        }
-
+        // DEPRECATED(overview): Removed overview_open check
         self.active_workspace_ref().active_tile_visual_rectangle()
     }
 }

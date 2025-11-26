@@ -67,18 +67,7 @@ impl MoveGrab {
                 // Activate the window on release. This is most prominent in the overview where
                 // windows are not activated on click. In the overview, we also try to do a nice
                 // synchronized workspace animation.
-                if layout.is_overview_open() {
-                    let res = layout.workspaces().find_map(|(mon, ws_idx, ws)| {
-                        ws.windows()
-                            .any(|w| w.window == self.window)
-                            .then(|| (mon.map(|mon| mon.output().clone()), ws_idx))
-                    });
-                    if let Some((Some(output), ws_idx)) = res {
-                        layout.focus_output(&output);
-                        layout.toggle_overview_to_workspace(ws_idx);
-                    }
-                }
-
+                // TEAM_014: Removed overview handling (Part 3)
                 layout.activate_window(&self.window);
             }
             GestureState::Move => layout.interactive_move_end(&self.window),

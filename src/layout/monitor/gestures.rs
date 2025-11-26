@@ -31,7 +31,8 @@ impl<W: LayoutElement> Monitor<W> {
             animation: None,
             tracker: SwipeTracker::new(),
             is_touchpad,
-            is_clamped: !self.overview_open,
+            // DEPRECATED(overview): is_clamped was !overview_open, now always true
+            is_clamped: true,
             dnd_last_event_time: None,
             dnd_nonzero_start_time: None,
         };
@@ -161,11 +162,11 @@ impl<W: LayoutElement> Monitor<W> {
             return;
         }
 
-        if !self.overview_open {
-            // This gesture is only for the overview.
-            return;
-        }
+        // DEPRECATED(overview): DnD scroll gesture was only for overview, now always returns
+        // This gesture is only for the overview which has been removed.
+        return;
 
+        #[allow(unreachable_code)]
         let center_idx = self.active_workspace_idx;
         let current_idx = self.workspace_render_idx();
 
