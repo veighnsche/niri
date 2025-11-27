@@ -1326,7 +1326,6 @@ impl<W: LayoutElement> Layout<W> {
                     if let Some((row_idx, row)) =
                         mon.canvas.workspaces().find(|(_, w)| {
                             w.name()
-                                .as_ref()
                                 .is_some_and(|name| name.eq_ignore_ascii_case(workspace_name))
                         })
                     {
@@ -1337,7 +1336,6 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::NoOutputs { canvas } => {
                 if let Some((row_idx, row)) = canvas.workspaces().find(|(_, w)| {
                     w.name()
-                        .as_ref()
                         .is_some_and(|name| name.eq_ignore_ascii_case(workspace_name))
                 }) {
                     return Some((row_idx, row));

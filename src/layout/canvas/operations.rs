@@ -39,9 +39,10 @@ impl<W: LayoutElement> Canvas2D<W> {
         })
     }
 
-    /// Removes empty rows (except row 0 which is always kept).
+    /// Removes empty rows (except row 0 and named rows which are always kept).
+    /// TEAM_042: Keep named rows to preserve workspace compatibility during transition
     pub fn cleanup_empty_rows(&mut self) {
-        self.rows.retain(|&idx, row| idx == 0 || !row.is_empty());
+        self.rows.retain(|&idx, row| idx == 0 || row.name().is_some() || !row.is_empty());
     }
 
     // =========================================================================

@@ -3064,6 +3064,22 @@ impl Niri {
 
         self.layout.add_output(output.clone(), layout_config);
 
+        // TEAM_042: Ensure named workspaces from config are created on the correct output.
+        // This is needed because Layout::new doesn't create named workspaces, and they need
+        // to be created after outputs are added so they can be placed on the correct output.
+        // Only create workspaces that target this specific output or have no target output.
+        let config = self.config.borrow();
+        for ws_config in &config.workspaces {
+            let targets_this_output = ws_config
+                .open_on_output
+                .as_deref()
+                .is_none_or(|target_name| output_matches_name(&output, target_name));
+            if targets_this_output {
+                self.layout.ensure_named_workspace(ws_config);
+            }
+        }
+        drop(config);
+
         let lock_render_state = if self.is_locked() {
             // We haven't rendered anything yet so it's as good as locked.
             LockRenderState::Locked

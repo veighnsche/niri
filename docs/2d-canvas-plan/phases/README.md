@@ -1,18 +1,15 @@
 # Canvas2D Refactor Phases
 
-> **Status**: 🔄 **IN PROGRESS - Phase 6**
+> **Status**: 🔄 **IN PROGRESS - Phase 1**
 > **Goal**: Replace workspace-based layout with 2D canvas + rows
 
-## Current Architecture (Legacy)
-- **Workspaces**: 1D list of workspaces, each with scrolling columns
-- **Overview Mode**: Special mode to view all workspaces
-- **Navigation**: Workspace switching (up/down) + column navigation (left/right)
-
 ## Target Architecture (Canvas2D)
-- **Canvas**: 2D grid of rows × columns
-- **Rows**: Replace workspaces, can be named
-- **Camera**: 2D viewport that can pan/zoom instead of overview mode
-- **Navigation**: Direct 2D navigation (up/down/left/right)
+
+- **Canvas**: 2D infinite surface per output
+- **Rows**: Horizontal strips indexed by integers (..., -2, -1, 0, 1, 2, ...)
+- **Row 0**: Origin point, always exists
+- **Camera**: 2D viewport with (x, y, zoom) for navigation
+- **Bookmarks**: Saved camera positions (replaces workspace switching)
 
 ---
 
@@ -20,63 +17,59 @@
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| [Phase 0](phase-0-preparation.md) | ✅ COMPLETE | Golden test infrastructure |
-| [Phase 1](phase-1-row-and-canvas.md) | ✅ COMPLETE | Row and Canvas foundation |
-| **Phase 1.5** | ✅ **COMPLETE** | **Workspace → Row migration** |
-| **Phase 6** | 🔄 **IN PROGRESS** | **Final workspace cleanup** |
-| [Phase 2](phase-2-row-spanning.md) | ⏳ PENDING | Row spanning support |
-| [Phase 3](phase-3-camera.md) | ⏳ PENDING | 2D camera system |
-| [Phase 4](phase-4-navigation.md) | ⏳ PENDING | 2D navigation |
-| [Phase 5](phase-5-integration.md) | ⏳ PENDING | Final integration |
+| [**Phase 1**](phase-1-config-migration.md) | 🔄 **CURRENT** | Config migration (workspace → row) |
+| [Phase 2](phase-2-row-system.md) | ⏳ PENDING | Row lifecycle and naming |
+| [Phase 3](phase-3-row-spanning.md) | ⏳ PENDING | Windows spanning multiple rows |
+| [Phase 4](phase-4-camera-system.md) | ⏳ PENDING | Camera with zoom |
+| [Phase 5](phase-5-camera-bookmarks.md) | ⏳ PENDING | Camera bookmarks (Mod+1/2/3) |
+| [Phase 6](phase-6-navigation-polish.md) | ⏳ PENDING | Geometric navigation & polish |
 
 ---
 
-## 🎉 **PHASE 1.5 COMPLETED!** 
+## Key Decisions (from TEAM_042 Questionnaire)
 
-### **✅ MASSIVE ACHIEVEMENTS (TEAM_021):**
-- **🗑️ DELETED workspace.rs (1,997 lines)** - Legacy workspace system eliminated
-- **🗑️ DELETED workspace_compat.rs (302 lines)** - Compatibility layer removed  
-- **🗑️ DELETED workspace_ops.rs** - Workspace operations removed
-- **🔧 Canvas2D now sole layout system** - All critical functionality migrated
-- **✅ Golden tests passing** (84/84) - Layout behavior preserved
-- **📊 2,300+ lines of legacy code removed**
+### Row Naming
+- Any row can be named, including row 0
+- Names unique per output, case-insensitive
 
-### **What Was Accomplished:**
-1. **Aggressive workspace file deletion** - Complete removal of legacy files
-2. **Canvas-first implementation** - Canvas2D handles all layout operations
-3. **Minimal compatibility stubs** - workspace_types.rs for external systems
-4. **Stable migration** - All tests pass throughout transition
+### Row Lifecycle
+- Created when window added OR explicitly requested
+- Empty unnamed rows deleted, named rows persist
+- Row 0 always exists (origin)
 
----
+### Active Row
+- Follows focus, can be explicitly set
+- Default is row 0 when output added
+- Windows open on active row unless `open-on-row` specified
 
-## 🔄 **PHASE 6: Final Workspace Cleanup**
+### Config Syntax
+- `workspace` → `row` (remove immediately, no deprecation)
+- `open-on-workspace` → `open-on-row`
 
-### **Current Status:** 🔄 **80+ workspace method calls remaining**
-
-### **Remaining Work:**
-1. **Core Layout**: Replace `active_workspace()` calls in `layout/mod.rs`
-2. **Monitor Methods**: Update workspace navigation to canvas rows  
-3. **External Systems**: Migrate protocols/IPC to canvas concepts
-4. **Tests & UI**: Clean up workspace references
-5. **Documentation**: Update all workspace terminology
-
-### **Progress Metrics:**
-- **Legacy code removed**: 2,300+ lines ✅
-- **Canvas2D functionality**: 100% working ✅  
-- **Compilation errors**: 50% reduced ✅
-- **Workspace references**: ~200 remaining ⏳
+### Camera Bookmarks
+- Saved (x, y, zoom) positions
+- Can optionally reference named rows
+- `Mod+1/2/3` jump to bookmarks
 
 ---
 
-## Active Phase Files
+## Archived Phases
 
-- [**phase-6-workspace-cleanup.md**](phase-6-workspace-cleanup.md) - **CURRENT**: Final workspace reference cleanup
-- [**phase-1.5.3-removal-checklist.md**](phase-1.5.3-removal-checklist.md) - Verification checklist
+See `archive/` folder for completed phase documentation:
+- Phase 0: Golden test infrastructure ✅
+- Phase 1 (old): Row and Canvas foundation ✅
+- Phase 1.5: Workspace → Canvas2D migration ✅
+- Phase 6 (old): Workspace cleanup ✅
 
 ---
 
-## Archived Phase Files
+## Quick Reference
 
-See `archive/` folder for old phase documentation. The workspace → row migration is **COMPLETE**, with only cleanup remaining.
-
-**Key Achievement**: Successfully transitioned from legacy 1D workspace layout to modern 2D canvas layout!
+| Old Concept | New Concept |
+|-------------|-------------|
+| Workspace | Row |
+| `workspace "name" {}` | `row "name" {}` |
+| `open-on-workspace` | `open-on-row` |
+| `Mod+1/2/3` (workspace) | `Mod+1/2/3` (bookmark) |
+| Overview mode | Camera zoom out |
+| Workspace switching | Row navigation + bookmarks |
