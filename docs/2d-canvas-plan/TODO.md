@@ -3,16 +3,16 @@
 > **Check this file first** to see where past teams planned to add features.
 > This maintains architectural consistency across teams.
 
-**Last updated**: TEAM_030 (Compilation Batch Fix - Categories 1,2,3,9,11 COMPLETED)
+**Last updated**: TEAM_032 (Major Compilation Progress - 103→75 errors, momentum maintained)
 
 ---
 
 # 🚨 COMPILATION ERRORS — BATCH FIX GUIDE
 
-> **Total Errors: 115** — Categorized for efficient batch fixing
+> **Total Errors: 75** — Significant progress made!
 > Each category can often be fixed in a single pass through the codebase
 > 
-> **Progress**: 27 errors fixed by TEAM_030 (Categories 1,2,3,9,11 completed)
+> **Progress**: 40 errors fixed by TEAM_030 (Categories 1,2,3,9,11 completed) + 28 errors fixed by TEAM_032
 
 ---
 
@@ -449,6 +449,122 @@ Canvas2D depends on Row completion. Additional work needed:
 
 ---
 
+# 🏗️ REFACTORING: src/layout/mod.rs File Size Reduction
+
+> **Current Status**: 4,907 lines - Critically large, needs modularization
+> **Target**: Break into focused modules under 500-1,000 lines each
+> **Priority**: HIGH - Impacts maintainability and development velocity
+
+## Problem Analysis
+
+The `src/layout/mod.rs` file has grown to 4,907 lines, making it:
+- **Hard to navigate**: Difficult to find specific functionality
+- **Hard to maintain**: Changes risk breaking unrelated code
+- **Hard to test**: Monolithic structure prevents focused testing
+- **Hard to understand**: New contributors face steep learning curve
+
+## Proposed Module Structure
+
+### Core Layout Engine (`src/layout/core/`)
+- **`mod.rs`** (200-300 lines): Main Layout struct, public API
+- **`monitor_set.rs`** (300-400 lines): MonitorSet enum and operations
+- **`window_management.rs`** (400-500 lines): Window operations, focus, activation
+- **`workspace_operations.rs`** (400-500 lines): Workspace/row operations, movement
+
+### Monitor Management (`src/layout/monitor/`)
+- **`mod.rs`** (200-300 lines): Monitor struct, basic operations
+- **`config.rs`** (200-300 lines): Monitor configuration and updates
+- **`render.rs`** (300-400 lines): Monitor rendering and geometry
+- **`hit_test.rs`** (200-300 lines): Hit testing and interaction
+
+### Canvas System (`src/layout/canvas/`)
+- **`mod.rs`** (200-300 lines): Canvas2D struct, public API
+- **`operations.rs`** (400-500 lines): Canvas operations, row management
+- **`geometry.rs`** (200-300 lines): Canvas geometry and positioning
+- **`rendering.rs`** (300-400 lines): Canvas rendering integration
+
+### Row System (`src/layout/row/`) - Already exists, needs expansion
+- **`mod.rs`** (current 1,126 lines → split further)
+- **`columns.rs`** (300-400 lines): Column operations and management
+- **`tiles.rs`** (300-400 lines): Tile operations and window management
+- **`view_offset.rs`** (200-300 lines): View offset and scrolling
+- **`gestures.rs`** (200-300 lines): Gesture handling and interactions
+
+### Input and Interaction (`src/layout/input/`)
+- **`mod.rs`** (200-300 lines): Input handling coordination
+- **`keyboard.rs`** (300-400 lines): Keyboard shortcuts and bindings
+- **`pointer.rs`** (300-400 lines): Pointer interactions and gestures
+- **`focus.rs`** (200-300 lines): Focus management and window activation
+
+## Migration Strategy
+
+### Phase 1: Preparation (TEAM_XXX)
+1. **Analyze dependencies**: Map all imports and exports
+2. **Create module structure**: Set up empty module files
+3. **Update imports**: Prepare for gradual migration
+4. **Test baseline**: Ensure current functionality works
+
+### Phase 2: Core Extraction (TEAM_XXX)
+1. **Extract MonitorSet**: Move to `src/layout/core/monitor_set.rs`
+2. **Extract window operations**: Move to `src/layout/core/window_management.rs`
+3. **Extract workspace operations**: Move to `src/layout/core/workspace_operations.rs`
+4. **Update main mod.rs**: Keep only core Layout struct
+
+### Phase 3: Monitor System (TEAM_XXX)
+1. **Split monitor module**: Move specialized functions to dedicated files
+2. **Extract rendering**: Move to `src/layout/monitor/render.rs`
+3. **Extract hit testing**: Move to `src/layout/monitor/hit_test.rs`
+4. **Update imports**: Fix all monitor-related imports
+
+### Phase 4: Canvas System (TEAM_XXX)
+1. **Split canvas module**: Move operations to dedicated files
+2. **Extract geometry**: Move to `src/layout/canvas/geometry.rs`
+3. **Extract rendering**: Move to `src/layout/canvas/rendering.rs`
+4. **Update imports**: Fix all canvas-related imports
+
+### Phase 5: Row System Refinement (TEAM_XXX)
+1. **Split row module**: Break down the 1,126-line file
+2. **Extract columns**: Move to `src/layout/row/columns.rs`
+3. **Extract tiles**: Move to `src/layout/row/tiles.rs`
+4. **Keep core**: Leave essential functions in `mod.rs`
+
+### Phase 6: Input System (TEAM_XXX)
+1. **Extract input handling**: Create dedicated input modules
+2. **Organize by type**: Split keyboard, pointer, focus
+3. **Update layout integration**: Fix all input-related imports
+4. **Test interactions**: Ensure all input works correctly
+
+## Benefits
+
+1. **Improved maintainability**: Each module has single responsibility
+2. **Better testing**: Can test individual components
+3. **Easier onboarding**: New contributors can focus on specific areas
+4. **Reduced merge conflicts**: Changes are more localized
+5. **Better documentation**: Each module can have focused documentation
+
+## Risks and Mitigations
+
+### Risk: Circular dependencies
+**Mitigation**: Careful dependency analysis, use of internal modules
+### Risk: Breaking changes during migration
+**Mitigation**: Incremental migration, maintain compatibility layers
+### Risk: Performance impact
+**Mitigation**: Benchmark before/after, optimize hot paths
+### Risk: Increased complexity
+**Mitigation**: Clear module boundaries, comprehensive documentation
+
+## Success Criteria
+
+- [ ] All modules under 1,000 lines (ideally under 500)
+- [ ] Clear separation of concerns
+- [ ] No circular dependencies
+- [ ] All tests pass
+- [ ] No performance regression
+- [ ] Documentation updated
+- [ ] Import structure clean and logical
+
+---
+
 ## How to Use This File
 
 1. **Before starting work**: Check if your feature is already planned here
@@ -460,3 +576,4 @@ Canvas2D depends on Row completion. Additional work needed:
 
 *Created by TEAM_006*
 *Comprehensively updated by TEAM_028 - All missing TODOs from previous teams now documented including wrong syntax TODOs (TEAM_023, TEAM_024, TEAM_022, TEAM_025, and generic TODOs)*
+*Refactoring section added by TEAM_032 - Addressing critical file size issues in layout/mod.rs*

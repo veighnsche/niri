@@ -756,8 +756,6 @@ impl<W: LayoutElement> Layout<W> {
 
                 let monitor = Monitor::new(
                     output,
-                    workspaces,
-                    ws_id_to_activate,
                     self.clock.clone(),
                     self.options.clone(),
                     layout_config,
@@ -787,8 +785,6 @@ impl<W: LayoutElement> Layout<W> {
 
                 let monitor = Monitor::new(
                     output,
-                    workspaces,
-                    ws_id_to_activate,
                     self.clock.clone(),
                     self.options.clone(),
                     layout_config,
@@ -807,8 +803,6 @@ impl<W: LayoutElement> Layout<W> {
 
                 let monitor = Monitor::new(
                     output,
-                    canvas,
-                    ws_id_to_activate,
                     self.clock.clone(),
                     self.options.clone(),
                     layout_config,
@@ -849,7 +843,7 @@ impl<W: LayoutElement> Layout<W> {
 
                     for ws in monitor.canvas.workspaces_mut() {
                         // Reset base options to layout ones.
-                        ws.update_config(self.options.clone());
+                        ws.update_config(monitor.view_size(), monitor.working_area(), monitor.scale().fractional_scale(), self.options.clone());
                     }
 
                     MonitorSet::NoOutputs { canvas: monitor.into_canvas() }
@@ -986,17 +980,16 @@ impl<W: LayoutElement> Layout<W> {
                 };
                 let mon = &mut monitors[mon_idx];
 
-                let (ws_idx, _) = mon.resolve_add_window_target(target);
-                let ws = &mon.canvas.workspaces().nth(ws_idx).unwrap().1;
-                let scrolling_width = ws.resolve_scrolling_width(&window, width);
+                let (ws_idx, _) = mon.resolve_add_window_target(&target);
+                let ws = &mon.canvas.workspaces().nth(ws_idx as usize).unwrap().1;
+                let scrolling_width = ws.resolve_scrolling_width(window.id(), width);
 
                 mon.add_window(
                     window,
-                    target,
+                    Some(target),
                     activate,
                     scrolling_width,
                     is_full_width,
-                    is_floating,
                 );
 
                 if activate.map_smart(|| false) {
@@ -1050,28 +1043,27 @@ impl<W: LayoutElement> Layout<W> {
                             (0, WorkspaceAddWindowTarget::Auto)
                         } else {
                             // Find the row that contains the next_to window
-                            let ws_idx = if let Some((row_idx, _, _)) = canvas.find_window(next_to) {
-                                row_idx
+                            if let Some((ws_idx, _, tile)) = canvas.find_window(&next_to) {
+                                (ws_idx, WorkspaceAddWindowTarget::NextTo(tile.window()))
                             } else {
-                                0 // Default to origin row if not found
-                            };
-                            (ws_idx, WorkspaceAddWindowTarget::NextTo(next_to))
+                                // Default to origin row if not found
+                                (0, WorkspaceAddWindowTarget::Auto)
+                            }
                         }
                     }
                 };
                 // Get the row from the canvas
                 let ws = canvas.ensure_row(ws_idx);
 
-                let scrolling_width = ws.resolve_scrolling_width(&window, width);
+                let scrolling_width = ws.resolve_scrolling_width(window.id(), width);
 
-                let tile = ws.make_tile(window);
+                let tile = ws.make_tile(window, activate.map_smart(|| false));
                 ws.add_tile(
+                    None,
                     tile,
-                    target,
                     activate,
                     scrolling_width,
                     is_full_width,
-                    is_floating,
                 );
 
                 // Set the default height for scrolling windows.
@@ -1126,21 +1118,22 @@ impl<W: LayoutElement> Layout<W> {
         match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
-                    for (idx, ws) in mon.canvas.workspaces_mut() {
+                    let mut ws_idx = 0;
+                    for ws in mon.canvas.workspaces_mut() {
                         if ws.has_window(window) {
-                            let removed = ws.1.remove_tile(window, transaction);
+                            let removed = ws.remove_tile(window, transaction);
 
                             // Clean up empty workspaces that are not active and not last.
                             if !ws.has_windows_or_name()
-                                && idx != mon.active_workspace_idx()
-                                && idx != mon.canvas.workspaces().count() - 1
+                                && ws_idx != mon.active_workspace_idx()
+                                && ws_idx != mon.canvas.workspaces().count() - 1
                                 && mon.workspace_switch.is_none()
                             {
-                                mon.canvas.remove_row(idx);
+                                mon.canvas.remove_row(ws_idx as i32);
+                            }
 
-                                if idx < mon.active_workspace_idx() {
-                                    mon.canvas.active_row_idx -= 1;
-                                }
+                            if ws_idx < mon.active_workspace_idx() {
+                                mon.canvas.active_row_idx -= 1;
                             }
 
                             // Special case handling when empty_workspace_above_first is set and all
@@ -1156,21 +1149,24 @@ impl<W: LayoutElement> Layout<W> {
                             }
                             return Some(removed);
                         }
+                        ws_idx += 1;
                     }
                 }
             }
             MonitorSet::NoOutputs { canvas, .. } => {
-                for (idx, ws) in canvas.workspaces_mut() {
+                let mut ws_idx = 0;
+                for ws in canvas.workspaces_mut() {
                     if ws.has_window(window) {
-                        let removed = ws.1.remove_tile(window, transaction);
+                        let removed = ws.remove_tile(window, transaction);
 
                         // Clean up empty workspaces.
                         if !ws.has_windows_or_name() {
-                            canvas.remove_row(idx);
+                            canvas.remove_row(ws_idx as i32);
                         }
 
                         return Some(removed);
                     }
+                    ws_idx += 1;
                 }
             }
         }
@@ -1216,16 +1212,16 @@ impl<W: LayoutElement> Layout<W> {
                 for mon in monitors {
                     for ws in mon.canvas.workspaces_mut() {
                         if ws.has_window(window) {
-                            ws.update_window(window, serial);
+                            ws.update_window(window);
                             return;
                         }
                     }
                 }
             }
             MonitorSet::NoOutputs { canvas, .. } => {
-                for (_, ws) in canvas.workspaces_mut() {
+                for ws in canvas.workspaces_mut() {
                     if ws.has_window(window) {
-                        ws.update_window(window, serial);
+                        ws.update_window(window);
                         return;
                     }
                 }
@@ -1294,7 +1290,7 @@ impl<W: LayoutElement> Layout<W> {
         if let WorkspaceReference::Index(index) = reference {
             self.active_monitor_mut().and_then(|m| {
                 let row_idx = index.saturating_sub(1) as i32;
-                m.canvas.rows_mut().find(|(idx, row)| *idx == row_idx)
+                m.canvas.rows_mut().find(|(idx, row)| *idx == row_idx).map(|(_, row)| row)
             })
         } else {
             // Find the workspace by name or id across all monitors
@@ -1468,7 +1464,7 @@ impl<W: LayoutElement> Layout<W> {
         for mon in self.monitors() {
             for (_, ws) in mon.canvas.workspaces() {
                 if ws.has_window(window) {
-                    return ws.1.scroll_amount_to_activate(window);
+                    return ws.scroll_amount_to_activate(window);
                 }
             }
         }
@@ -1497,8 +1493,7 @@ impl<W: LayoutElement> Layout<W> {
             .iter()
             .find_map(|mon| {
                 mon.canvas.workspaces()
-                    .iter()
-                    .position(|ws| ws.has_window(window))
+                    .position(|(_, ws)| ws.has_window(window))
                     .map(|ws_idx| (mon, ws_idx))
             })
             .unwrap();
@@ -1508,7 +1503,7 @@ impl<W: LayoutElement> Layout<W> {
             return true;
         }
 
-        ws_idx == mon.active_workspace_idx
+        ws_idx == mon.active_workspace_idx()
     }
 
     pub fn activate_window(&mut self, window: &W::Id) {
@@ -1790,8 +1785,7 @@ impl<W: LayoutElement> Layout<W> {
     pub fn monitor_for_workspace(&self, workspace_name: &str) -> Option<&Monitor<W>> {
         self.monitors().find(|monitor| {
             monitor.canvas.workspaces().any(|(idx, ws)| {
-                ws.name
-                    .as_ref()
+                ws.name()
                     .is_some_and(|name| name.eq_ignore_ascii_case(workspace_name))
             })
         })
@@ -2684,8 +2678,8 @@ impl<W: LayoutElement> Layout<W> {
 
                             let ws_idx = match hold.target {
                                 DndHoldTarget::Window(id) => mon
-                                    .workspaces
-                                    .iter_mut()
+                                    .canvas
+                                    .workspaces_mut()
                                     .position(|ws| ws.activate_window(&id))
                                     .unwrap(),
                                 DndHoldTarget::Workspace(id) => {
@@ -2914,7 +2908,7 @@ impl<W: LayoutElement> Layout<W> {
                 // TEAM_024: Create a named row in the canvas instead of a workspace
                 // Find the next available row index (start from 1, above origin)
                 let mut row_idx = 1i32;
-                while mon.canvas.workspaces().any(|(idx, _)| idx == &row_idx) {
+                while mon.canvas.workspaces().any(|(idx, _)| idx == row_idx) {
                     row_idx += 1;
                 }
                 
@@ -2925,7 +2919,7 @@ impl<W: LayoutElement> Layout<W> {
                 // TEAM_024: Create a named row in the canvas instead of a workspace
                 // Find the next available row index (start from 1, above origin)
                 let mut row_idx = 1i32;
-                while canvas.workspaces().any(|(idx, _)| idx == &row_idx) {
+                while canvas.workspaces().any(|(idx, _)| idx == row_idx) {
                     row_idx += 1;
                 }
                 
@@ -3313,8 +3307,7 @@ impl<W: LayoutElement> Layout<W> {
                     .enumerate()
                     .find_map(|(mon_idx, mon)| {
                         mon.canvas.workspaces()
-                            .iter()
-                            .position(|ws| ws.has_window(window))
+                            .position(|(_, ws)| ws.has_window(window))
                             .map(|ws_idx| (mon_idx, ws_idx))
                     })
                     .unwrap()
@@ -3349,7 +3342,7 @@ impl<W: LayoutElement> Layout<W> {
                 ActivateWindow::No
             };
 
-            let ws = &mut mon.canvas.workspaces().nth(ws_idx).unwrap();
+            let ws = &mut mon.canvas.workspaces().nth(ws_idx).unwrap().1;
             let transaction = Transaction::new();
             let mut removed = if let Some(window) = window {
                 ws.remove_tile(window, transaction)
@@ -3403,21 +3396,23 @@ impl<W: LayoutElement> Layout<W> {
                 .unwrap();
 
             let current = &mut monitors[*active_monitor_idx];
-            let ws = current.active_workspace();
+            let ws = current.active_workspace_mut();
 
-            if ws.floating_is_active() {
-                self.move_to_output(None, output, None, ActivateWindow::Smart);
-                return;
+            if let Some(ws) = ws {
+                if ws.floating_is_active() {
+                    self.move_to_output(None, output, None, ActivateWindow::Smart);
+                    return;
+                }
+
+                let Some(column) = ws.remove_active_column() else {
+                    return;
+                };
+
+                let workspace_idx = target_ws_idx
+                    .unwrap_or(monitors[new_idx].active_workspace_idx())
+                    .min(monitors[new_idx].canvas.workspaces().count() - 1);
+                self.add_column_by_idx(new_idx, workspace_idx, column, activate);
             }
-
-            let Some(column) = ws.remove_active_column() else {
-                return;
-            };
-
-            let workspace_idx = target_ws_idx
-                .unwrap_or(monitors[new_idx].active_workspace_idx())
-                .min(monitors[new_idx].canvas.workspaces().count() - 1);
-            self.add_column_by_idx(new_idx, workspace_idx, column, activate);
         }
     }
 
@@ -3431,7 +3426,7 @@ impl<W: LayoutElement> Layout<W> {
             return false;
         };
 
-        let idx = monitors[*active_monitor_idx].active_workspace_idx;
+        let idx = monitors[*active_monitor_idx].active_workspace_idx();
         self.move_workspace_to_output_by_id(idx, None, output)
     }
 
@@ -3473,7 +3468,8 @@ impl<W: LayoutElement> Layout<W> {
         // Do not do anything if the output is already correct
         if current_idx == target_idx {
             // Just update the original output since this is an explicit movement action.
-            current.canvas.workspaces().nth(old_idx).unwrap().original_output = OutputId::new(&current.output);
+            // TODO: TEAM_032: original_output field doesn't exist in Row - adapt or remove this functionality
+            // current.canvas.workspaces().nth(old_idx).unwrap().original_output = OutputId::new(&current.output);
 
             return false;
         }
@@ -3484,7 +3480,8 @@ impl<W: LayoutElement> Layout<W> {
             current_idx == *active_monitor_idx && old_idx == current.active_workspace_idx();
 
         let mut ws = current.remove_workspace_by_idx(old_idx);
-        ws.original_output = OutputId::new(new_output);
+        // TODO: TEAM_032: original_output field doesn't exist in Row - adapt or remove this functionality
+        // ws.original_output = OutputId::new(new_output);
 
         let target = &mut monitors[target_idx];
         target.insert_workspace(ws, target.active_workspace_idx() + 1, activate);
@@ -3876,7 +3873,7 @@ impl<W: LayoutElement> Layout<W> {
                     .workspaces_mut()
                     .find(|ws| ws.has_window(&window_id))
                     .map(|ws| {
-                        let workspace_config = ws.layout_config().cloned().map(|c| (ws.id(), c));
+                        let workspace_config = ws.layout_config().map(|c| (ws.id(), c.clone()));
                         (
                             ws.is_floating(&window_id),
                             ws.tiles_mut()
@@ -4659,8 +4656,8 @@ impl<W: LayoutElement> Layout<W> {
                 };
                 let ws_id = ws.id();
                 let ws = mon
-                    .workspaces
-                    .iter_mut()
+                    .canvas
+                    .workspaces_mut()
                     .find(|ws| ws.id() == ws_id)
                     .unwrap();
 

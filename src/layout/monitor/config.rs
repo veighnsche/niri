@@ -31,7 +31,7 @@ impl<W: LayoutElement> Monitor<W> {
         }
 
         for ws in self.canvas.workspaces_mut() {
-            ws.update_config(options.clone());
+            ws.update_config(self.view_size, self.working_area, self.scale.fractional_scale(), options.clone());
         }
 
         self.insert_hint_element

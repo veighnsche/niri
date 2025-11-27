@@ -793,7 +793,7 @@ impl<W: LayoutElement> Row<W> {
         if let Some(column) = self.active_column_mut() {
             let active_tile_idx = column.active_tile_idx;
             if let Some(tile) = column.tiles_iter_mut().nth(active_tile_idx) {
-                tile.window().set_activated(true);
+                tile.window_mut().set_activated(true);
                 true
             } else {
                 false
@@ -947,8 +947,28 @@ impl<W: LayoutElement> Row<W> {
 
     /// Handle descendants added.
     /// TEAM_025: Stub implementation
-    pub fn descendants_added(&mut self) {
+    pub fn descendants_added(&mut self, _id: &W::Id) -> bool {
         // TEAM_025: TODO - implement descendants handling
+        false
+    }
+
+    /// Compute scroll amount needed to activate a window.
+    /// Adapted from ScrollingSpace::scroll_amount_to_activate
+    pub fn scroll_amount_to_activate(&self, window: &W::Id) -> f64 {
+        let column_idx = self
+            .columns
+            .iter()
+            .position(|col| col.contains(window))
+            .unwrap();
+
+        if self.active_column_idx == column_idx {
+            return 0.;
+        }
+
+        // Compute the scroll amount needed to bring the column to view
+        let target_x = self.column_x(column_idx);
+        let current_x = self.view_offset_x();
+        target_x - current_x
     }
 
     /// Find a Wayland surface.
@@ -967,7 +987,7 @@ impl<W: LayoutElement> Row<W> {
 
     /// Get popup target rectangle.
     /// TEAM_025: Stub implementation
-    pub fn popup_target_rect(&self) -> Option<Rectangle<i32, Logical>> {
+    pub fn popup_target_rect(&self, _window: &W::Id) -> Option<Rectangle<i32, Logical>> {
         // TEAM_025: TODO - implement popup target rect
         None
     }

@@ -69,10 +69,12 @@ pub enum WorkspaceAddWindowTarget<'a, W: super::LayoutElement> {
     NextTo(&'a W),
 }
 
+use crate::utils::output_size;
+
 /// Compute working area for an output
 /// This function is still needed by monitor configuration
 pub fn compute_working_area(output: &Output) -> Rectangle<f64, Logical> {
     // TEAM_022: Use the layer shell handler directly
     // TODO: This should eventually be moved to a more appropriate location
-    Rectangle::from_loc_and_size((0.0, 0.0), output.size().to_f64())
+    Rectangle::from_loc_and_size((0.0, 0.0), output_size(output))
 }

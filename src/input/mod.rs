@@ -2593,7 +2593,7 @@ impl State {
                     };
                     self.niri
                         .layout
-                        .view_offset_gesture_begin(&output, Some(ws_idx), false);
+                        .view_offset_gesture_begin(&output, Some(ws_idx as usize), false);
                     let grab = SpatialMovementGrab::new(start_data, output, ws_id, true);
                     pointer.set_grab(self, grab, serial, Focus::Clear);
                     self.niri
@@ -3071,7 +3071,7 @@ impl State {
 
                                 self.niri.layout.view_offset_gesture_begin(
                                     &output,
-                                    Some(ws_idx),
+                                    Some(ws_idx as usize),
                                     true,
                                 );
                                 redraw = true;
@@ -3558,7 +3558,7 @@ impl State {
                             let ws_idx = self.niri.layout.find_workspace_by_id(ws.id()).unwrap().0;
                             self.niri
                                 .layout
-                                .view_offset_gesture_begin(&output, Some(ws_idx), true);
+                                .view_offset_gesture_begin(&output, Some(ws_idx as usize), true);
                         }
                     } else {
                         self.niri
