@@ -13,7 +13,7 @@
 |--------|-------|
 | **Build** | ✅ Compiles |
 | **Tests** | 213 passed, 55 failed (79.5%) |
-| **Golden Tests** | ✅ 84/84 pass |
+| **Golden Tests** | ✅ 87/88 pass (1 failing) |
 | **TODOs in codebase** | 84 total |
 
 ---
@@ -35,6 +35,19 @@
 
 6. ✅ **Fixed Layout::update_window missing floating check** - Floating windows now get on_commit called
 7. ✅ **Fixed Row::update_window missing serial parameter** - on_commit now called for tiled windows
+8. ✅ **Fixed floating window toggle position** - Now sets floating position based on render position like original Workspace
+9. ✅ **Fixed floating focus state management** - Added focus_tiling(), focus_floating(), switch_focus_floating_tiling() to Canvas2D
+
+## Known Issues (TEAM_044)
+
+### 🚨 Floating Animation Regression
+- **Test**: `golden_u4_toggle_floating_back_to_tiled` fails
+- **Issue**: Missing animations when toggling window from floating back to tiled
+- **Root Cause**: Animation system not fully ported for Canvas2D floating operations
+- **Expected**: Original Workspace animates tile movement when returning from floating to tiled
+- **Current**: Canvas2D returns tile without animation
+- **Impact**: Minor - 1/88 golden tests fail, functional behavior is correct
+- **Priority**: Medium - Should be fixed before final merge
 
 ## Remaining Test Categories
 
@@ -180,6 +193,7 @@ render_offset: move_y exists=true, value=0, offset.y=0  ← Should be interpolat
 
 | File | Line | TODO | Description |
 |------|------|------|-------------|
+| floating.rs | - | TEAM_044 | Fix floating-to-tiled animation in toggle_floating_window_by_id |
 | operations.rs | 108 | TEAM_019 | Implement proper active window handling |
 | operations.rs | 123 | TEAM_019 | Implement proper active window handling |
 | operations.rs | 194 | TEAM_019 | Implement layout_config for Row |
@@ -320,6 +334,13 @@ render_offset: move_y exists=true, value=0, offset.y=0  ← Should be interpolat
 - Delta calculation working
 - Animation parameters fixed (0,1,0 → 1,0,0)
 - Rendering integration confirmed
+
+## Floating Window System (TEAM_044)
+- ✅ Floating toggle position calculation fixed (based on render position)
+- ✅ Floating focus state management implemented
+- ✅ Golden snapshot system expanded for floating windows
+- ❌ **Missing**: Floating-to-tiled animation in toggle_floating_window_by_id
+- ❌ **Missing**: Animation capture for golden tests when returning from floating
 
 </details>
 

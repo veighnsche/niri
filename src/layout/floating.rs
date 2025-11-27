@@ -1391,6 +1391,36 @@ impl<W: LayoutElement> FloatingSpace<W> {
             );
         }
     }
+
+    /// Create a snapshot of the floating layout for golden testing.
+    #[cfg(test)]
+    pub fn snapshot(&self) -> crate::layout::snapshot::FloatingSnapshot {
+        use crate::layout::snapshot::{FloatingSnapshot, FloatingWindowSnapshot};
+
+        let windows: Vec<FloatingWindowSnapshot> = self
+            .tiles
+            .iter()
+            .zip(self.data.iter())
+            .map(|(tile, data)| {
+                let size = tile.tile_size();
+                FloatingWindowSnapshot {
+                    x: data.logical_pos.x,
+                    y: data.logical_pos.y,
+                    width: size.w,
+                    height: size.h,
+                }
+            })
+            .collect();
+
+        let active_window_idx = self.active_window_id.as_ref().and_then(|active_id| {
+            self.tiles.iter().position(|tile| tile.window().id() == active_id)
+        });
+
+        FloatingSnapshot {
+            windows,
+            active_window_idx,
+        }
+    }
 }
 
 fn compute_toplevel_bounds(

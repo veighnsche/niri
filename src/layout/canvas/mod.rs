@@ -306,6 +306,18 @@ impl<W: LayoutElement> Canvas2D<W> {
         }
     }
 
+    /// Creates a full canvas snapshot including both tiled and floating state.
+    ///
+    /// This is used for golden tests that need to verify floating window behavior.
+    #[cfg(test)]
+    pub fn canvas_snapshot(&self) -> crate::layout::snapshot::CanvasSnapshot {
+        crate::layout::snapshot::CanvasSnapshot {
+            tiled: self.snapshot(),
+            floating: self.floating.snapshot(),
+            floating_is_active: self.floating_is_active,
+        }
+    }
+
     /// Remove a row by index.
     /// TEAM_025: Stub implementation for compatibility
     pub fn remove_row(&mut self, row_idx: i32) {

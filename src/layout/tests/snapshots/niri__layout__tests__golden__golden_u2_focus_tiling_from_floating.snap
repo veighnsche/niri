@@ -1,25 +1,34 @@
 ---
 source: src/layout/tests/golden.rs
-expression: "snapshot([Op::AddOutput(1), win(1), win(2), Op::ToggleWindowFloating\n{ id: None }, Op::FocusTiling,])"
+expression: "canvas_snapshot([Op::AddOutput(1), win(1), win(2), Op::ToggleWindowFloating\n{ id: None }, Op::FocusTiling,])"
 ---
-columns:
-  - x: 0
-    width: 100
-    tiles:
-      - x: 0
-        y: 16
-        width: 100
-        height: 200
-    active_tile_idx: 0
-    is_full_width: false
-    is_fullscreen: false
-active_column_idx: 0
-view_offset: -16
-working_area:
-  x: 0
-  y: 0
-  w: 1280
-  h: 720
-view_size:
-  w: 1280
-  h: 720
+tiled:
+  columns:
+    - x: 0
+      width: 100
+      tiles:
+        - x: 0
+          y: 16
+          width: 100
+          height: 200
+      active_tile_idx: 0
+      is_full_width: false
+      is_fullscreen: false
+  active_column_idx: 0
+  view_offset: -16
+  working_area:
+    x: 0
+    y: 0
+    w: 1280
+    h: 720
+  view_size:
+    w: 1280
+    h: 720
+floating:
+  windows:
+    - x: 182
+      y: 66
+      width: 100
+      height: 200
+  active_window_idx: 0
+floating_is_active: false

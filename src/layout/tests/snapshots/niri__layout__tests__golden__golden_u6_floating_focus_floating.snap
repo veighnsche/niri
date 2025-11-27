@@ -1,6 +1,6 @@
 ---
 source: src/layout/tests/golden.rs
-expression: "canvas_snapshot([Op::AddOutput(1), win(1), win(2), Op::ToggleWindowFloating\n{ id: None },])"
+expression: "canvas_snapshot([Op::AddOutput(1), win(1), win(2), Op::ToggleWindowFloating\n{ id: None }, Op::FocusFloating,])"
 ---
 tiled:
   columns:

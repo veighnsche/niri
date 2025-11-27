@@ -49,10 +49,13 @@ impl<W: LayoutElement> Row<W> {
     // =========================================================================
 
     /// Returns tiles with their render positions, offset by the row's Y position.
+    ///
+    /// TEAM_044: Fixed to use -view_pos() like original ScrollingSpace
     pub fn tiles_with_render_positions(
         &self,
     ) -> impl Iterator<Item = (&Tile<W>, Point<f64, Logical>, bool)> + '_ {
-        let view_offset = self.view_offset_x.current();
+        // Use -view_pos() like the original ScrollingSpace
+        let view_off_x = -self.view_pos();
         let y_offset = self.y_offset;
         let active_col_idx = self.active_column_idx;
 
@@ -60,18 +63,36 @@ impl<W: LayoutElement> Row<W> {
             .iter()
             .enumerate()
             .flat_map(move |(col_idx, col)| {
-                let col_x = self.column_x(col_idx) + view_offset;
+                let col_x = self.column_x(col_idx);
                 let is_active_col = col_idx == active_col_idx;
 
                 // tiles() returns (tile, tile_offset) pairs
                 col.tiles().enumerate().map(move |(tile_idx, (tile, tile_offset))| {
                     let tile_pos = Point::from((
-                        col_x + tile_offset.x,
-                        y_offset + tile_offset.y + tile.render_offset().y,  // Include move animations
+                        view_off_x + col_x + tile_offset.x + tile.render_offset().x,
+                        y_offset + tile_offset.y + tile.render_offset().y,
                     ));
                     let is_active = is_active_col && tile_idx == col.active_tile_idx;
                     (tile, tile_pos, is_active)
                 })
             })
+    }
+    
+    /// Returns the render location of a specific tile by ID.
+    ///
+    /// TEAM_044: Added for toggle_floating_window_by_id
+    pub fn tile_render_location(&self, id: &W::Id) -> Option<Point<f64, Logical>> {
+        self.tiles_with_render_positions()
+            .find(|(tile, _, _)| tile.window().id() == id)
+            .map(|(_, pos, _)| pos)
+    }
+    
+    /// Returns the render location of the active tile.
+    ///
+    /// TEAM_044: Added for toggle_floating_window_by_id
+    pub fn active_tile_render_location(&self) -> Option<Point<f64, Logical>> {
+        self.tiles_with_render_positions()
+            .find(|(_, _, is_active)| *is_active)
+            .map(|(_, pos, _)| pos)
     }
 }

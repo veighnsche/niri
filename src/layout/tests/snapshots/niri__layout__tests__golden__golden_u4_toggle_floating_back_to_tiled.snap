@@ -1,0 +1,70 @@
+---
+source: src/layout/tests/golden.rs
+expression: "canvas_snapshot([Op::AddOutput(1), win(1), win(2), Op::ToggleWindowFloating\n{ id: None }, Op::ToggleWindowFloating { id: None },])"
+---
+tiled:
+  columns:
+    - x: 0
+      width: 100
+      tiles:
+        - x: 0
+          y: 16
+          width: 100
+          height: 200
+      active_tile_idx: 0
+      is_full_width: false
+      is_fullscreen: false
+    - x: 116
+      width: 100
+      tiles:
+        - x: 116
+          y: 16
+          width: 100
+          height: 200
+      active_tile_idx: 0
+      is_full_width: false
+      is_fullscreen: false
+  active_column_idx: 1
+  view_offset: -132
+  working_area:
+    x: 0
+    y: 0
+    w: 1280
+    h: 720
+  view_size:
+    w: 1280
+    h: 720
+  animations:
+    - target: tile_1_0_x_min
+      from: 116
+      to: 116
+      kind:
+        type: Spring
+        damping_ratio: 1
+        stiffness: 800
+      duration_ms: 325
+    - target: tile_1_0_x_max
+      from: 216
+      to: 216
+      kind:
+        type: Spring
+        damping_ratio: 1
+        stiffness: 800
+      duration_ms: 325
+    - target: tile_1_0_y_min
+      from: 16
+      to: 16
+      kind:
+        type: Spring
+        damping_ratio: 1
+        stiffness: 800
+      duration_ms: 325
+    - target: tile_1_0_y_max
+      from: 216
+      to: 216
+      kind:
+        type: Spring
+        damping_ratio: 1
+        stiffness: 800
+      duration_ms: 325
+floating_is_active: false

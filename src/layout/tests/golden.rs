@@ -36,11 +36,16 @@
 //! TEAM_011: Fixed provenance — snapshots now from main via golden-snapshots branch
 
 use super::{check_ops, Op, TestWindowParams};
-use crate::layout::snapshot::ScrollingSnapshot;
+use crate::layout::snapshot::{CanvasSnapshot, ScrollingSnapshot};
 
-/// Helper to run ops and get scrolling snapshot.
+/// Helper to run ops and get scrolling snapshot (tiled layout only).
 fn snapshot(ops: impl IntoIterator<Item = Op>) -> ScrollingSnapshot {
     check_ops(ops).active_workspace().unwrap().scrolling().snapshot()
+}
+
+/// Helper to run ops and get full canvas snapshot (includes tiled + floating).
+fn canvas_snapshot(ops: impl IntoIterator<Item = Op>) -> CanvasSnapshot {
+    check_ops(ops).canvas_snapshot().unwrap()
 }
 
 /// Helper to add a window with given id.
@@ -542,7 +547,8 @@ fn golden_t2_focus_window_bottom() {
 
 #[test]
 fn golden_u1_toggle_floating() {
-    insta::assert_yaml_snapshot!(snapshot([
+    // Use canvas_snapshot to capture both tiled + floating state
+    insta::assert_yaml_snapshot!(canvas_snapshot([
         Op::AddOutput(1), win(1), win(2),
         Op::ToggleWindowFloating { id: None },
     ]));
@@ -550,7 +556,7 @@ fn golden_u1_toggle_floating() {
 
 #[test]
 fn golden_u2_focus_tiling_from_floating() {
-    insta::assert_yaml_snapshot!(snapshot([
+    insta::assert_yaml_snapshot!(canvas_snapshot([
         Op::AddOutput(1), win(1), win(2),
         Op::ToggleWindowFloating { id: None },
         Op::FocusTiling,
@@ -559,11 +565,53 @@ fn golden_u2_focus_tiling_from_floating() {
 
 #[test]
 fn golden_u3_switch_focus_floating_tiling() {
-    insta::assert_yaml_snapshot!(snapshot([
+    insta::assert_yaml_snapshot!(canvas_snapshot([
         Op::AddOutput(1), win(1), win(2),
         Op::ToggleWindowFloating { id: None },
         Op::FocusTiling,
         Op::SwitchFocusFloatingTiling,
+    ]));
+}
+
+#[test]
+fn golden_u4_toggle_floating_back_to_tiled() {
+    // Toggle floating twice - window should return to tiled layout
+    insta::assert_yaml_snapshot!(canvas_snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::ToggleWindowFloating { id: None },
+        Op::ToggleWindowFloating { id: None },
+    ]));
+}
+
+#[test]
+fn golden_u5_multiple_floating_windows() {
+    // Multiple floating windows
+    insta::assert_yaml_snapshot!(canvas_snapshot([
+        Op::AddOutput(1), win(1), win(2), win(3),
+        Op::ToggleWindowFloating { id: None },  // W3 floats
+        Op::FocusTiling,
+        Op::ToggleWindowFloating { id: None },  // W2 floats
+    ]));
+}
+
+#[test]
+fn golden_u6_floating_focus_floating() {
+    // Focus floating when already in floating
+    insta::assert_yaml_snapshot!(canvas_snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::ToggleWindowFloating { id: None },
+        Op::FocusFloating,
+    ]));
+}
+
+#[test]
+fn golden_u7_floating_window_resize() {
+    // Resize a floating window
+    insta::assert_yaml_snapshot!(canvas_snapshot([
+        Op::AddOutput(1), win(1), win(2),
+        Op::ToggleWindowFloating { id: None },
+        Op::SetWindowWidth { id: None, change: niri_ipc::SizeChange::SetFixed(300) },
+        Op::SetWindowHeight { id: None, change: niri_ipc::SizeChange::SetFixed(200) },
     ]));
 }
 

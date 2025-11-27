@@ -2,6 +2,7 @@
 //!
 //! This module handles floating window operations in the canvas.
 
+use niri_config::CenterFocusedColumn;
 use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::utils::{Logical, Point, Size};
 
@@ -47,9 +48,15 @@ impl<W: LayoutElement> Canvas2D<W> {
             // Check if it's in a row
             for row in self.rows.values_mut() {
                 if row.contains(id) {
-                    let removed = row.remove_tile(id, Transaction::new());
-                    let tile = removed.tile;
-                    self.floating.add_tile(tile, true);
+                    // Get render position before removing
+                    let render_pos = row.tile_render_location(id);
+                    let mut removed = row.remove_tile(id, Transaction::new());
+                    removed.tile.stop_move_animations();
+                    
+                    // TEAM_044: Set floating position based on render position (like original Workspace)
+                    self.set_floating_position_from_render_pos(&mut removed.tile, render_pos);
+                    
+                    self.floating.add_tile(removed.tile, true);
                     self.floating_is_active = true;
                     return;
                 }
@@ -74,13 +81,46 @@ impl<W: LayoutElement> Canvas2D<W> {
         } else {
             // Move window from tiled to floating
             if let Some(row) = self.active_row_mut() {
-                if let Some(removed) = row.remove_active_tile(Transaction::new()) {
-                    let tile = removed.tile;
-                    self.floating.add_tile(tile, true);
+                // Get render position before removing
+                let render_pos = row.active_tile_render_location();
+                if let Some(mut removed) = row.remove_active_tile(Transaction::new()) {
+                    removed.tile.stop_move_animations();
+                    
+                    // TEAM_044: Set floating position based on render position (like original Workspace)
+                    self.set_floating_position_from_render_pos(&mut removed.tile, render_pos);
+                    
+                    self.floating.add_tile(removed.tile, true);
                     self.floating_is_active = true;
                 }
             }
         }
+    }
+    
+    /// Sets the floating position for a tile based on its render position.
+    ///
+    /// This matches the original Workspace::toggle_window_floating behavior.
+    fn set_floating_position_from_render_pos(&self, tile: &mut Tile<W>, render_pos: Option<Point<f64, Logical>>) {
+        // Only set position if there's no stored position
+        if self.floating.stored_or_default_tile_pos(tile).is_some() {
+            return;
+        }
+        
+        let Some(render_pos) = render_pos else {
+            return;
+        };
+        
+        // Calculate offset based on center_focused_column setting
+        let offset = if self.options.layout.center_focused_column == CenterFocusedColumn::Always {
+            Point::from((0., 0.))
+        } else {
+            Point::from((50., 50.))
+        };
+        
+        let pos = render_pos + offset;
+        let size = tile.tile_size();
+        let pos = self.floating.clamp_within_working_area(pos, size);
+        let pos = self.floating.logical_to_size_frac(pos);
+        tile.floating_pos = Some(pos);
     }
 
     /// Switches focus between floating and tiled layers.
@@ -92,6 +132,39 @@ impl<W: LayoutElement> Canvas2D<W> {
         } else if self.has_floating_windows() {
             self.floating_is_active = true;
         }
+    }
+
+    /// Focuses the tiled layer (if there are tiled windows).
+    ///
+    /// This is equivalent to the original Workspace::focus_tiling().
+    pub fn focus_tiling(&mut self) {
+        if self.floating_is_active && self.has_tiled_windows() {
+            self.floating_is_active = false;
+        }
+    }
+
+    /// Focuses the floating layer (if there are floating windows).
+    ///
+    /// This is equivalent to the original Workspace::focus_floating().
+    pub fn focus_floating(&mut self) {
+        if !self.floating_is_active && self.has_floating_windows() {
+            self.floating_is_active = true;
+        }
+    }
+
+    /// Switches focus between floating and tiled layers.
+    ///
+    /// This is equivalent to the original Workspace::switch_focus_floating_tiling().
+    pub fn switch_focus_floating_tiling(&mut self) {
+        if self.floating.is_empty() {
+            // If floating is empty, keep focus on tiled.
+            return;
+        } else if !self.has_tiled_windows() {
+            // If floating isn't empty but tiled is, keep focus on floating.
+            return;
+        }
+
+        self.floating_is_active = !self.floating_is_active;
     }
 
     // =========================================================================

@@ -1722,6 +1722,24 @@ impl<W: LayoutElement> Layout<W> {
         mon.canvas.active_workspace_mut()
     }
 
+    /// Returns a canvas snapshot including both tiled and floating state.
+    ///
+    /// Used for golden tests that need to verify floating window behavior.
+    #[cfg(test)]
+    pub fn canvas_snapshot(&self) -> Option<crate::layout::snapshot::CanvasSnapshot> {
+        let MonitorSet::Normal {
+            monitors,
+            active_monitor_idx,
+            ..
+        } = &self.monitor_set
+        else {
+            return None;
+        };
+
+        let mon = &monitors[*active_monitor_idx];
+        Some(mon.canvas.canvas_snapshot())
+    }
+
     pub fn windows_for_output(&self, output: &Output) -> impl Iterator<Item = &W> + '_ {
         let MonitorSet::Normal { monitors, .. } = &self.monitor_set else {
             panic!()
@@ -3328,24 +3346,27 @@ impl<W: LayoutElement> Layout<W> {
     }
 
     pub fn focus_floating(&mut self) {
-        let Some(workspace) = self.active_workspace_mut() else {
+        // TEAM_044: Call Canvas2D method to properly set floating_is_active
+        let Some(mon) = self.active_monitor_mut() else {
             return;
         };
-        workspace.focus_floating();
+        mon.canvas.focus_floating();
     }
 
     pub fn focus_tiling(&mut self) {
-        let Some(workspace) = self.active_workspace_mut() else {
+        // TEAM_044: Call Canvas2D method to properly set floating_is_active
+        let Some(mon) = self.active_monitor_mut() else {
             return;
         };
-        workspace.focus_tiling();
+        mon.canvas.focus_tiling();
     }
 
     pub fn switch_focus_floating_tiling(&mut self) {
-        let Some(workspace) = self.active_workspace_mut() else {
+        // TEAM_044: Call Canvas2D method to properly toggle floating_is_active
+        let Some(mon) = self.active_monitor_mut() else {
             return;
         };
-        workspace.switch_focus_floating_tiling();
+        mon.canvas.switch_focus_floating_tiling();
     }
 
     pub fn move_floating_window(

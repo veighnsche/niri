@@ -16,6 +16,21 @@
 use serde::Serialize;
 use smithay::utils::{Logical, Rectangle, Size};
 
+/// Snapshot of canvas layout state (includes both scrolling/tiled and floating).
+///
+/// This captures the combined layout state for golden testing.
+/// Named CanvasSnapshot to align with Canvas2D architecture.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CanvasSnapshot {
+    /// Tiled layout state (columns and tiles).
+    pub tiled: ScrollingSnapshot,
+    /// Floating layout state.
+    #[serde(default, skip_serializing_if = "FloatingSnapshot::is_empty")]
+    pub floating: FloatingSnapshot,
+    /// Whether floating is currently active (focused).
+    pub floating_is_active: bool,
+}
+
 /// Snapshot of scrolling layout state.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ScrollingSnapshot {
@@ -33,6 +48,37 @@ pub struct ScrollingSnapshot {
     /// TEAM_010: Added for animation regression testing.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub animations: Vec<AnimationTimelineSnapshot>,
+}
+
+/// Snapshot of floating layout state.
+#[derive(Debug, Clone, PartialEq, Serialize, Default)]
+pub struct FloatingSnapshot {
+    /// Floating windows in top-to-bottom order (topmost first).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub windows: Vec<FloatingWindowSnapshot>,
+    /// Index of the active floating window (if any).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_window_idx: Option<usize>,
+}
+
+impl FloatingSnapshot {
+    /// Returns true if there are no floating windows.
+    pub fn is_empty(&self) -> bool {
+        self.windows.is_empty()
+    }
+}
+
+/// Snapshot of a single floating window.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FloatingWindowSnapshot {
+    /// X position (logical coordinates).
+    pub x: f64,
+    /// Y position (logical coordinates).
+    pub y: f64,
+    /// Width (logical coordinates).
+    pub width: f64,
+    /// Height (logical coordinates).
+    pub height: f64,
 }
 
 /// Snapshot of a single column.

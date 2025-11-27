@@ -271,22 +271,7 @@ impl<W: LayoutElement> Canvas2D<W> {
         }
     }
 
-    /// Switch focus between floating and tiling (replaces workspace.switch_focus_floating_tiling).
-    pub fn switch_focus_floating_tiling(&mut self) {
-        if self.floating_is_active {
-            // Switch to tiled
-            self.floating_is_active = false;
-            if let Some(row) = self.active_row_mut() {
-                row.focus_column(0);
-            }
-        } else {
-            // Switch to floating if there are floating windows
-            if self.floating.tiles().next().is_some() {
-                self.floating_is_active = true;
-                self.floating.focus_leftmost();
-            }
-        }
-    }
+    // TEAM_044: switch_focus_floating_tiling moved to floating.rs
 
     /// Move focus left within current context (replaces workspace.move_left).
     pub fn move_left(&mut self) -> bool {
