@@ -2614,9 +2614,11 @@ impl State {
                     } else {
                         // We don't want to accidentally "catch" the wrong workspace during
                         // animations.
+                        // TEAM_033: active_workspace_ref() returns Option, so flatten it
                         self.niri.output_under_cursor().and_then(|output| {
                             let mon = self.niri.layout.monitor_for_output(&output)?;
-                            Some((output, mon.active_workspace_ref()))
+                            let ws = mon.active_workspace_ref()?;
+                            Some((output, ws))
                         })
                     };
 
@@ -3548,9 +3550,11 @@ impl State {
                         } else {
                             // We don't want to accidentally "catch" the wrong workspace during
                             // animations.
+                            // TEAM_033: active_workspace_ref() returns Option, so flatten it
                             self.niri.output_under_cursor().and_then(|output| {
                                 let mon = self.niri.layout.monitor_for_output(&output)?;
-                                Some((output, mon.active_workspace_ref()))
+                                let ws = mon.active_workspace_ref()?;
+                                Some((output, ws))
                             })
                         };
 

@@ -94,7 +94,8 @@ impl PointerGrab<State> for SpatialMovementGrab {
                     if c.x.abs() > c.y.abs() {
                         self.gesture = GestureState::ViewOffset;
                         if let Some((ws_idx, ws)) = layout.find_workspace_by_id(self.workspace_id) {
-                            if ws.current_output() == Some(self.output) {
+                            // TEAM_033: Clone output for comparison
+                            if ws.current_output() == Some(self.output.clone()) {
                                 layout.view_offset_gesture_begin(&self.output, Some(ws_idx as usize), false);
                                 layout.view_offset_gesture_update(-c.x, timestamp, false)
                             } else {

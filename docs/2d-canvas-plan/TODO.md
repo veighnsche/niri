@@ -3,16 +3,19 @@
 > **Check this file first** to see where past teams planned to add features.
 > This maintains architectural consistency across teams.
 
-**Last updated**: TEAM_032 (Major Compilation Progress - 103→75 errors, momentum maintained)
+**Last updated**: TEAM_033 (Continued Compilation Progress - 75→40 errors, 35 more fixed)
 
 ---
 
 # 🚨 COMPILATION ERRORS — BATCH FIX GUIDE
 
-> **Total Errors: 75** — Significant progress made!
+> **Total Errors: 40** — Good progress!
 > Each category can often be fixed in a single pass through the codebase
 > 
-> **Progress**: 40 errors fixed by TEAM_030 (Categories 1,2,3,9,11 completed) + 28 errors fixed by TEAM_032
+> **Progress**: 
+> - TEAM_030: Categories 1,2,3,9,11 completed (40 errors fixed)
+> - TEAM_032: 28 errors fixed
+> - TEAM_033: 35 errors fixed (borrow checker, type mismatches, missing methods)
 
 ---
 
@@ -231,15 +234,19 @@ mon.canvas.workspaces().len()
 ## Recommended Fix Order for Future Teams
 
 ✅ **COMPLETED**: TEAM_030 — Categories 1, 2, 3, 9, 11 (Easy batch fixes) — 27 errors fixed
+✅ **COMPLETED**: TEAM_031-032 — Various method fixes — 28 errors fixed
+✅ **COMPLETED**: TEAM_033 — Borrow checker, type mismatches, missing methods — 35 errors fixed
 
-**Next Recommended Steps**:
-1. **TEAM_031**: Categories 4, 5 (Missing methods) — ~15 errors (MEDIUM/HIGH)
-2. **TEAM_032**: Category 7 (Method call issues) — ~20 errors (MEDIUM/HIGH)  
-3. **TEAM_033**: Category 8 (Iterator issues) — ~10 errors (MEDIUM)
-4. **TEAM_034**: Category 6 (Type mismatches) — ~25 errors (HIGH)
-5. **TEAM_035**: Category 10 (Borrow checker) — ~5 errors (HIGH)
+**Next Recommended Steps for TEAM_034**:
+1. **Fix remaining E0308 type mismatches** (~31 errors)
+   - Row method return types
+   - Iterator yield types
+   - Option wrapping issues
+2. **Fix E0061 argument count issues** (~5 errors)
+   - Method signature vs call site mismatches
+3. **Add type annotation for Monitor** (1 E0283 error)
 
-**Current Status**: 115 errors remaining (down from 142)
+**Current Status**: 40 errors remaining (down from 75)
 
 ---
 
@@ -465,36 +472,82 @@ The `src/layout/mod.rs` file has grown to 4,907 lines, making it:
 
 ## Proposed Module Structure
 
-### Core Layout Engine (`src/layout/core/`)
+> **Note**: TEAM_033 reviewed this proposal and recommends a different approach.
+> The original proposal had issues (see critique below).
+
+### TEAM_033 Critique of Original Proposal
+
+**Problems with original proposal**:
+1. `input/` is wrong scope - input handling is in `src/input/`, not layout
+2. `keyboard.rs`, `pointer.rs` don't belong here - layout doesn't handle raw input
+3. `core/` is vague and doesn't provide clear separation
+4. Proposed structure ignores existing well-organized modules (monitor/, canvas/, row/)
+
+### TEAM_033 Refined Module Structure
+
+```
+src/layout/
+├── mod.rs                (~500 lines) Layout struct + MonitorSet + core state
+├── types/
+│   ├── mod.rs            (~200 lines) Re-exports
+│   ├── traits.rs         (~200 lines) LayoutElement trait + SizingMode
+│   ├── options.rs        (~100 lines) Options struct
+│   ├── window_types.rs   (~200 lines) RemovedTile, ActivateWindow, HitType, AddWindowTarget
+│   └── interactive.rs    (~150 lines) InteractiveResizeData, InteractiveMoveState, DndData
+├── window_ops.rs         (~500 lines) add/remove/find/update window operations
+├── focus.rs              (~400 lines) focus_left/right/up/down/column/row operations
+├── movement.rs           (~500 lines) move_to_workspace/output/row operations
+├── sizing.rs             (~400 lines) toggle_width/height/fullscreen/maximize
+├── interactive/
+│   ├── mod.rs            (~100 lines) Re-exports
+│   ├── move_grab.rs      (~700 lines) interactive_move_* methods
+│   ├── resize.rs         (~200 lines) interactive_resize_* methods
+│   └── dnd.rs            (~150 lines) dnd_* methods
+├── gesture.rs            (~200 lines) *_gesture_* methods
+├── animation.rs          (~300 lines) advance_animations, are_animations_ongoing
+├── render.rs             (~200 lines) render_*, update_render_elements
+├── config.rs             (~200 lines) update_config, update_options
+├── monitor/              (existing - well organized)
+├── canvas/               (existing)
+├── row/                  (existing)
+├── column/               (existing)
+└── ... (other existing modules)
+```
+
+### Original Proposal (Deprecated)
+
+<details>
+<summary>Click to expand original proposal</summary>
+
+#### Core Layout Engine (`src/layout/core/`)
 - **`mod.rs`** (200-300 lines): Main Layout struct, public API
 - **`monitor_set.rs`** (300-400 lines): MonitorSet enum and operations
 - **`window_management.rs`** (400-500 lines): Window operations, focus, activation
 - **`workspace_operations.rs`** (400-500 lines): Workspace/row operations, movement
 
-### Monitor Management (`src/layout/monitor/`)
+#### Monitor Management (`src/layout/monitor/`)
 - **`mod.rs`** (200-300 lines): Monitor struct, basic operations
 - **`config.rs`** (200-300 lines): Monitor configuration and updates
 - **`render.rs`** (300-400 lines): Monitor rendering and geometry
 - **`hit_test.rs`** (200-300 lines): Hit testing and interaction
 
-### Canvas System (`src/layout/canvas/`)
+#### Canvas System (`src/layout/canvas/`)
 - **`mod.rs`** (200-300 lines): Canvas2D struct, public API
 - **`operations.rs`** (400-500 lines): Canvas operations, row management
 - **`geometry.rs`** (200-300 lines): Canvas geometry and positioning
 - **`rendering.rs`** (300-400 lines): Canvas rendering integration
 
-### Row System (`src/layout/row/`) - Already exists, needs expansion
+#### Row System (`src/layout/row/`) - Already exists, needs expansion
 - **`mod.rs`** (current 1,126 lines → split further)
 - **`columns.rs`** (300-400 lines): Column operations and management
 - **`tiles.rs`** (300-400 lines): Tile operations and window management
 - **`view_offset.rs`** (200-300 lines): View offset and scrolling
 - **`gestures.rs`** (200-300 lines): Gesture handling and interactions
 
-### Input and Interaction (`src/layout/input/`)
-- **`mod.rs`** (200-300 lines): Input handling coordination
-- **`keyboard.rs`** (300-400 lines): Keyboard shortcuts and bindings
-- **`pointer.rs`** (300-400 lines): Pointer interactions and gestures
-- **`focus.rs`** (200-300 lines): Focus management and window activation
+#### Input and Interaction (`src/layout/input/`) - **INCORRECT SCOPE**
+- This was incorrectly placed here - input handling is in `src/input/`
+
+</details>
 
 ## Migration Strategy
 

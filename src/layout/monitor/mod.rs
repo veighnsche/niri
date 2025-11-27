@@ -279,9 +279,35 @@ impl<W: LayoutElement> Monitor<W> {
         Vec::new()
     }
 
+    /// TEAM_033: Convert monitor into its canvas (consumes self).
+    /// Used when the last monitor is removed to preserve window state.
+    pub fn into_canvas(self) -> Canvas2D<W> {
+        self.canvas
+    }
+
     /// Append workspaces from another monitor.
     pub fn append_workspaces(&mut self, _workspaces: Vec<()>) {
         // TEAM_022: No-op - workspace Vec is no longer used
+    }
+
+    /// TEAM_033: Append canvas from another monitor.
+    /// Used when a monitor is removed and windows need to be transferred.
+    pub fn append_canvas(&mut self, other_canvas: Canvas2D<W>) {
+        // Transfer all rows from other canvas to this one
+        for (idx, row) in other_canvas.rows {
+            // TODO(TEAM_033): Properly merge rows - for now just append as new rows
+            let new_idx = self.canvas.rows.keys().max().unwrap_or(&-1) + 1;
+            // Rows need to be updated with new output info
+            let mut row = row;
+            // Update row with this monitor's config
+            row.update_config(
+                self.view_size,
+                self.working_area,
+                self.scale.fractional_scale(),
+                self.options.clone(),
+            );
+            self.canvas.rows.insert(new_idx, row);
+        }
     }
 
     /// Add a column to a row.
@@ -383,9 +409,31 @@ impl<W: LayoutElement> Monitor<W> {
         self.canvas.are_animations_ongoing()
     }
 
-    /// Remove name from a row/workspace.
-    pub fn unname_workspace(&mut self, idx: usize) {
-        if let Some(row) = self.canvas.rows_mut().find(|row| row.idx() == idx as i32) {
+    /// Remove name from a row/workspace by WorkspaceId.
+    /// TEAM_033: Updated to take WorkspaceId and return bool
+    pub fn unname_workspace(&mut self, id: crate::layout::workspace_types::WorkspaceId) -> bool {
+        // Find row with matching ID first (immutable)
+        let found_idx = self.canvas.rows().find_map(|(idx, row)| {
+            if row.id() == id {
+                Some(idx)
+            } else {
+                None
+            }
+        });
+
+        // Then mutate (mutable borrow no longer conflicts)
+        if let Some(idx) = found_idx {
+            if let Some(row) = self.canvas.row_mut(idx) {
+                row.set_name(None);
+            }
+            return true;
+        }
+        false
+    }
+
+    /// Remove name from a row/workspace by index (internal use).
+    pub fn unname_workspace_by_idx(&mut self, idx: usize) {
+        if let Some(row) = self.canvas.row_mut(idx as i32) {
             row.set_name(None);
         }
     }
@@ -410,10 +458,6 @@ impl<W: LayoutElement> Monitor<W> {
         self.canvas.focus_row(idx as i32);
     }
 
-    /// Convert monitor to canvas (for output removal).
-    pub fn into_canvas(self) -> Canvas2D<W> {
-        self.canvas
-    }
-
+    // TEAM_033: Removed duplicate into_canvas - kept the one defined earlier
 }
 

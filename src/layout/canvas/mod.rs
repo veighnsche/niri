@@ -223,15 +223,26 @@ impl<W: LayoutElement> Canvas2D<W> {
         self.rows.get_mut(&self.active_row_idx)
     }
 
+    /// TEAM_033: Returns a reference to a row by index.
+    pub fn row(&self, idx: i32) -> Option<&Row<W>> {
+        self.rows.get(&idx)
+    }
+
+    /// TEAM_033: Returns a mutable reference to a row by index.
+    pub fn row_mut(&mut self, idx: i32) -> Option<&mut Row<W>> {
+        self.rows.get_mut(&idx)
+    }
+
     /// Returns an iterator over all rows.
     pub fn rows(&self) -> impl Iterator<Item = (i32, &Row<W>)> {
         self.rows.iter().map(|(&idx, row)| (idx, row))
     }
 
-    /// Returns a mutable iterator over all rows.
+    /// Returns a mutable iterator over all rows with indices.
     /// TEAM_020: Added for workspace iteration migration
-    pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut Row<W>> + '_ {
-        self.rows.values_mut()
+    /// TEAM_033: Updated to return (i32, &mut Row) tuples like rows()
+    pub fn rows_mut(&mut self) -> impl Iterator<Item = (i32, &mut Row<W>)> + '_ {
+        self.rows.iter_mut().map(|(&idx, row)| (idx, row))
     }
 
     /// Returns the current camera position.

@@ -913,11 +913,16 @@ impl<W: LayoutElement> Row<W> {
             .map(|tile| Rectangle::from_loc_and_size(Point::new(0.0, 0.0), tile.tile_size()))
     }
 
+    /// Check if this row has any windows.
+    /// TEAM_033: Added for workspace cleanup logic
+    pub fn has_windows(&self) -> bool {
+        self.columns().count() > 0
+    }
+
     /// Check if this row has any windows or a name.
     /// TEAM_022: Stub implementation
     pub fn has_windows_or_name(&self) -> bool {
-        // TEAM_022: TODO - implement proper check
-        self.columns().count() > 0
+        self.has_windows() || self.name().is_some()
     }
 
     /// Update a window in this row.
@@ -1100,6 +1105,20 @@ impl<W: LayoutElement> Row<W> {
     /// TEAM_028: Stub implementation
     pub fn start_close_animation_for_window(&mut self, _renderer: &mut GlesRenderer, _window: &W, _blocker: TransactionBlocker) {
         // TEAM_028: TODO - implement close animation
+    }
+
+    /// Start close animation for a tile with snapshot.
+    /// TEAM_033: Added for interactive move window closing
+    pub fn start_close_animation_for_tile(
+        &mut self,
+        _renderer: &mut GlesRenderer,
+        _snapshot: crate::layout::tile::TileRenderSnapshot,
+        _tile_size: Size<f64, Logical>,
+        _tile_pos: Point<f64, Logical>,
+        _blocker: TransactionBlocker,
+    ) {
+        // TODO(TEAM_033): Implement proper close animation with snapshot
+        // This requires ClosingWindow infrastructure similar to ScrollingSpace
     }
 }
 

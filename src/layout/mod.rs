@@ -831,23 +831,37 @@ impl<W: LayoutElement> Layout<W> {
                     .expect("trying to remove non-existing output");
                 let monitor = monitors.remove(idx);
 
-                self.last_active_workspace_id.insert(
-                    monitor.output_name().clone(),
-                    monitor.canvas.workspaces().nth(monitor.active_workspace_idx()).unwrap().1.id(),
-                );
-
-                let mut workspaces = monitor.into_workspaces();
+                // TEAM_033: Store active workspace ID before consuming monitor
+                let output_name = monitor.output_name().clone();
+                let active_ws_id = monitor.canvas.workspaces()
+                    .nth(monitor.active_workspace_idx())
+                    .map(|(_, ws)| ws.id())
+                    .unwrap_or_else(|| crate::layout::workspace_types::WorkspaceId::specific(0));
+                
+                self.last_active_workspace_id.insert(output_name, active_ws_id);
 
                 if monitors.is_empty() {
                     // Removed the last monitor.
-
-                    for ws in monitor.canvas.workspaces_mut() {
-                        // Reset base options to layout ones.
-                        ws.update_config(monitor.view_size(), monitor.working_area(), monitor.scale().fractional_scale(), self.options.clone());
+                    // TEAM_033: Get config values before consuming monitor
+                    let view_size = monitor.view_size();
+                    let working_area = monitor.working_area();
+                    let scale = monitor.scale().fractional_scale();
+                    let options = self.options.clone();
+                    
+                    // Convert monitor to canvas
+                    let mut canvas = monitor.into_canvas();
+                    
+                    // Update all rows with layout options
+                    // TEAM_033: Destructure tuple from rows_mut()
+                    for (_, row) in canvas.rows_mut() {
+                        row.update_config(view_size, working_area, scale, options.clone());
                     }
 
-                    MonitorSet::NoOutputs { canvas: monitor.into_canvas() }
+                    MonitorSet::NoOutputs { canvas }
                 } else {
+                    // TEAM_033: Convert monitor to canvas for transfer
+                    let removed_canvas = monitor.into_canvas();
+                    
                     if primary_idx >= idx {
                         // Update primary_idx to either still point at the same monitor, or at some
                         // other monitor if the primary has been removed.
@@ -861,7 +875,7 @@ impl<W: LayoutElement> Layout<W> {
                     }
 
                     let primary = &mut monitors[primary_idx];
-                    primary.append_workspaces(workspaces);
+                    primary.append_canvas(removed_canvas);
 
                     MonitorSet::Normal {
                         monitors,
@@ -982,7 +996,9 @@ impl<W: LayoutElement> Layout<W> {
 
                 let (ws_idx, _) = mon.resolve_add_window_target(&target);
                 let ws = &mon.canvas.workspaces().nth(ws_idx as usize).unwrap().1;
-                let scrolling_width = ws.resolve_scrolling_width(window.id(), width);
+                let scrolling_width_f64 = ws.resolve_scrolling_width(window.id(), width);
+                // TEAM_033: Wrap f64 in ColumnWidth for add_window
+                let scrolling_width = Some(crate::layout::types::ColumnWidth::Proportion(scrolling_width_f64));
 
                 mon.add_window(
                     window,
@@ -1052,24 +1068,31 @@ impl<W: LayoutElement> Layout<W> {
                         }
                     }
                 };
-                // Get the row from the canvas
+                // TEAM_033: Fixed tile creation and add_tile arguments
+                // First ensure the row exists
                 let ws = canvas.ensure_row(ws_idx);
+                let scrolling_width_f64 = ws.resolve_scrolling_width(window.id(), width);
+                
+                // Create tile using canvas's make_tile (returns proper Tile<W>)
+                let tile = canvas.make_tile(window);
+                let activate_bool = activate.map_smart(|| false);
+                let width = crate::layout::types::ColumnWidth::Proportion(scrolling_width_f64);
+                
+                // Get the row again (ensure_row may have modified the canvas)
+                if let Some(ws) = canvas.row_mut(ws_idx) {
+                    ws.add_tile(
+                        None,
+                        tile,
+                        activate_bool,
+                        width,
+                        is_full_width,
+                    );
 
-                let scrolling_width = ws.resolve_scrolling_width(window.id(), width);
-
-                let tile = ws.make_tile(window, activate.map_smart(|| false));
-                ws.add_tile(
-                    None,
-                    tile,
-                    activate,
-                    scrolling_width,
-                    is_full_width,
-                );
-
-                // Set the default height for scrolling windows.
-                if !is_floating {
-                    if let Some(change) = scrolling_height {
-                        ws.set_window_height(Some(&id), change);
+                    // Set the default height for scrolling windows.
+                    if !is_floating {
+                        if let Some(change) = scrolling_height {
+                            ws.set_window_height(Some(&id), change);
+                        }
                     }
                 }
 
@@ -1115,58 +1138,88 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
+        // TEAM_033: Restructured to avoid borrow checker issues
+        // First find the window location, then perform operations
         match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
-                    let mut ws_idx = 0;
-                    for ws in mon.canvas.workspaces_mut() {
+                    // First pass: find which row has the window (immutable borrow)
+                    let found_ws_idx = mon.canvas.workspaces().enumerate().find_map(|(idx, (_, ws))| {
                         if ws.has_window(window) {
-                            let removed = ws.remove_tile(window, transaction);
+                            Some(idx)
+                        } else {
+                            None
+                        }
+                    });
 
-                            // Clean up empty workspaces that are not active and not last.
-                            if !ws.has_windows_or_name()
-                                && ws_idx != mon.active_workspace_idx()
-                                && ws_idx != mon.canvas.workspaces().count() - 1
-                                && mon.workspace_switch.is_none()
-                            {
-                                mon.canvas.remove_row(ws_idx as i32);
-                            }
+                    if let Some(ws_idx) = found_ws_idx {
+                        // Now we can mutably access the specific row
+                        let removed = mon.canvas.row_mut(ws_idx as i32)
+                            .expect("row should exist")
+                            .remove_tile(window, transaction);
 
-                            if ws_idx < mon.active_workspace_idx() {
-                                mon.canvas.active_row_idx -= 1;
-                            }
+                        // Get state we need for cleanup checks
+                        let ws_has_windows = mon.canvas.row(ws_idx as i32)
+                            .map(|ws| ws.has_windows_or_name())
+                            .unwrap_or(false);
+                        let active_idx = mon.active_workspace_idx();
+                        let ws_count = mon.canvas.workspaces().count();
+                        let switch_in_progress = mon.workspace_switch.is_some();
 
-                            // Special case handling when empty_workspace_above_first is set and all
-                            // workspaces are empty.
-                            if mon.options.layout.empty_workspace_above_first
-                                && mon.canvas.workspaces().count() == 2
-                                && mon.workspace_switch.is_none()
-                            {
-                                assert!(!mon.canvas.workspaces().nth(0).unwrap().1.has_windows_or_name());
-                                assert!(!mon.canvas.workspaces().nth(1).unwrap().1.has_windows_or_name());
+                        // Clean up empty workspaces that are not active and not last.
+                        if !ws_has_windows
+                            && ws_idx != active_idx
+                            && ws_idx != ws_count - 1
+                            && !switch_in_progress
+                        {
+                            mon.canvas.remove_row(ws_idx as i32);
+                        }
+
+                        if ws_idx < active_idx {
+                            mon.canvas.active_row_idx -= 1;
+                        }
+
+                        // Special case handling when empty_workspace_above_first is set and all
+                        // workspaces are empty.
+                        if mon.options.layout.empty_workspace_above_first
+                            && mon.canvas.workspaces().count() == 2
+                            && !switch_in_progress
+                        {
+                            let ws0_empty = mon.canvas.row(0).map(|ws| !ws.has_windows_or_name()).unwrap_or(true);
+                            let ws1_empty = mon.canvas.row(1).map(|ws| !ws.has_windows_or_name()).unwrap_or(true);
+                            if ws0_empty && ws1_empty {
                                 mon.canvas.remove_row(1);
                                 mon.canvas.active_row_idx = 0;
                             }
-                            return Some(removed);
                         }
-                        ws_idx += 1;
+                        return Some(removed);
                     }
                 }
             }
             MonitorSet::NoOutputs { canvas, .. } => {
-                let mut ws_idx = 0;
-                for ws in canvas.workspaces_mut() {
+                // First pass: find which row has the window
+                let found_ws_idx = canvas.workspaces().enumerate().find_map(|(idx, (_, ws))| {
                     if ws.has_window(window) {
-                        let removed = ws.remove_tile(window, transaction);
-
-                        // Clean up empty workspaces.
-                        if !ws.has_windows_or_name() {
-                            canvas.remove_row(ws_idx as i32);
-                        }
-
-                        return Some(removed);
+                        Some(idx)
+                    } else {
+                        None
                     }
-                    ws_idx += 1;
+                });
+
+                if let Some(ws_idx) = found_ws_idx {
+                    let removed = canvas.row_mut(ws_idx as i32)
+                        .expect("row should exist")
+                        .remove_tile(window, transaction);
+
+                    // Clean up empty workspaces.
+                    let ws_has_windows = canvas.row(ws_idx as i32)
+                        .map(|ws| ws.has_windows_or_name())
+                        .unwrap_or(false);
+                    if !ws_has_windows {
+                        canvas.remove_row(ws_idx as i32);
+                    }
+
+                    return Some(removed);
                 }
             }
         }
@@ -1333,16 +1386,23 @@ impl<W: LayoutElement> Layout<W> {
                 }
             }
             MonitorSet::NoOutputs { canvas } => {
-                for (idx, ws) in canvas.workspaces_mut() {
+                // TEAM_033: Find row first, then operate to avoid borrow issues
+                let found_idx = canvas.rows().find_map(|(idx, ws)| {
                     if ws.id() == id {
-                        ws.unname();
+                        Some((idx, ws.has_windows()))
+                    } else {
+                        None
+                    }
+                });
 
-                        // Clean up empty workspaces.
-                        if !ws.has_windows() {
-                            canvas.remove_row(idx);
-                        }
+                if let Some((idx, has_windows)) = found_idx {
+                    if let Some(row) = canvas.row_mut(idx) {
+                        row.set_name(None);
+                    }
 
-                        return;
+                    // Clean up empty workspaces.
+                    if !has_windows {
+                        canvas.remove_row(idx);
                     }
                 }
             }
@@ -1522,21 +1582,34 @@ impl<W: LayoutElement> Layout<W> {
             return;
         };
 
+        // TEAM_033: Restructure to avoid borrow issues - find first, then operate
         for (monitor_idx, mon) in monitors.iter_mut().enumerate() {
-            for (workspace_idx, ws) in mon.canvas.workspaces_mut().enumerate() {
-                if ws.activate_window(window) {
-                    *active_monitor_idx = monitor_idx;
+            // First find the workspace with the window (immutable scan)
+            let found_ws_idx = mon.canvas.workspaces().enumerate().find_map(|(idx, (_, ws))| {
+                if ws.has_window(window) {
+                    Some(idx)
+                } else {
+                    None
+                }
+            });
 
-                    // If currently in the middle of a vertical swipe between the target workspace
-                    // and some other, don't switch the workspace.
-                    match &mon.workspace_switch {
-                        Some(WorkspaceSwitch::Gesture(gesture))
-                            if gesture.current_idx.floor() == workspace_idx as f64
-                                || gesture.current_idx.ceil() == workspace_idx as f64 => {}
-                        _ => mon.switch_workspace(workspace_idx),
+            if let Some(workspace_idx) = found_ws_idx {
+                // Now activate the window
+                if let Some(ws) = mon.canvas.row_mut(workspace_idx as i32) {
+                    if ws.activate_window(window) {
+                        *active_monitor_idx = monitor_idx;
+
+                        // If currently in the middle of a vertical swipe between the target workspace
+                        // and some other, don't switch the workspace.
+                        match &mon.workspace_switch {
+                            Some(WorkspaceSwitch::Gesture(gesture))
+                                if gesture.current_idx.floor() == workspace_idx as f64
+                                    || gesture.current_idx.ceil() == workspace_idx as f64 => {}
+                            _ => mon.switch_workspace(workspace_idx),
+                        }
+
+                        return;
                     }
-
-                    return;
                 }
             }
         }
@@ -3342,7 +3415,8 @@ impl<W: LayoutElement> Layout<W> {
                 ActivateWindow::No
             };
 
-            let ws = &mut mon.canvas.workspaces().nth(ws_idx).unwrap().1;
+            // TEAM_033: Use row_mut for mutable access instead of workspaces() iterator
+            let ws = mon.canvas.row_mut(ws_idx as i32).expect("workspace should exist");
             let transaction = Transaction::new();
             let mut removed = if let Some(window) = window {
                 ws.remove_tile(window, transaction)
@@ -3396,14 +3470,15 @@ impl<W: LayoutElement> Layout<W> {
                 .unwrap();
 
             let current = &mut monitors[*active_monitor_idx];
-            let ws = current.active_workspace_mut();
+            // TEAM_033: Check floating mode on canvas, not row
+            if current.canvas.floating_is_active() {
+                self.move_to_output(None, output, None, ActivateWindow::Smart);
+                return;
+            }
+
+            let ws = current.active_workspace();
 
             if let Some(ws) = ws {
-                if ws.floating_is_active() {
-                    self.move_to_output(None, output, None, ActivateWindow::Smart);
-                    return;
-                }
-
                 let Some(column) = ws.remove_active_column() else {
                     return;
                 };
@@ -3706,11 +3781,13 @@ impl<W: LayoutElement> Layout<W> {
         };
 
         for monitor in monitors {
+            // TEAM_033: Get active index before mutable iteration to avoid borrow conflicts
+            let active_idx = monitor.active_workspace_idx();
+            let is_target_output = &monitor.output == output;
+            
             for (idx, ws) in monitor.canvas.workspaces_mut().enumerate() {
                 // Cancel the gesture on other workspaces.
-                if &monitor.output != output
-                    || idx != workspace_idx.unwrap_or(monitor.active_workspace_idx())
-                {
+                if !is_target_output || idx != workspace_idx.unwrap_or(active_idx) {
                     ws.view_offset_gesture_end(None);
                     continue;
                 }
@@ -4667,10 +4744,11 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
+        // TEAM_033: Destructure tuples from rows_mut()
         match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
-                    for row in mon.canvas.rows_mut() {
+                    for (_, row) in mon.canvas.rows_mut() {
                         if row.has_window(window) {
                             row.start_close_animation_for_window(renderer, window, blocker);
                             return;
@@ -4679,7 +4757,7 @@ impl<W: LayoutElement> Layout<W> {
                 }
             }
             MonitorSet::NoOutputs { canvas, .. } => {
-                for row in canvas.rows_mut() {
+                for (_, row) in canvas.rows_mut() {
                     if row.has_window(window) {
                         row.start_close_animation_for_window(renderer, window, blocker);
                         return;

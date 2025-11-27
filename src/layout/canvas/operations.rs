@@ -536,8 +536,9 @@ impl<W: LayoutElement> Canvas2D<W> {
     }
 
     /// Workspace equivalent: get all rows for mutable iteration - TEAM_021
+    /// TEAM_033: Updated to map tuples from rows_mut() to just the row
     pub fn workspaces_mut(&mut self) -> impl Iterator<Item = &mut Row<W>> + '_ {
-        self.rows_mut()
+        self.rows_mut().map(|(_, row)| row)
     }
 
     /// Workspace equivalent: get active workspace (row) - TEAM_021
@@ -551,15 +552,17 @@ impl<W: LayoutElement> Canvas2D<W> {
     }
 
     /// Workspace equivalent: end DND scroll gesture on all rows - TEAM_021
+    /// TEAM_033: Fixed to destructure tuple from rows_mut()
     pub fn dnd_scroll_gesture_end(&mut self) {
-        for row in self.rows_mut() {
+        for (_, row) in self.rows_mut() {
             row.dnd_scroll_gesture_end();
         }
     }
 
     /// Workspace equivalent: begin DND scroll gesture on all rows - TEAM_021
+    /// TEAM_033: Fixed to destructure tuple from rows_mut()
     pub fn dnd_scroll_gesture_begin(&mut self) {
-        for row in self.rows_mut() {
+        for (_, row) in self.rows_mut() {
             row.dnd_scroll_gesture_begin();
         }
     }

@@ -111,6 +111,10 @@ impl<W: LayoutElement> Monitor<W> {
             self.workspace_size_with_gap(1.)
         };
 
+        // TEAM_033: Get values before mutable borrow to avoid borrow conflicts
+        let current_active_idx = self.active_workspace_idx();
+        let row_count = self.canvas.rows().count();
+
         let Some(WorkspaceSwitch::Gesture(gesture)) = &mut self.workspace_switch else {
             return false;
         };
@@ -126,7 +130,7 @@ impl<W: LayoutElement> Monitor<W> {
         let current_pos = gesture.tracker.pos() / total_height;
         let pos = gesture.tracker.projected_end_pos() / total_height;
 
-        let (min, max) = gesture.min_max(self.canvas.rows().count());
+        let (min, max) = gesture.min_max(row_count);
         let new_idx = gesture.start_idx + pos;
 
         let new_idx = new_idx.clamp(min, max);
@@ -134,7 +138,7 @@ impl<W: LayoutElement> Monitor<W> {
 
         velocity *= rubber_band.clamp_derivative(min, max, gesture.start_idx + current_pos);
 
-        if self.active_workspace_idx() != new_idx {
+        if current_active_idx != new_idx {
             // TODO: TEAM_024: Get workspace ID from canvas row
             // self.previous_workspace_id = Some(self.canvas.workspaces()[self.active_workspace_idx()].id());
         }
