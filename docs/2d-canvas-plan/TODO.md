@@ -3,7 +3,7 @@
 > **Check this file first** before starting work.
 > This is the single source of truth for what needs to be done.
 
-**Last updated**: TEAM_042
+**Last updated**: TEAM_043
 
 ---
 
@@ -12,9 +12,32 @@
 | Metric | Value |
 |--------|-------|
 | **Build** | ✅ Compiles |
-| **Tests** | 201 passed, 67 failed (75%) |
+| **Tests** | 210 passed, 58 failed (78%) |
 | **Golden Tests** | ✅ 84/84 pass |
 | **TODOs in codebase** | 84 total |
+
+---
+
+# 🔄 CONTINUOUS TEST ITERATION (TEAM_043)
+
+> **Goal**: Run all tests iteratively until 100% pass rate
+> **Status**: IN PROGRESS
+
+## Fixes Applied This Session
+
+1. ✅ **Fixed refresh not calling Row::refresh()** - Windows weren't receiving configure events
+2. ✅ **Fixed width parameter ignored in Monitor::add_window()** - Was hardcoded to 1.0
+3. ✅ **Added floating space refresh** - Floating windows now get refreshed
+4. ✅ **Fixed set_column_width for floating** - Now routes to FloatingSpace
+5. ✅ **Fixed floating set_window_width/height** - Uses size() instead of expected_size()
+
+## Remaining Test Categories
+
+- **Floating tests**: ~25 failing (size preservation issues)
+- **Animation tests**: ~10 failing (move animations)
+- **Fullscreen tests**: ~5 failing (view offset preservation)
+- **Window opening tests**: ~10 failing (workspace targeting)
+- **Interactive move tests**: ~8 failing
 
 ---
 

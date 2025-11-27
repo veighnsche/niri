@@ -1683,8 +1683,12 @@ impl<W: LayoutElement> Row<W> {
             return;
         }
 
-        let col = &mut self.columns[self.active_column_idx];
+        let col_idx = self.active_column_idx;
+        let col = &mut self.columns[col_idx];
         col.set_column_width(change, None, true);
+        
+        // TEAM_043: Update cached column data after width change
+        self.data[col_idx].update(col);
 
         // Cancel any ongoing resize for this column
         if let Some(resize) = &mut self.interactive_resize {
@@ -1702,21 +1706,26 @@ impl<W: LayoutElement> Row<W> {
             return;
         }
 
-        let (col, tile_idx) = if let Some(window) = window {
+        let (col_idx, tile_idx) = if let Some(window) = window {
             self.columns
-                .iter_mut()
-                .find_map(|col| {
+                .iter()
+                .enumerate()
+                .find_map(|(col_idx, col)| {
                     col.tiles
                         .iter()
                         .position(|tile| tile.window().id() == window)
-                        .map(|tile_idx| (col, Some(tile_idx)))
+                        .map(|tile_idx| (col_idx, Some(tile_idx)))
                 })
                 .unwrap()
         } else {
-            (&mut self.columns[self.active_column_idx], None)
+            (self.active_column_idx, None)
         };
 
+        let col = &mut self.columns[col_idx];
         col.set_column_width(change, tile_idx, true);
+        
+        // TEAM_043: Update cached column data after width change
+        self.data[col_idx].update(col);
 
         // Cancel any ongoing resize for this column
         if let Some(resize) = &mut self.interactive_resize {

@@ -779,7 +779,9 @@ impl<W: LayoutElement> FloatingSpace<W> {
 
         let win_width = ensure_min_max_size(win_width, min_size.w, max_size.w);
 
-        let win_height = win.expected_size().unwrap_or_default().h;
+        // TEAM_043: Use size() instead of expected_size() to preserve client's current height
+        // when the client has resized the window themselves
+        let win_height = win.size().h;
         let win_height = ensure_min_max_size(win_height, min_size.h, max_size.h);
 
         let win_size = Size::from((win_width, win_height));
@@ -826,7 +828,9 @@ impl<W: LayoutElement> FloatingSpace<W> {
 
         let win_height = ensure_min_max_size(win_height, min_size.h, max_size.h);
 
-        let win_width = win.expected_size().unwrap_or_default().w;
+        // TEAM_043: Use size() instead of expected_size() to preserve client's current width
+        // when the client has resized the window themselves
+        let win_width = win.size().w;
         let win_width = ensure_min_max_size(win_width, min_size.w, max_size.w);
 
         let win_size = Size::from((win_width, win_height));

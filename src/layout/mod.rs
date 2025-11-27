@@ -3125,10 +3125,24 @@ impl<W: LayoutElement> Layout<W> {
     }
 
     pub fn set_column_width(&mut self, change: SizeChange) {
-        let Some(workspace) = self.active_workspace_mut() else {
-            return;
-        };
-        workspace.set_column_width(change);
+        // TEAM_043: Handle floating windows
+        match &mut self.monitor_set {
+            MonitorSet::Normal { monitors, active_monitor_idx, .. } => {
+                let mon = &mut monitors[*active_monitor_idx];
+                if mon.canvas.floating_is_active {
+                    mon.canvas.floating.set_window_width(None, change, true);
+                } else if let Some(row) = mon.canvas.active_row_mut() {
+                    row.set_column_width(change);
+                }
+            }
+            MonitorSet::NoOutputs { canvas, .. } => {
+                if canvas.floating_is_active {
+                    canvas.floating.set_window_width(None, change, true);
+                } else if let Some(row) = canvas.active_row_mut() {
+                    row.set_column_width(change);
+                }
+            }
+        }
     }
 
     pub fn set_window_width(&mut self, window: Option<&W::Id>, change: SizeChange) {
@@ -4887,31 +4901,40 @@ impl<W: LayoutElement> Layout<W> {
                     // Overview is no longer supported, so always end DnD scroll gesture
                     mon.dnd_scroll_gesture_end();
 
-                    // TEAM_021: Try canvas-first for workspace operations
-                    if mon.canvas().has_windows() {
-                        // Use canvas operations
-                        let is_focused = is_active && mon.canvas().active_row_idx() == mon.canvas().active_row_idx();
-                        // Note: canvas refresh logic would go here when fully migrated
-                        
-                        if let Some(is_scrolling) = ongoing_scrolling_dnd {
-                            // Lock or unlock the view for scrolling interactive move.
-                            if is_scrolling {
-                                // Canvas equivalent: dnd_scroll_gesture_begin on active row
-                                if let Some(row) = mon.canvas_mut().active_row_mut() {
-                                    row.dnd_scroll_gesture_begin();
-                                }
-                            } else {
-                                mon.canvas_mut().dnd_scroll_gesture_end();
+                    // TEAM_043: Refresh all rows in the canvas
+                    let active_row_idx = mon.canvas().active_row_idx();
+                    let floating_is_active = mon.canvas().floating_is_active;
+                    for (row_idx, row) in mon.canvas_mut().workspaces_mut() {
+                        let is_focused = is_active && row_idx == active_row_idx && !floating_is_active;
+                        row.refresh(is_active, is_focused);
+                        row.view_offset_gesture_end(ongoing_scrolling_dnd);
+                    }
+                    
+                    // TEAM_043: Refresh floating space
+                    let is_floating_focused = is_active && floating_is_active;
+                    mon.canvas_mut().floating.refresh(is_active, is_floating_focused);
+                    
+                    if let Some(is_scrolling) = ongoing_scrolling_dnd {
+                        // Lock or unlock the view for scrolling interactive move.
+                        if is_scrolling {
+                            // Canvas equivalent: dnd_scroll_gesture_begin on active row
+                            if let Some(row) = mon.canvas_mut().active_row_mut() {
+                                row.dnd_scroll_gesture_begin();
                             }
+                        } else {
+                            mon.canvas_mut().dnd_scroll_gesture_end();
                         }
                     }
                 }
             }
             MonitorSet::NoOutputs { canvas, .. } => {
+                let floating_is_active = canvas.floating_is_active;
                 for (_, ws) in canvas.workspaces_mut() {
-                    ws.refresh(false, false);
+                    ws.refresh(false, !floating_is_active);
                     ws.view_offset_gesture_end(None);
                 }
+                // TEAM_043: Refresh floating space
+                canvas.floating.refresh(false, floating_is_active);
             }
         }
     }

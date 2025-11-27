@@ -357,8 +357,8 @@ impl<W: LayoutElement> Monitor<W> {
         window: W,
         target: Option<MonitorAddWindowTarget<W>>,
         activate: crate::layout::ActivateWindow,
-        _width: Option<crate::layout::types::ColumnWidth>,
-        _is_full_width: bool,
+        width: Option<crate::layout::types::ColumnWidth>,
+        is_full_width: bool,
     ) -> Option<()> {
         // TEAM_022: Add window to canvas
         let (row_idx, _col_idx) = if let Some(target) = target {
@@ -369,7 +369,8 @@ impl<W: LayoutElement> Monitor<W> {
 
         // Create tile and add to row
         let tile = self.canvas.make_tile(window);
-        let width = crate::layout::types::ColumnWidth::Proportion(1.0);
+        // TEAM_043: Use the provided width instead of hardcoding to 1.0
+        let width = width.unwrap_or(crate::layout::types::ColumnWidth::Proportion(0.5));
         // TEAM_039: Use map_smart to properly handle ActivateWindow::Smart
         // Smart should activate unless there's a reason not to (like pending fullscreen)
         let should_activate = activate.map_smart(|| true);
@@ -378,7 +379,7 @@ impl<W: LayoutElement> Monitor<W> {
             tile,
             should_activate,
             width,
-            false,
+            is_full_width,
         );
         Some(())
     }
