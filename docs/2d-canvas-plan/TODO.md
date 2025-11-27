@@ -3,7 +3,7 @@
 > **Check this file first** to see where past teams planned to add features.
 > This maintains architectural consistency across teams.
 
-**Last updated**: TEAM_010 (Phase 1.5.3 Part 1 IN PROGRESS)
+**Last updated**: TEAM_028 (Row Navigation Methods Implementation)
 
 ---
 
@@ -61,6 +61,24 @@ Row module is now feature-complete for Phase 1.5.1. All core ScrollingSpace meth
 - [x] TODO(TEAM_007): Port `interactive_resize_begin` from ScrollingSpace — DONE
 - [x] TODO(TEAM_007): Port `interactive_resize_update` from ScrollingSpace — DONE
 - [x] TODO(TEAM_007): Port `interactive_resize_end` from ScrollingSpace — DONE
+
+### Navigation & Movement Methods (TEAM_028)
+- [ ] TODO(TEAM_028): implement window expulsion to floating (`row/mod.rs:972`)
+- [ ] TODO(TEAM_028): implement window swapping (`row/mod.rs:978`)
+- [ ] TODO(TEAM_028): implement tabbed display toggle (`row/mod.rs:984`)
+- [ ] TODO(TEAM_028): implement column display setting (`row/mod.rs:990`)
+- [ ] TODO(TEAM_028): implement column centering (`row/mod.rs:996`)
+- [ ] TODO(TEAM_028): implement visible columns centering (`row/mod.rs:1002`)
+- [ ] TODO(TEAM_028): implement width toggle (`row/mod.rs:1008`)
+- [ ] TODO(TEAM_028): implement window width toggle (`row/mod.rs:1014`)
+- [ ] TODO(TEAM_028): implement window height toggle (`row/mod.rs:1020`)
+- [ ] TODO(TEAM_028): implement full width toggle (`row/mod.rs:1026`)
+- [ ] TODO(TEAM_028): implement column width setting (`row/mod.rs:1032`)
+- [ ] TODO(TEAM_028): implement window width setting (`row/mod.rs:1038`)
+- [ ] TODO(TEAM_028): implement insert position calculation (`row/mod.rs:1044`)
+- [ ] TODO(TEAM_028): implement unmap snapshot storage (`row/mod.rs:1051`)
+- [ ] TODO(TEAM_028): implement unmap snapshot clearing (`row/mod.rs:1057`)
+- [ ] TODO(TEAM_028): implement close animation (`row/mod.rs:1063`)
 
 ---
 

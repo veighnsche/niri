@@ -40,9 +40,9 @@ pub use render::RowRenderElement;
 
 use std::rc::Rc;
 
-use niri_config::{Struts, Border};
+use niri_config::{Struts, Border, Direction, SetColumnWidth};
 use niri_config::utils::MergeWith;
-use niri_ipc::ColumnDisplay;
+use niri_ipc::{ColumnDisplay, WorkspaceId};
 use smithay::utils::{Logical, Point, Rectangle, Size};
 use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
@@ -964,6 +964,103 @@ impl<W: LayoutElement> Row<W> {
     pub fn tiles_with_ipc_layouts(&self) -> Vec<niri_ipc::WindowLayout> {
         // TEAM_025: TODO - implement IPC layout generation
         Vec::new()
+    }
+
+    /// Expel window from column to floating.
+    /// TEAM_028: Stub implementation
+    pub fn expel_from_column(&mut self) {
+        // TEAM_028: TODO - implement window expulsion to floating
+    }
+
+    /// Swap window in given direction.
+    /// TEAM_028: Stub implementation
+    pub fn swap_window_in_direction(&mut self, _direction: Direction) {
+        // TEAM_028: TODO - implement window swapping
+    }
+
+    /// Toggle column tabbed display mode.
+    /// TEAM_028: Stub implementation
+    pub fn toggle_column_tabbed_display(&mut self) {
+        // TEAM_028: TODO - implement tabbed display toggle
+    }
+
+    /// Set column display mode.
+    /// TEAM_028: Stub implementation
+    pub fn set_column_display(&mut self, _display: ColumnDisplay) {
+        // TEAM_028: TODO - implement column display setting
+    }
+
+    /// Center the active column.
+    /// TEAM_028: Stub implementation
+    pub fn center_column(&mut self) {
+        // TEAM_028: TODO - implement column centering
+    }
+
+    /// Center all visible columns.
+    /// TEAM_028: Stub implementation
+    pub fn center_visible_columns(&mut self) {
+        // TEAM_028: TODO - implement visible columns centering
+    }
+
+    /// Toggle width configuration.
+    /// TEAM_028: Stub implementation
+    pub fn toggle_width(&mut self, _forwards: bool) {
+        // TEAM_028: TODO - implement width toggle
+    }
+
+    /// Toggle window width.
+    /// TEAM_028: Stub implementation
+    pub fn toggle_window_width(&mut self, _window: &W::Id, _forwards: bool) {
+        // TEAM_028: TODO - implement window width toggle
+    }
+
+    /// Toggle window height.
+    /// TEAM_028: Stub implementation
+    pub fn toggle_window_height(&mut self, _window: &W::Id, _forwards: bool) {
+        // TEAM_028: TODO - implement window height toggle
+    }
+
+    /// Toggle full width for active column.
+    /// TEAM_028: Stub implementation
+    pub fn toggle_full_width(&mut self) {
+        // TEAM_028: TODO - implement full width toggle
+    }
+
+    /// Set column width.
+    /// TEAM_028: Stub implementation
+    pub fn set_column_width(&mut self, _change: SetColumnWidth) {
+        // TEAM_028: TODO - implement column width setting
+    }
+
+    /// Set window width.
+    /// TEAM_028: Stub implementation
+    pub fn set_window_width(&mut self, _window: &W::Id, _change: SetColumnWidth) {
+        // TEAM_028: TODO - implement window width setting
+    }
+
+    /// Get scrolling insert position.
+    /// TEAM_028: Stub implementation
+    pub fn scrolling_insert_position(&self, _pos: Point<f64, Logical>) -> usize {
+        // TEAM_028: TODO - implement insert position calculation
+        0
+    }
+
+    /// Store unmap snapshot if empty.
+    /// TEAM_028: Stub implementation
+    pub fn store_unmap_snapshot_if_empty(&mut self, _renderer: &mut GlesRenderer, _window: &W) {
+        // TEAM_028: TODO - implement unmap snapshot storage
+    }
+
+    /// Clear unmap snapshot.
+    /// TEAM_028: Stub implementation
+    pub fn clear_unmap_snapshot(&mut self, _window: &W) {
+        // TEAM_028: TODO - implement unmap snapshot clearing
+    }
+
+    /// Start close animation for window.
+    /// TEAM_028: Stub implementation
+    pub fn start_close_animation_for_window(&mut self, _renderer: &mut GlesRenderer, _window: &W, _blocker: TransactionBlocker) {
+        // TEAM_028: TODO - implement close animation
     }
 }
 

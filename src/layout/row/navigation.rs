@@ -80,4 +80,111 @@ impl<W: LayoutElement> Row<W> {
         self.active_column_idx = idx;
         self.animate_view_offset_to_column(None, idx, None);
     }
+
+    /// Focuses the first column in the row.
+    pub fn focus_column_first(&mut self) -> bool {
+        if self.columns.is_empty() {
+            return false;
+        }
+        self.focus_column(0);
+        true
+    }
+
+    /// Focuses the last column in the row.
+    pub fn focus_column_last(&mut self) -> bool {
+        if self.columns.is_empty() {
+            return false;
+        }
+        self.focus_column(self.columns.len() - 1);
+        true
+    }
+
+    /// Focuses the column to the right, or wraps to first if at end.
+    pub fn focus_column_right_or_first(&mut self) -> bool {
+        if self.focus_right() {
+            true
+        } else {
+            self.focus_column_first()
+        }
+    }
+
+    /// Focuses the column to the left, or wraps to last if at start.
+    pub fn focus_column_left_or_last(&mut self) -> bool {
+        if self.focus_left() {
+            true
+        } else {
+            self.focus_column_last()
+        }
+    }
+
+    /// Focuses window in a specific column.
+    pub fn focus_window_in_column(&mut self, index: usize) -> bool {
+        if index >= self.columns.len() {
+            return false;
+        }
+        self.focus_column(index);
+        true
+    }
+
+    /// Focuses down and left (diagonal navigation).
+    pub fn focus_down_or_left(&mut self) -> bool {
+        // Try to focus down first, then left if not possible
+        self.focus_down() || self.focus_left()
+    }
+
+    /// Focuses down and right (diagonal navigation).
+    pub fn focus_down_or_right(&mut self) -> bool {
+        // Try to focus down first, then right if not possible
+        self.focus_down() || self.focus_right()
+    }
+
+    /// Focuses up and left (diagonal navigation).
+    pub fn focus_up_or_left(&mut self) -> bool {
+        // Try to focus up first, then left if not possible
+        self.focus_up() || self.focus_left()
+    }
+
+    /// Focuses up and right (diagonal navigation).
+    pub fn focus_up_or_right(&mut self) -> bool {
+        // Try to focus up first, then right if not possible
+        self.focus_up() || self.focus_right()
+    }
+
+    /// Focuses the top window in the active column.
+    pub fn focus_window_top(&mut self) -> bool {
+        if let Some(col) = self.active_column_mut() {
+            col.focus_top();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Focuses the bottom window in the active column.
+    pub fn focus_window_bottom(&mut self) -> bool {
+        if let Some(col) = self.active_column_mut() {
+            col.focus_bottom();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Focuses down or to top if cannot move down.
+    pub fn focus_window_down_or_top(&mut self) -> bool {
+        if self.focus_down() {
+            true
+        } else {
+            self.focus_window_top()
+        }
+    }
+
+    /// Focuses up or to bottom if cannot move up.
+    pub fn focus_window_up_or_bottom(&mut self) -> bool {
+        if self.focus_up() {
+            true
+        } else {
+            self.focus_window_bottom()
+        }
+    }
 }
