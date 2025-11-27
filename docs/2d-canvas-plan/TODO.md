@@ -16,6 +16,28 @@ Migration from Workspace to Canvas2D. These TODOs will be resolved in Parts 2-4.
 - [ ] TODO(TEAM_010): Remove workspace checks from `windows()` and `has_window()` (`monitor.rs:454`)
 - [ ] TODO(TEAM_010): Remove workspace operations from mutation methods (`monitor.rs:584`)
 
+### Workspace Cleanup (TEAM_020)
+- [ ] TODO(TEAM_020): Eventually remove workspace check entirely (`mod.rs:1171`)
+- [ ] TODO(TEAM_020): Eventually remove workspace check entirely (`mod.rs:1424`)
+- [ ] TODO(TEAM_020): Eventually remove workspace config entirely (`mod.rs:2916`)
+- [ ] TODO(TEAM_020): Eventually remove workspace check entirely (`mod.rs:3498`)
+- [ ] TODO(TEAM_020): Eventually remove workspace check entirely (`mod.rs:3523`)
+- [ ] TODO(TEAM_020): Eventually remove workspace check entirely (`mod.rs:3577`)
+- [ ] TODO(TEAM_020): Eventually remove workspace check entirely (`mod.rs:3602`)
+
+### Canvas Operations (TEAM_024)
+- [ ] TODO: TEAM_024: Implement canvas cleanup logic (`mod.rs:761`)
+- [ ] TODO: TEAM_024: Get workspace ID from canvas row (`monitor/gestures.rs:138`)
+- [ ] TODO: TEAM_024: Set active workspace index in canvas (`monitor/gestures.rs:142`)
+- [ ] TODO: TEAM_024: Implement row removal in canvas (`monitor/config.rs:28`)
+
+### Layout Integration (TEAM_023)
+- [ ] TODO: TEAM_023: Apply workspace config to canvas rows if needed (`mod.rs:699`)
+- [ ] TODO: TEAM_023: Implement window height setting on canvas/row (`mod.rs:993`)
+- [ ] TODO: TEAM_023: Implement proper workspace ID to row mapping (`mod.rs:1010`)
+- [ ] TODO: TEAM_023: Implement proper row geometry calculation (`monitor/hit_test.rs:22`)
+- [ ] TODO: TEAM_023: Implement proper row geometry (`monitor/hit_test.rs:41`)
+
 ---
 
 ## src/layout/row/ — ✅ PHASE 1.5.1 COMPLETE
@@ -37,7 +59,8 @@ Row module is now feature-complete for Phase 1.5.1. All core ScrollingSpace meth
 - [x] `consume_into_column` — consume first tile from right column into active (TEAM_008)
 
 ### Remaining — ⚠️ ANIMATION GAP (See TEAM_009 questionnaire)
-- [ ] TODO(TEAM_006): Animate column movement during add/remove/move (`operations/add.rs:157`, `operations/move_col.rs:48`)
+- [ ] TODO(TEAM_006): Animate column movement (port from ScrollingSpace) (`row/operations/move_col.rs:48`)
+- [ ] TODO(TEAM_006): Animate movement of other columns (port from ScrollingSpace) (`row/operations/add.rs:157`)
 
 ### FIXMEs (Lower Priority)
 - [ ] FIXME: Smarter height distribution (`resize.rs:111`)
@@ -80,6 +103,58 @@ Row module is now feature-complete for Phase 1.5.1. All core ScrollingSpace meth
 - [ ] TODO(TEAM_028): implement unmap snapshot clearing (`row/mod.rs:1057`)
 - [ ] TODO(TEAM_028): implement close animation (`row/mod.rs:1063`)
 
+### Row Compatibility Methods (TEAM_024)
+- [ ] TODO: TEAM_024: Implement column width expansion if needed (`row/mod.rs:776`)
+- [ ] TODO: TEAM_024: Implement fullscreen state if needed (`row/mod.rs:813`)
+- [ ] TODO: TEAM_024: Implement fullscreen toggle if needed (`row/mod.rs:817`)
+- [ ] TODO: TEAM_024: Implement maximized state if needed (`row/mod.rs:821`)
+- [ ] TODO: TEAM_024: Implement maximized toggle if needed (`row/mod.rs:825`)
+- [ ] TODO: TEAM_024: Implement window activation if needed (`row/mod.rs:835`)
+- [ ] TODO: TEAM_024: Implement open animation if needed (`row/mod.rs:840`)
+
+### Row Interface Implementation (TEAM_022)
+- [ ] TEAM_022: implement proper column addition to canvas (`monitor/mod.rs:294`)
+- [ ] TEAM_022: implement proper window configuration (`row/mod.rs:701`)
+- [ ] TEAM_022: rows should get output from monitor/canvas (`row/mod.rs:851`)
+- [ ] TEAM_022: implement active window logic (`row/mod.rs:858`)
+- [ ] TEAM_022: implement urgency detection (`row/mod.rs:870`)
+- [ ] TEAM_022: implement hit testing (`row/mod.rs:877`)
+- [ ] TEAM_022: implement resize edge detection (`row/mod.rs:884`)
+- [ ] TEAM_022: implement active tile visual rectangle (`row/mod.rs:891`)
+- [ ] TEAM_022: implement proper check (`row/mod.rs:900`)
+- [ ] TEAM_022: implement window update (`row/mod.rs:907`)
+- [ ] TEAM_022: rows don't have individual layout configs (`row/mod.rs:913`)
+
+### Row Surface Handling (TEAM_025)
+- [ ] TEAM_025: implement proper row removal with active row adjustment (`canvas/mod.rs:294`)
+- [ ] TEAM_025: implement proper scrolling width resolution (`row/mod.rs:919`)
+- [ ] TEAM_025: implement tile creation (`row/mod.rs:926`)
+- [ ] TEAM_025: implement descendants handling (`row/mod.rs:932`)
+- [ ] TEAM_025: implement surface lookup (`row/mod.rs:938`)
+- [ ] TEAM_025: implement mutable surface lookup (`row/mod.rs:945`)
+- [ ] TEAM_025: implement popup target rect (`row/mod.rs:952`)
+- [ ] TEAM_025: implement activation without raising (`row/mod.rs:959`)
+- [ ] TEAM_025: implement IPC layout generation (`row/mod.rs:965`)
+
+### Row & Canvas Operations (TEAM_018)
+- [ ] TODO(TEAM_018): implement proper duplicate name checking for canvas rows (`mod.rs:4497`)
+- [ ] TODO(TEAM_018): Implement back-and-forth logic (`canvas/navigation.rs:324`)
+- [ ] TODO(TEAM_018): Implement previous row tracking (`canvas/navigation.rs:331`)
+
+### Monitor Operations (TEAM_022)
+- [ ] TODO(TEAM_022): Implement proper insert hint rendering with canvas (`monitor/render.rs:45`)
+- [ ] TODO(TEAM_022): Implement previous row tracking if needed (`monitor/navigation.rs:59`)
+- [ ] TODO(TEAM_022): Implement previous row tracking (`monitor/navigation.rs:67`)
+
+### Navigation System (No Team Assigned)
+- [ ] TODO: Implement move window between rows in Canvas2D (`monitor/navigation.rs:124`, `monitor/navigation.rs:129`, `monitor/navigation.rs:139`)
+- [ ] TODO: Implement move column between rows in Canvas2D (`monitor/navigation.rs:148`, `monitor/navigation.rs:153`, `monitor/navigation.rs:158`)
+
+### Workspace Types (No Team Assigned)
+- [ ] TODO: Eventually remove when external systems are updated to use canvas concepts (`workspace_types.rs:10`)
+- [ ] TODO: Eventually remove when external systems are updated (`workspace_types.rs:46`)
+- [ ] TODO: This should eventually be moved to a more appropriate location (`workspace_types.rs:76`)
+
 ---
 
 ## src/layout/canvas/mod.rs
@@ -94,6 +169,27 @@ Canvas2D depends on Row completion. Additional work needed:
 - [x] `toggle_floating_window` — move window between layers
 - [x] `toggle_floating_focus` — switch focus between layers
 
+### Canvas Operations (TEAM_019)
+- [ ] TODO(TEAM_019): Implement proper active window handling for Row (`canvas/operations.rs:99`)
+- [ ] TODO(TEAM_019): Implement proper active window handling for Row (`canvas/operations.rs:114`)
+- [ ] TODO(TEAM_019): Implement layout_config for Row (`canvas/operations.rs:185`)
+- [ ] TODO(TEAM_019): Implement start_open_animation for Row (`canvas/operations.rs:208`)
+- [ ] TODO(TEAM_019): Implement proper centering for tiled windows (`canvas/operations.rs:231`)
+- [ ] TODO(TEAM_019): Implement actual column reordering if needed (`canvas/operations.rs:315`)
+- [ ] TODO(TEAM_019): Implement actual column reordering if needed (`canvas/operations.rs:331`)
+
+### Window Management (TEAM_020)
+- [ ] TODO(TEAM_020): Implement proper window update (`canvas/operations.rs:439`)
+- [ ] TODO(TEAM_020): Properly activate in row (`canvas/operations.rs:459`)
+- [ ] TODO(TEAM_020): Implement fullscreen setting (`canvas/operations.rs:478`)
+- [ ] TODO(TEAM_020): Implement fullscreen toggle (`canvas/operations.rs:483`)
+- [ ] TODO(TEAM_020): Implement maximized setting (`canvas/operations.rs:488`)
+- [ ] TODO(TEAM_020): Implement maximized toggle (`canvas/operations.rs:493`)
+- [ ] TODO(TEAM_020): Implement proper scroll calculation if needed (`canvas/operations.rs:504`)
+
+### Popup Management (TEAM_021)
+- [ ] TODO(TEAM_021): Implement proper popup positioning with row/column offsets (`canvas/operations.rs:511`)
+
 ### Floating Layer ✅ COMPLETE (TEAM_009)
 - [x] Integrate FloatingSpace into Canvas2D
 - [x] Add floating layer rendering
@@ -101,20 +197,19 @@ Canvas2D depends on Row completion. Additional work needed:
 
 ### Camera
 - [x] TODO(TEAM_007): Animate camera_y when changing rows — DONE
-- [ ] TODO(TEAM_007): Add vertical_view_movement config to niri-config (Phase 3)
-- [ ] TODO(TEAM_006): Add camera_x tracking for horizontal scroll (Phase 3)
+- [ ] TODO(TEAM_007): Add vertical_view_movement config to niri-config (`canvas/navigation.rs:79`) — Phase 3
 
 ### Rendering ✅ COMPLETE
 - [x] TODO(TEAM_007): Add `render_elements` method — DONE
 - [x] TODO(TEAM_007): Add `update_render_elements` method — DONE
 - [x] TEAM_009: Floating layer rendering integrated
-- [ ] TODO(TEAM_007): Apply camera offset to render elements (`render.rs:25`) — Phase 3
+- [ ] TODO(TEAM_007): Apply camera offset to render elements (`canvas/render.rs:25`) — Phase 3
 
 ### Floating Layer
-- [ ] TODO(TEAM_009): Add close animation for tiled windows in rows (`floating.rs:126`)
+- [ ] TODO(TEAM_009): Add close animation for tiled windows in rows (`canvas/floating.rs:126`)
 
 ### Navigation
-- [ ] TODO(TEAM_007): Add vertical_view_movement config to niri-config (`navigation.rs:79`) — Phase 3
+- [ ] Navigation methods for canvas system (Phase 3)
 
 ---
 
@@ -128,3 +223,4 @@ Canvas2D depends on Row completion. Additional work needed:
 ---
 
 *Created by TEAM_006*
+*Comprehensively updated by TEAM_028 - All missing TODOs from previous teams now documented including wrong syntax TODOs (TEAM_023, TEAM_024, TEAM_022, TEAM_025, and generic TODOs)*
