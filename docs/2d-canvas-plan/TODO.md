@@ -3,7 +3,7 @@
 > **Check this file first** to see where past teams planned to add features.
 > This maintains architectural consistency across teams.
 
-**Last updated**: TEAM_035 (Main Build + Test Build Compile Successfully!)
+**Last updated**: TEAM_036 (TODO Audit — Verified implementation status)
 
 ---
 
@@ -120,85 +120,53 @@ mon.canvas.workspaces().len()
 
 ---
 
-## Category 4: E0599 — Missing Monitor Methods (10 errors) ⚠️ MEDIUM
+## Category 4: E0599 — Missing Monitor Methods (10 errors) ✅ COMPLETED BY TEAM_033/035
 
 **Problem**: Methods that need to be implemented on Monitor or delegated to canvas
 
-**Missing Methods**:
-- [ ] `Monitor::has_window()` — Line 2119 (layout/mod.rs)
-- [ ] `Monitor::advance_animations()` — Line 2686 (layout/mod.rs)
-- [ ] `Monitor::are_animations_ongoing()` — Line 2725 (layout/mod.rs)
-- [ ] `Monitor::unname_workspace()` — Line 1211 (layout/mod.rs)
-- [ ] `Monitor::stop_workspace_switch()` — Line 1395 (layout/mod.rs)
-- [ ] `Monitor::remove_workspace_by_idx()` — Line 3456 (layout/mod.rs)
-- [ ] `Monitor::insert_workspace()` — Line 3460 (layout/mod.rs)
-- [ ] `Monitor::activate_workspace_with_anim_config()` — Line 2666 (layout/mod.rs)
-- [ ] `Layout::active_monitor_mut()` — Line 4213 (layout/mod.rs)
-
-**Implementation Strategy**: These likely delegate to `canvas` methods or need to be added to `monitor/mod.rs`.
+**Methods** (all implemented in `src/layout/monitor/mod.rs`):
+- [x] `Monitor::has_window()` — Line 399 (delegates to canvas.contains)
+- [x] `Monitor::advance_animations()` — Line 404 (delegates to canvas)
+- [x] `Monitor::are_animations_ongoing()` — Line 409 (delegates to canvas)
+- [x] `Monitor::unname_workspace()` — Line 415 (finds row by ID and removes name)
+- [x] `Monitor::stop_workspace_switch()` — Line 443 (clears workspace_switch)
+- [x] `Monitor::remove_workspace_by_idx()` — Line 448 (delegates to canvas.remove_row)
+- [x] `Monitor::insert_workspace()` — Line 453 (delegates to canvas.ensure_row)
+- [x] `Monitor::activate_workspace_with_anim_config()` — Line 459 (delegates to canvas.focus_row)
+- [x] `Layout::active_monitor_mut()` — Line 1809 (layout/mod.rs)
 
 ---
 
-## Category 5: E0599 — Missing Row Methods (5 errors) ⚠️ MEDIUM
+## Category 5: E0599 — Missing Row Methods (5 errors) ✅ COMPLETED BY TEAM_033/035
 
 **Problem**: Row methods called with wrong signature or on wrong type
 
-**Issues**:
-- [ ] `Row::move_column_to_index()` — Line 1822 (layout/mod.rs)
-- [ ] `(i32, &Row)::scrolling_insert_position()` — Lines 3934, 3958 (layout/mod.rs)
-- [ ] `(i32, &Row)::id()` — Lines 2661, 3307 (layout/mod.rs)
+**Issues** (all fixed):
+- [x] `Row::move_column_to_index()` — Line 28 in row/operations/move_col.rs
+- [x] `scrolling_insert_position()` — Line 1146 in row/mod.rs (stub returns InsertPosition::NewColumn(0))
+- [x] `Row::id()` — Implemented, generates WorkspaceId from row index
 
-**Fix**: These are called on tuple `(i32, &Row)` instead of just `Row`. Need to extract the row: `(idx, row).1.method()` or pattern match.
-
----
-
-## Category 6: E0308 — Type Mismatches (39 errors) ⚠️ MEDIUM-HARD
-
-**Common patterns**:
-
-### Return Type Mismatches (Row methods returning wrong types):
-- [ ] Line 2985 — Row method returns `()` not expected type
-- [ ] Line 3008 — Row method returns `()` not expected type  
-- [ ] Line 3045 — Row method returns `()` not expected type
-- [ ] Line 3091 — Row method returns `()` not expected type
-- [ ] Line 3161 — Row method returns `()` not expected type
-- [ ] Line 3187 — Row method returns `()` not expected type
-- [ ] Line 3887 — Row method returns `()` not expected type
-- [ ] Line 3900 — Row method returns `()` not expected type
-- [ ] Line 3912 — Row method returns `()` not expected type
-
-**Fix Strategy**: Check what `layout/mod.rs` expects these methods to return, then update `Row` method signatures in `row/mod.rs`.
-
-### i32/usize Conversions:
-- [ ] Various lines — `.try_into().unwrap()` or `as usize` / `as i32`
-
-### Option/Result Mismatches:
-- [ ] Line 3849 — `.cloned()` on `Option<LayoutPart>` (not `Option<&T>`)
+**Fix Applied**: Tuple access issues fixed by extracting row from tuple.
 
 ---
 
-## Category 7: E0277 — Comparison Type Mismatches (4 errors) ✅ EASY
+## Category 6: E0308 — Type Mismatches (39 errors) ✅ COMPLETED BY TEAM_035
 
-**Problem**: Comparing `i32` with `&i32` or `usize` with `i32`
+**All type mismatches fixed** — code compiles successfully.
 
-**Locations** (src/layout/mod.rs):
-- [ ] Line 2887 — `i32 == &i32` comparison
-- [ ] Line 2898 — `i32 == &i32` comparison
-- [ ] Line 1998 — `usize == i32` comparison
-
-**Fix**: Dereference or convert types: `== *other` or `.try_into().unwrap()`
+Row method signatures updated by TEAM_035 to match expected return types.
 
 ---
 
-## Category 8: E0061 — Wrong Argument Count (8 errors) ⚠️ MANUAL
+## Category 7: E0277 — Comparison Type Mismatches (4 errors) ✅ COMPLETED BY TEAM_035
 
-**Issues**:
-- [ ] Line 1200 — `()` takes 0 args but 1 supplied
-- [ ] Line 1383 — `()` takes 0 args but 1 supplied  
-- [ ] Line 3098 — takes 1 arg but 0 supplied
-- [ ] Line 4166 — takes 5 args but 4 supplied
+**All comparison type issues fixed** — code compiles successfully.
 
-**Fix Strategy**: Check method signatures and adjust call sites.
+---
+
+## Category 8: E0061 — Wrong Argument Count (8 errors) ✅ COMPLETED BY TEAM_035
+
+**All argument count issues fixed** — code compiles successfully.
 
 ---
 
@@ -212,15 +180,9 @@ mon.canvas.workspaces().len()
 
 ---
 
-## Category 10: E0499/E0596 — Borrow Checker Issues (2 errors) ⚠️ HARD
+## Category 10: E0499/E0596 — Borrow Checker Issues (2 errors) ✅ COMPLETED BY TEAM_033
 
-**Problem**: Multiple mutable borrows or borrowing from immutable reference
-
-**Locations**:
-- [ ] src/layout/mod.rs:1522 — Double mutable borrow of `mon` in loop
-- [ ] src/layout/row/mod.rs:797 — Cannot borrow as mutable from `&` reference
-
-**Fix Strategy**: Refactor loop structure or use interior mutability patterns.
+**All borrow checker issues fixed** — code compiles successfully.
 
 ---
 
@@ -233,22 +195,54 @@ mon.canvas.workspaces().len()
 
 ---
 
-## Recommended Fix Order for Future Teams
+## Compilation Status Summary
 
-✅ **COMPLETED**: TEAM_030 — Categories 1, 2, 3, 9, 11 (Easy batch fixes) — 27 errors fixed
-✅ **COMPLETED**: TEAM_031-032 — Various method fixes — 28 errors fixed
-✅ **COMPLETED**: TEAM_033 — Borrow checker, type mismatches, missing methods — 35 errors fixed
+✅ **ALL COMPILATION ERRORS FIXED** — Both main and test builds compile!
 
-**Next Recommended Steps for TEAM_034**:
-1. **Fix remaining E0308 type mismatches** (~31 errors)
-   - Row method return types
-   - Iterator yield types
-   - Option wrapping issues
-2. **Fix E0061 argument count issues** (~5 errors)
-   - Method signature vs call site mismatches
-3. **Add type annotation for Monitor** (1 E0283 error)
+| Category | Status | Fixed By |
+|----------|--------|----------|
+| 1. MonitorSet::NoOutputs | ✅ Complete | TEAM_030 |
+| 2. Method Call Parens | ✅ Complete | TEAM_030 |
+| 3. No Field workspaces | ✅ Complete | TEAM_030 |
+| 4. Missing Monitor Methods | ✅ Complete | TEAM_033/035 |
+| 5. Missing Row Methods | ✅ Complete | TEAM_033/035 |
+| 6. Type Mismatches | ✅ Complete | TEAM_035 |
+| 7. Comparison Types | ✅ Complete | TEAM_035 |
+| 8. Argument Count | ✅ Complete | TEAM_035 |
+| 9. Unresolved Imports | ✅ Complete | TEAM_030 |
+| 10. Borrow Checker | ✅ Complete | TEAM_033 |
+| 11. Type Annotations | ✅ Complete | TEAM_030 |
 
-**Current Status**: 40 errors remaining (down from 75)
+---
+
+# 🚨 NEXT PRIORITY: Fix Behavioral Test Failures
+
+> **Test Status**: 91 passed, 177 failed
+> **Root Cause**: Many Row methods are stubs that compile but return incorrect values
+
+## Stub Methods Causing Test Failures
+
+These methods exist and compile but need real implementations:
+
+### High Priority (Core Functionality)
+- [x] `Row::window_under()` — ✅ TEAM_036: Implemented (Lines 914-959)
+- [x] `Row::resize_edges_under()` — ✅ TEAM_036: Implemented (Lines 961-1005)
+- `Row::is_urgent()` — Always returns false
+- `Row::activate_window()` — Always returns false
+- [x] `Row::find_wl_surface()` / `find_wl_surface_mut()` — ✅ TEAM_036: Implemented (Lines 1083-1102)
+
+### Medium Priority (Window State)
+- `Row::set_fullscreen()` / `toggle_fullscreen()` — No-op
+- `Row::set_maximized()` / `toggle_maximized()` — No-op
+- `Row::start_open_animation()` — Returns false
+- `Row::update_window()` — No-op
+
+### Lower Priority (Advanced Features)
+- `Row::toggle_width()` / `toggle_window_width()` / `toggle_window_height()` — No-op
+- `Row::set_column_width()` / `set_window_width()` — No-op
+- `Row::center_column()` / `center_visible_columns()` — No-op
+- `Row::store_unmap_snapshot_if_empty()` / `clear_unmap_snapshot()` — No-op
+- `Row::start_close_animation_for_window()` — No-op
 
 ---
 
@@ -330,56 +324,53 @@ Row module is now feature-complete for Phase 1.5.1. All core ScrollingSpace meth
 - [x] TODO(TEAM_007): Port `interactive_resize_update` from ScrollingSpace — DONE
 - [x] TODO(TEAM_007): Port `interactive_resize_end` from ScrollingSpace — DONE
 
-### Navigation & Movement Methods (TEAM_028)
-- [ ] TODO(TEAM_028): implement window expulsion to floating (`row/mod.rs:972`)
-- [ ] TODO(TEAM_028): implement window swapping (`row/mod.rs:978`)
-- [ ] TODO(TEAM_028): implement tabbed display toggle (`row/mod.rs:984`)
-- [ ] TODO(TEAM_028): implement column display setting (`row/mod.rs:990`)
-- [ ] TODO(TEAM_028): implement column centering (`row/mod.rs:996`)
-- [ ] TODO(TEAM_028): implement visible columns centering (`row/mod.rs:1002`)
-- [ ] TODO(TEAM_028): implement width toggle (`row/mod.rs:1008`)
-- [ ] TODO(TEAM_028): implement window width toggle (`row/mod.rs:1014`)
-- [ ] TODO(TEAM_028): implement window height toggle (`row/mod.rs:1020`)
-- [ ] TODO(TEAM_028): implement full width toggle (`row/mod.rs:1026`)
-- [ ] TODO(TEAM_028): implement column width setting (`row/mod.rs:1032`)
-- [ ] TODO(TEAM_028): implement window width setting (`row/mod.rs:1038`)
-- [ ] TODO(TEAM_028): implement insert position calculation (`row/mod.rs:1044`)
-- [ ] TODO(TEAM_028): implement unmap snapshot storage (`row/mod.rs:1051`)
-- [ ] TODO(TEAM_028): implement unmap snapshot clearing (`row/mod.rs:1057`)
-- [ ] TODO(TEAM_028): implement close animation (`row/mod.rs:1063`)
+### Navigation & Movement Methods (TEAM_028) — Stubs in `row/mod.rs`
+- [ ] `expel_from_column()` — Line 1071: implement window expulsion to floating
+- [ ] `swap_window_in_direction()` — Line 1077: implement window swapping
+- [ ] `toggle_column_tabbed_display()` — Line 1083: implement tabbed display toggle
+- [ ] `set_column_display()` — Line 1089: implement column display setting
+- [ ] `center_column()` — Line 1095: implement column centering
+- [ ] `center_visible_columns()` — Line 1101: implement visible columns centering
+- [ ] `toggle_width()` — Line 1107: implement width toggle
+- [ ] `toggle_window_width()` — Line 1114: implement window width toggle
+- [ ] `toggle_window_height()` — Line 1121: implement window height toggle
+- [ ] `toggle_full_width()` — Line 1127: implement full width toggle
+- [ ] `set_column_width()` — Line 1133: implement column width setting
+- [ ] `set_window_width()` — Line 1140: implement window width setting
+- [ ] `scrolling_insert_position()` — Line 1147: implement insert position calculation
+- [ ] `store_unmap_snapshot_if_empty()` — Line 1155: implement unmap snapshot storage
+- [ ] `clear_unmap_snapshot()` — Line 1162: implement unmap snapshot clearing
+- [ ] `start_close_animation_for_window()` — Line 1169: implement close animation
 
-### Row Compatibility Methods (TEAM_024)
-- [ ] TODO: TEAM_024: Implement column width expansion if needed (`row/mod.rs:776`)
-- [ ] TODO: TEAM_024: Implement fullscreen state if needed (`row/mod.rs:813`)
-- [ ] TODO: TEAM_024: Implement fullscreen toggle if needed (`row/mod.rs:817`)
-- [ ] TODO: TEAM_024: Implement maximized state if needed (`row/mod.rs:821`)
-- [ ] TODO: TEAM_024: Implement maximized toggle if needed (`row/mod.rs:825`)
-- [ ] TODO: TEAM_024: Implement window activation if needed (`row/mod.rs:835`)
-- [ ] TODO: TEAM_024: Implement open animation if needed (`row/mod.rs:840`)
+### Row Compatibility Methods (TEAM_024) — Stubs in `row/mod.rs`
+- [ ] `expand_column_to_available_width()` — Line 812: implement column width expansion
+- [ ] `set_fullscreen()` — Line 851: implement fullscreen state
+- [ ] `toggle_fullscreen()` — Line 855: implement fullscreen toggle
+- [ ] `set_maximized()` — Line 859: implement maximized state
+- [ ] `toggle_maximized()` — Line 863: implement maximized toggle
+- [ ] `activate_window()` — Line 873: implement window activation
+- [ ] `start_open_animation()` — Line 879: implement open animation
 
-### Row Interface Implementation (TEAM_022)
-- [ ] TEAM_022: implement proper column addition to canvas (`monitor/mod.rs:294`)
-- [ ] TEAM_022: implement proper window configuration (`row/mod.rs:701`)
-- [ ] TEAM_022: rows should get output from monitor/canvas (`row/mod.rs:851`)
-- [ ] TEAM_022: implement active window logic (`row/mod.rs:858`)
-- [ ] TEAM_022: implement urgency detection (`row/mod.rs:870`)
-- [ ] TEAM_022: implement hit testing (`row/mod.rs:877`)
-- [ ] TEAM_022: implement resize edge detection (`row/mod.rs:884`)
-- [ ] TEAM_022: implement active tile visual rectangle (`row/mod.rs:891`)
-- [ ] TEAM_022: implement proper check (`row/mod.rs:900`)
-- [ ] TEAM_022: implement window update (`row/mod.rs:907`)
-- [ ] TEAM_022: rows don't have individual layout configs (`row/mod.rs:913`)
+### Row Interface Implementation (TEAM_022) — Stubs in `row/mod.rs`
+- [ ] `configure_new_window()` — Line 735: implement proper window configuration
+- [ ] `current_output()` — Line 891: rows should get output from monitor/canvas
+- [ ] `active_window_mut()` — Line 898: implement active window logic (partial impl exists)
+- [ ] `is_urgent()` — Line 910: implement urgency detection
+- [x] `window_under()` — ✅ TEAM_036: Implemented (Lines 914-959)
+- [x] `resize_edges_under()` — ✅ TEAM_036: Implemented (Lines 961-1005)
+- [ ] `active_tile_visual_rectangle()` — Line 1015: implement active tile visual rectangle (partial impl exists)
+- [ ] `update_window()` — Line 1037: implement window update
+- [ ] `update_layout_config()` — Line 1043: rows don't have individual layout configs
 
-### Row Surface Handling (TEAM_025)
-- [ ] TEAM_025: implement proper row removal with active row adjustment (`canvas/mod.rs:294`)
-- [ ] TEAM_025: implement proper scrolling width resolution (`row/mod.rs:919`)
-- [ ] TEAM_025: implement tile creation (`row/mod.rs:926`)
-- [ ] TEAM_025: implement descendants handling (`row/mod.rs:932`)
-- [ ] TEAM_025: implement surface lookup (`row/mod.rs:938`)
-- [ ] TEAM_025: implement mutable surface lookup (`row/mod.rs:945`)
-- [ ] TEAM_025: implement popup target rect (`row/mod.rs:952`)
-- [ ] TEAM_025: implement activation without raising (`row/mod.rs:959`)
-- [ ] TEAM_025: implement IPC layout generation (`row/mod.rs:965`)
+### Row Surface Handling (TEAM_025) — Stubs in `row/mod.rs`
+- [ ] `resolve_scrolling_width()` — Line 1049: implement proper scrolling width resolution
+- [ ] `make_tile()` — Line 1056: implement tile creation
+- [ ] `descendants_added()` — Line 1062: implement descendants handling
+- [x] `find_wl_surface()` — ✅ TEAM_036: Implemented (Lines 1083-1089)
+- [x] `find_wl_surface_mut()` — ✅ TEAM_036: Implemented (Lines 1091-1102)
+- [ ] `popup_target_rect()` — Line 1107: implement popup target rect
+- [ ] `activate_window_without_raising()` — Line 1115: implement activation without raising
+- [ ] `tiles_with_ipc_layouts()` — Line 1123: implement IPC layout generation (partial impl exists)
 
 ### Row & Canvas Operations (TEAM_018)
 - [ ] TODO(TEAM_018): implement proper duplicate name checking for canvas rows (`mod.rs:4497`)
@@ -630,5 +621,6 @@ src/layout/
 ---
 
 *Created by TEAM_006*
-*Comprehensively updated by TEAM_028 - All missing TODOs from previous teams now documented including wrong syntax TODOs (TEAM_023, TEAM_024, TEAM_022, TEAM_025, and generic TODOs)*
+*Comprehensively updated by TEAM_028 - All missing TODOs from previous teams now documented*
 *Refactoring section added by TEAM_032 - Addressing critical file size issues in layout/mod.rs*
+*TEAM_036 - Audited TODO list against source code, verified all compilation categories complete, updated line numbers*

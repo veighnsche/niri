@@ -52,11 +52,8 @@ impl<W: LayoutElement> Monitor<W> {
         let (ws, geo) = self.workspace_under(pos_within_output)?;
 
         // DEPRECATED(overview): Removed overview_progress zoom handling
-        // TEAM_031: Row's window_under returns Option<&W>, not (&W, HitType)
-        let win = ws.window_under(pos_within_output - geo.loc)?;
-        let hit = HitType::Activate {
-            is_tab_indicator: false,
-        };
+        // TEAM_036: Row's window_under now returns Option<(&W, HitType)>
+        let (win, hit) = ws.window_under(pos_within_output - geo.loc)?;
         Some((win, hit.offset_win_pos(geo.loc)))
     }
 
