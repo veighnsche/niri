@@ -1275,18 +1275,28 @@ impl<W: LayoutElement> Layout<W> {
         match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
+                    // TEAM_044: Check floating space first
+                    if mon.canvas.floating.has_window(window) {
+                        mon.canvas.floating.update_window(window, serial);
+                        return;
+                    }
                     for (_, ws) in mon.canvas.workspaces_mut() {
                         if ws.has_window(window) {
-                            ws.update_window(window);
+                            ws.update_window(window, serial);
                             return;
                         }
                     }
                 }
             }
             MonitorSet::NoOutputs { canvas, .. } => {
+                // TEAM_044: Check floating space first
+                if canvas.floating.has_window(window) {
+                    canvas.floating.update_window(window, serial);
+                    return;
+                }
                 for (_, ws) in canvas.workspaces_mut() {
                     if ws.has_window(window) {
-                        ws.update_window(window);
+                        ws.update_window(window, serial);
                         return;
                     }
                 }

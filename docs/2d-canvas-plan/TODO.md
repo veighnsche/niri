@@ -3,7 +3,7 @@
 > **Check this file first** before starting work.
 > This is the single source of truth for what needs to be done.
 
-**Last updated**: TEAM_043
+**Last updated**: TEAM_044
 
 ---
 
@@ -12,18 +12,18 @@
 | Metric | Value |
 |--------|-------|
 | **Build** | ✅ Compiles |
-| **Tests** | 210 passed, 58 failed (78%) |
+| **Tests** | 213 passed, 55 failed (79.5%) |
 | **Golden Tests** | ✅ 84/84 pass |
 | **TODOs in codebase** | 84 total |
 
 ---
 
-# 🔄 CONTINUOUS TEST ITERATION (TEAM_043)
+# 🔄 CONTINUOUS TEST ITERATION (TEAM_043 → TEAM_044)
 
 > **Goal**: Run all tests iteratively until 100% pass rate
 > **Status**: IN PROGRESS
 
-## Fixes Applied This Session
+## Fixes Applied (TEAM_043)
 
 1. ✅ **Fixed refresh not calling Row::refresh()** - Windows weren't receiving configure events
 2. ✅ **Fixed width parameter ignored in Monitor::add_window()** - Was hardcoded to 1.0
@@ -31,9 +31,14 @@
 4. ✅ **Fixed set_column_width for floating** - Now routes to FloatingSpace
 5. ✅ **Fixed floating set_window_width/height** - Uses size() instead of expected_size()
 
+## Fixes Applied (TEAM_044)
+
+6. ✅ **Fixed Layout::update_window missing floating check** - Floating windows now get on_commit called
+7. ✅ **Fixed Row::update_window missing serial parameter** - on_commit now called for tiled windows
+
 ## Remaining Test Categories
 
-- **Floating tests**: ~25 failing (size preservation issues)
+- **Floating tests**: ~22 failing (size preservation issues - complex expected_size() interactions)
 - **Animation tests**: ~10 failing (move animations)
 - **Fullscreen tests**: ~5 failing (view offset preservation)
 - **Window opening tests**: ~10 failing (workspace targeting)

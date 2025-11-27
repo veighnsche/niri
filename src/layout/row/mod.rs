@@ -45,7 +45,7 @@ use niri_config::{Struts, Border, PresetSize};
 use niri_config::utils::MergeWith;
 use niri_ipc::{ColumnDisplay, SizeChange};
 use crate::layout::workspace_types::WorkspaceId;
-use smithay::utils::{Logical, Point, Rectangle, Size};
+use smithay::utils::{Logical, Point, Rectangle, Size, Serial};
 use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::backend::renderer::gles::GlesRenderer;
@@ -1340,13 +1340,26 @@ impl<W: LayoutElement> Row<W> {
     /// Update a window in this row.
     /// Update window state and layout.
     /// TEAM_022: Implemented based on ScrollingSpace::update_window
-    pub fn update_window(&mut self, window: &W::Id) {
+    /// TEAM_044: Added serial parameter for on_commit handling
+    pub fn update_window(&mut self, window: &W::Id, serial: Option<Serial>) {
         let (col_idx, column) = self
             .columns
             .iter_mut()
             .enumerate()
             .find(|(_, col)| col.contains(window))
             .unwrap();
+
+        // TEAM_044: Find the tile and call on_commit before update_window
+        let tile = column
+            .tiles
+            .iter_mut()
+            .find(|tile| tile.window().id() == window)
+            .unwrap();
+
+        // Do this before calling update_window() so it can get up-to-date info.
+        if let Some(serial) = serial {
+            tile.window_mut().on_commit(serial);
+        }
         
         let prev_width = self.data[col_idx].width;
 
