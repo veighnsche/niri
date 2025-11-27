@@ -167,6 +167,19 @@ impl<W: LayoutElement> Row<W> {
             self.active_column_idx += 1;
         }
 
-        // TODO(TEAM_006): Animate movement of other columns (port from ScrollingSpace)
+        // TEAM_040: Animate movement of other columns (ported from ScrollingSpace)
+        if !was_empty {
+            let offset = self.column_x(idx + 1) - self.column_x(idx);
+            let config = self.options.animations.window_movement.0;
+            if self.active_column_idx <= idx {
+                for col in &mut self.columns[idx + 1..] {
+                    col.animate_move_from_with_config(-offset, config);
+                }
+            } else {
+                for col in &mut self.columns[..idx] {
+                    col.animate_move_from_with_config(offset, config);
+                }
+            }
+        }
     }
 }

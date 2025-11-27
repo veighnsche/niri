@@ -73,10 +73,12 @@ impl<W: LayoutElement> Row<W> {
             }
 
             offset.x += self.columns[source_col_idx].render_offset().x;
+            // TEAM_040: Pass animation config to ensure column removal animates
             let removed = self.remove_tile_by_idx(
                 source_col_idx,
                 0,
                 Transaction::new(),
+                Some(self.options.animations.window_movement.0),
             );
             self.add_tile_to_column(target_column_idx, None, removed.tile(), source_tile_was_active);
 
@@ -90,8 +92,9 @@ impl<W: LayoutElement> Row<W> {
             // Move out of column.
             let mut offset = Point::from((source_column.render_offset().x, 0.));
 
+            // TEAM_040: No animation config needed when expelling (not removing column)
             let removed =
-                self.remove_tile_by_idx(source_col_idx, source_tile_idx, Transaction::new());
+                self.remove_tile_by_idx(source_col_idx, source_tile_idx, Transaction::new(), None);
 
             // We're inserting into the source column position.
             let target_column_idx = source_col_idx;
@@ -173,10 +176,12 @@ impl<W: LayoutElement> Row<W> {
                 self.activate_prev_column_on_removal = None;
             }
 
+            // TEAM_040: Pass animation config to ensure column removal animates
             let removed = self.remove_tile_by_idx(
                 source_col_idx,
                 0,
                 Transaction::new(),
+                Some(self.options.animations.window_movement.0),
             );
             self.add_tile_to_column(target_column_idx, None, removed.tile(), source_tile_was_active);
 
@@ -189,8 +194,9 @@ impl<W: LayoutElement> Row<W> {
             // Move out of column.
             let prev_width = self.data[source_col_idx].width;
 
+            // TEAM_040: No animation config needed when expelling (not removing column)
             let removed =
-                self.remove_tile_by_idx(source_col_idx, source_tile_idx, Transaction::new());
+                self.remove_tile_by_idx(source_col_idx, source_tile_idx, Transaction::new(), None);
 
             let target_column_idx = source_col_idx + 1;
 
@@ -237,7 +243,13 @@ impl<W: LayoutElement> Row<W> {
         let mut offset = Point::from((offset, 0.));
         let prev_off = self.columns[source_column_idx].tile_offset(0);
 
-        let removed = self.remove_tile_by_idx(source_column_idx, 0, Transaction::new());
+        // TEAM_040: Pass animation config to ensure column removal animates
+        let removed = self.remove_tile_by_idx(
+            source_column_idx,
+            0,
+            Transaction::new(),
+            Some(self.options.animations.window_movement.0),
+        );
         self.add_tile_to_column(target_column_idx, None, removed.tile(), false);
 
         let target_column = &mut self.columns[target_column_idx];

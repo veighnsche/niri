@@ -32,8 +32,17 @@ use anyhow::{bail, Context, Result};
 use clap::Subcommand;
 
 /// Paths that may contain snapshot files
+// TEAM_040: Added src/tests/snapshots which was missing
 const SNAPSHOT_PATHS: &[&str] = &[
     "src/layout/tests/snapshots",
+    "src/tests/snapshots",
+];
+
+/// Paths that may contain .pending-snap files (test source directories)
+// TEAM_040: Added to clean up pending-snap files
+const PENDING_SNAP_PATHS: &[&str] = &[
+    "src/layout/tests",
+    "src/tests",
 ];
 
 /// Primary snapshot directory
@@ -252,27 +261,44 @@ fn clean_artifacts(dry_run: bool) -> Result<()> {
     println!("🧹 Cleaning test artifacts\n");
 
     let new_files = find_snap_new_files();
+    let pending_files = find_pending_snap_files();
+    let total_files = new_files.len() + pending_files.len();
 
-    if new_files.is_empty() {
-        println!("✅ No .snap.new files found");
+    if total_files == 0 {
+        println!("✅ No test artifacts found");
         return Ok(());
     }
 
-    println!("Found {} .snap.new files:\n", new_files.len());
+    // Clean .snap.new files
+    if !new_files.is_empty() {
+        println!("Found {} .snap.new files:\n", new_files.len());
+        for path in &new_files {
+            if dry_run {
+                println!("  [dry-run] Would remove: {path}");
+            } else {
+                println!("  🗑️  {path}");
+                std::fs::remove_file(path).context(format!("Failed to remove {path}"))?;
+            }
+        }
+    }
 
-    for path in &new_files {
-        if dry_run {
-            println!("  [dry-run] Would remove: {path}");
-        } else {
-            println!("  🗑️  {path}");
-            std::fs::remove_file(path).context(format!("Failed to remove {path}"))?;
+    // Clean .pending-snap files
+    if !pending_files.is_empty() {
+        println!("\nFound {} .pending-snap files:\n", pending_files.len());
+        for path in &pending_files {
+            if dry_run {
+                println!("  [dry-run] Would remove: {path}");
+            } else {
+                println!("  🗑️  {path}");
+                std::fs::remove_file(path).context(format!("Failed to remove {path}"))?;
+            }
         }
     }
 
     if dry_run {
-        println!("\n[DRY RUN] Would have removed {} files", new_files.len());
+        println!("\n[DRY RUN] Would have removed {} files", total_files);
     } else {
-        println!("\n✅ Removed {} .snap.new files", new_files.len());
+        println!("\n✅ Removed {} test artifact files", total_files);
     }
 
     Ok(())
@@ -283,7 +309,8 @@ fn show_status() -> Result<()> {
 
     // Count snapshot files
     let mut total_snaps = 0;
-    let mut total_new = 0;
+    let total_new = find_snap_new_files().len();
+    let total_pending = find_pending_snap_files().len();
 
     for path in SNAPSHOT_PATHS {
         if let Ok(entries) = std::fs::read_dir(path) {
@@ -291,9 +318,7 @@ fn show_status() -> Result<()> {
                 let name = entry.file_name();
                 let name_str = name.to_string_lossy();
                 
-                if name_str.ends_with(".snap.new") {
-                    total_new += 1;
-                } else if name_str.ends_with(".snap") {
+                if name_str.ends_with(".snap") && !name_str.ends_with(".snap.new") {
                     total_snaps += 1;
                 }
             }
@@ -302,10 +327,12 @@ fn show_status() -> Result<()> {
 
     println!("📁 Golden snapshots: {total_snaps} files");
     println!("📝 Pending .snap.new: {total_new} files");
+    println!("📝 Pending .pending-snap: {total_pending} files");
 
-    if total_new > 0 {
-        println!("\n⚠️  You have {total_new} .snap.new files!");
-        println!("   These are test outputs that differ from golden snapshots.");
+    let total_artifacts = total_new + total_pending;
+    if total_artifacts > 0 {
+        println!("\n⚠️  You have {total_artifacts} test artifact files!");
+        println!("   These are test outputs that differ from expected snapshots.");
         println!();
         println!("   Options:");
         println!("   • Fix your code to match expected output");
@@ -342,15 +369,40 @@ fn find_snap_new_files() -> Vec<String> {
     files
 }
 
+/// Find .pending-snap files in test source directories
+// TEAM_040: Added to clean up pending-snap files
+fn find_pending_snap_files() -> Vec<String> {
+    let mut files = Vec::new();
+
+    for path in PENDING_SNAP_PATHS {
+        if let Ok(entries) = std::fs::read_dir(path) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let entry_path = entry.path();
+                if entry_path.to_string_lossy().ends_with(".pending-snap") {
+                    files.push(entry_path.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
+    files.sort();
+    files
+}
+
 fn count_snap_new_files() -> usize {
     find_snap_new_files().len()
 }
 
 fn clean_snap_new_files() -> Result<usize> {
     let files = find_snap_new_files();
-    let count = files.len();
+    let pending_files = find_pending_snap_files();
+    let count = files.len() + pending_files.len();
 
     for path in files {
+        std::fs::remove_file(&path).context(format!("Failed to remove {path}"))?;
+    }
+
+    for path in pending_files {
         std::fs::remove_file(&path).context(format!("Failed to remove {path}"))?;
     }
 

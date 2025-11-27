@@ -362,7 +362,7 @@ impl<W: LayoutElement> Canvas2D<W> {
 
         // Remove window from current row
         let removed_tile = if let Some(row) = self.rows.get_mut(&current_row_idx) {
-            row.remove_tile_by_idx(column_idx, tile_idx, crate::utils::transaction::Transaction::new())
+            row.remove_tile_by_idx(column_idx, tile_idx, crate::utils::transaction::Transaction::new(), None)
         } else {
             return false;
         };

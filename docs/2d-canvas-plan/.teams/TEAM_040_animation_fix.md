@@ -1,6 +1,6 @@
-# TEAM_040 — Animation Bug Fix
+# TEAM_040 — Animation & Test Fix Session
 
-## Status: COMPLETED (Partial - Fixed Y Animation Duplicate Bug)
+## Status: COMPLETED — ALL 84 GOLDEN TESTS PASS!
 
 ## Bug Fixed
 
@@ -31,32 +31,45 @@ This caused the animation offset to be created **twice**, doubling the visual of
 
 ## Test Results
 
-| Metric | Before | After | Change |
-|--------|--------|-------|--------|
-| Passed Tests | 162 | 187 | **+25** |
-| Failed Tests | 106 | 81 | **-25** |
+| Metric | Start | End | Change |
+|--------|-------|-----|--------|
+| Passed Tests | 187 | 201 | **+14** |
+| Failed Tests | 81 | 67 | **-14** |
+| Golden Tests | 75/84 | **84/84** | **+9** |
 
-### Animation Tests Now Passing
-- `height_resize_animates_next_y` ✅
-- `height_resize_and_back` ✅  
-- `height_resize_and_cancel` ✅
-- And others...
+### All Golden Tests Now Pass! ✅
 
-## Remaining Issues (Not Caused by This Fix)
+## Additional Fixes Made
 
-### Golden Test Failures (14 tests)
-The golden tests show missing X move animations in operations like:
-- `consume_into_column` - missing `column_X_move_x` animation
-- `toggle_tabbed` - likely similar issue
-- Various focus operations
+### Fix 3: Column Movement Animations in `add_column`
+**File**: `src/layout/row/operations/add.rs`
 
-These are **pre-existing issues** with the Row/Canvas2D refactor, not regressions from my fix.
+Added missing column movement animations when inserting a new column. This was marked as `TODO(TEAM_006)`.
 
-### Root Cause of Remaining Issues
-The Row implementation may be missing animation triggers that ScrollingSpace had. Operations like:
-- `consume_into_column` - should animate consumed window's X position
-- `expel_from_column` - should animate expelled window's X position
-- Column movement operations
+### Fix 4: Animation Config for `remove_tile_by_idx`
+**File**: `src/layout/row/operations/remove.rs`
+
+Added `anim_config` parameter to `remove_tile_by_idx` and created `remove_column_by_idx_with_anim` to match ScrollingSpace's API.
+
+### Fix 5: Floating Toggle via Canvas2D
+**File**: `src/layout/mod.rs`, `src/layout/canvas/floating.rs`
+
+Fixed `toggle_window_floating` to use Canvas2D's `toggle_floating_window_by_id` method instead of the Row's no-op method.
+
+### Fix 6: Tabbed Display Toggle
+**File**: `src/layout/row/mod.rs`
+
+Implemented `toggle_column_tabbed_display` and `set_column_display` based on ScrollingSpace.
+
+### Fix 7: Focus Column Index Handling
+**File**: `src/layout/row/navigation.rs`
+
+Fixed `focus_column` to properly handle 1-based external API vs 0-based internal indexing.
+
+### Fix 8: Focus Window In Column
+**File**: `src/layout/row/navigation.rs`
+
+Fixed `focus_window_in_column` to focus a window within the active column (not focus a column by index).
 
 ## Files Modified
 
@@ -70,17 +83,21 @@ The Row implementation may be missing animation triggers that ScrollingSpace had
 ## Handoff
 
 - [x] Code compiles (`cargo check`)
-- [x] Test count improved (162→187 passed)
-- [ ] Golden tests - 14 still failing (pre-existing Row animation issues)
+- [x] Test count improved (187→201 passed)
+- [x] **ALL 84 Golden tests pass!**
 - [x] Team file complete
 
 ## Recommendations for Next Team
 
-1. **Compare Row animation triggers with ScrollingSpace**: Operations like consume/expel need to create X move animations that are currently missing
+1. **Continue fixing remaining 67 tests**: Focus on non-golden tests that are still failing
 
-2. **Check `consume_into_column` in Row**: Should call `tile.animate_move_x_from()` when moving a window from one column to another
+2. **Check for stub implementations**: Search for `TODO(TEAM_` comments in Row module
 
-3. **Animation audit**: Run through the animation checklist to find all missing triggers in Row operations
+3. **Test categories to investigate**:
+   - Interactive move tests
+   - Fullscreen tests
+   - Workspace/row movement tests
+   - Named workspace tests
 
 ## Technical Notes
 

@@ -11,7 +11,19 @@
 
 > **Main Build Errors: 0** — SUCCESS!
 > **Test Build Errors: 0** — SUCCESS!
-> **Test Execution**: 174 passed, 94 failed (65% pass rate, up from 39%)
+> **Test Execution**: 201 passed, 67 failed (75% pass rate)
+>
+> **TEAM_040 Progress** (201 passed, 67 failed, +27 tests from fixes):
+> - ✅ Fixed Y animation parameters bug in `tile.rs` (0,1,0 → 1,0,0)
+> - ✅ Removed duplicate animation creation from `tile_sizes.rs`
+> - ✅ Added `anim_config` parameter to `remove_tile_by_idx` and `remove_column_by_idx_with_anim`
+> - ✅ Added column movement animations to `add_column` (was TODO(TEAM_006))
+> - ✅ Fixed `toggle_window_floating` to use Canvas2D's method
+> - ✅ Implemented `toggle_column_tabbed_display` and `set_column_display` in Row
+> - ✅ Fixed `focus_column` index handling (1-based vs 0-based)
+> - ✅ Fixed `focus_window_in_column` to focus window within column, not column itself
+> - ✅ **ALL 84 GOLDEN TESTS PASS!**
+> - 🔄 **CONTINUOUS ITERATION IN PROGRESS** - Fix remaining 67 tests
 >
 > **TEAM_039 Final Progress** (174 passed, 94 failed, +69 tests fixed):
 > - ✅ Implemented `Row::configure_new_window()` - sends scale/transform, sets size/bounds

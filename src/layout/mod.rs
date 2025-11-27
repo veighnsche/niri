@@ -2118,8 +2118,8 @@ impl<W: LayoutElement> Layout<W> {
         let Some(workspace) = self.active_workspace_mut() else {
             return;
         };
-        // TEAM_035: Convert u8 to usize
-        workspace.focus_window_in_column(index as usize);
+        // TEAM_040: Fixed - pass u8 directly
+        workspace.focus_window_in_column(index);
     }
 
     pub fn focus_down(&mut self) {
@@ -3256,20 +3256,27 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        let workspace = if let Some(window) = window {
-            Some(
-                self.workspaces_mut()
-                    .find(|ws| ws.has_window(window))
-                    .unwrap(),
-            )
-        } else {
-            self.active_workspace_mut()
-        };
-
-        let Some(workspace) = workspace else {
-            return;
-        };
-        workspace.toggle_window_floating(window);
+        // TEAM_040: Use Canvas2D's toggle_floating_window_by_id instead of Row method
+        // Floating is handled at the Canvas2D level, not the Row level
+        match &mut self.monitor_set {
+            MonitorSet::Normal { monitors, active_monitor_idx, .. } => {
+                if let Some(window) = window {
+                    // Find the monitor containing this window
+                    for mon in monitors.iter_mut() {
+                        if mon.canvas.contains_any(window) {
+                            mon.canvas.toggle_floating_window_by_id(Some(window));
+                            return;
+                        }
+                    }
+                } else {
+                    // Toggle active window on active monitor
+                    monitors[*active_monitor_idx].canvas.toggle_floating_window_by_id(None);
+                }
+            }
+            MonitorSet::NoOutputs { canvas, .. } => {
+                canvas.toggle_floating_window_by_id(window);
+            }
+        }
     }
 
     pub fn set_window_floating(&mut self, window: Option<&W::Id>, floating: bool) {

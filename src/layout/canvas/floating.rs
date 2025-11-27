@@ -21,6 +21,43 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// If floating is active, moves the window to the tiled layer.
     /// If tiled is active, moves the window to the floating layer.
     pub fn toggle_floating_window(&mut self) {
+        self.toggle_floating_window_by_id(None);
+    }
+
+    /// Toggles a specific window (or active window if None) between floating and tiled mode.
+    // TEAM_040: Added to support toggling specific windows
+    pub fn toggle_floating_window_by_id(&mut self, window: Option<&W::Id>) {
+        // If a specific window is provided, check if it's floating
+        if let Some(id) = window {
+            if self.floating.has_window(id) {
+                // Move from floating to tiled
+                let removed = self.floating.remove_tile(id);
+                let tile = removed.tile;
+                let width = removed.width;
+                let is_full_width = removed.is_full_width;
+                self.add_tile(tile, true, width, is_full_width);
+
+                // Switch to tiled mode if floating is now empty
+                if self.floating.is_empty() {
+                    self.floating_is_active = false;
+                }
+                return;
+            }
+
+            // Check if it's in a row
+            for row in self.rows.values_mut() {
+                if row.contains(id) {
+                    let removed = row.remove_tile(id, Transaction::new());
+                    let tile = removed.tile;
+                    self.floating.add_tile(tile, true);
+                    self.floating_is_active = true;
+                    return;
+                }
+            }
+            return;
+        }
+
+        // No specific window - toggle the active window
         if self.floating_is_active {
             // Move window from floating to tiled
             if let Some(removed) = self.floating.remove_active_tile() {

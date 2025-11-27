@@ -70,8 +70,8 @@ impl<W: LayoutElement> Row<W> {
         true
     }
 
-    /// Focuses a specific column by index.
-    /// TEAM_039: Note - index is 1-based in the original API, so we convert to 0-based
+    /// Focuses a specific column by index (1-based, for external API compatibility).
+    // TEAM_040: Matches ScrollingSpace - external API uses 1-based index
     pub fn focus_column(&mut self, index: usize) {
         if self.columns.is_empty() {
             return;
@@ -79,6 +79,17 @@ impl<W: LayoutElement> Row<W> {
 
         // Convert 1-based index to 0-based, clamped to valid range
         let idx = index.saturating_sub(1).min(self.columns.len() - 1);
+        self.focus_column_idx(idx);
+    }
+
+    /// Focuses a specific column by 0-based index (internal use).
+    // TEAM_040: Internal method for 0-based indexing
+    fn focus_column_idx(&mut self, idx: usize) {
+        if self.columns.is_empty() {
+            return;
+        }
+
+        let idx = idx.min(self.columns.len() - 1);
 
         // TEAM_039: Pass old active column index for proper view offset calculation
         let prev_idx = self.active_column_idx;
@@ -97,7 +108,7 @@ impl<W: LayoutElement> Row<W> {
         if self.columns.is_empty() {
             return false;
         }
-        self.focus_column(0);
+        self.focus_column_idx(0);
         true
     }
 
@@ -106,7 +117,7 @@ impl<W: LayoutElement> Row<W> {
         if self.columns.is_empty() {
             return false;
         }
-        self.focus_column(self.columns.len() - 1);
+        self.focus_column_idx(self.columns.len() - 1);
         true
     }
 
@@ -128,13 +139,14 @@ impl<W: LayoutElement> Row<W> {
         }
     }
 
-    /// Focuses window in a specific column.
-    pub fn focus_window_in_column(&mut self, index: usize) -> bool {
-        if index >= self.columns.len() {
-            return false;
+    /// Focuses a window within the active column by index.
+    // TEAM_040: Fixed - this focuses a window within the column, not a column
+    pub fn focus_window_in_column(&mut self, index: u8) {
+        if self.columns.is_empty() {
+            return;
         }
-        self.focus_column(index);
-        true
+
+        self.columns[self.active_column_idx].focus_index(index);
     }
 
     /// Focuses down and left (diagonal navigation).

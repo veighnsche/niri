@@ -1497,15 +1497,46 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Toggle column tabbed display mode.
-    /// TEAM_028: Stub implementation
+    // TEAM_040: Implemented based on ScrollingSpace::toggle_column_tabbed_display
     pub fn toggle_column_tabbed_display(&mut self) {
-        // TEAM_028: TODO - implement tabbed display toggle
+        if self.columns.is_empty() {
+            return;
+        }
+
+        let col = &mut self.columns[self.active_column_idx];
+        let display = match col.display_mode {
+            ColumnDisplay::Normal => ColumnDisplay::Tabbed,
+            ColumnDisplay::Tabbed => ColumnDisplay::Normal,
+        };
+
+        self.set_column_display(display);
     }
 
     /// Set column display mode.
-    /// TEAM_028: Stub implementation
-    pub fn set_column_display(&mut self, _display: ColumnDisplay) {
-        // TEAM_028: TODO - implement column display setting
+    // TEAM_040: Implemented based on ScrollingSpace::set_column_display
+    pub fn set_column_display(&mut self, display: ColumnDisplay) {
+        if self.columns.is_empty() {
+            return;
+        }
+
+        let col = &mut self.columns[self.active_column_idx];
+        if col.display_mode == display {
+            return;
+        }
+
+        cancel_resize_for_column(&mut self.interactive_resize, col);
+        col.set_column_display(display);
+
+        // With place_within_column, the tab indicator changes the column size immediately.
+        self.data[self.active_column_idx].update(col);
+        col.update_tile_sizes(true);
+
+        // Disable fullscreen if needed.
+        if col.display_mode != ColumnDisplay::Tabbed && col.tiles.len() > 1 {
+            let window = col.tiles[col.active_tile_idx].window().id().clone();
+            self.set_fullscreen(&window, false);
+            self.set_maximized(&window, false);
+        }
     }
 
     /// Center the active column.
@@ -1765,6 +1796,22 @@ fn compute_toplevel_bounds(
         f64::max(working_area_size.h - gaps * 2. - extra_size.h - border, 1.),
     ))
     .to_i32_floor()
+}
+
+// TEAM_040: Helper function to cancel interactive resize for a column
+fn cancel_resize_for_column<W: LayoutElement>(
+    interactive_resize: &mut Option<InteractiveResize<W>>,
+    column: &mut Column<W>,
+) {
+    if let Some(resize) = interactive_resize {
+        if column.contains(&resize.window) {
+            *interactive_resize = None;
+        }
+    }
+
+    for tile in &mut column.tiles {
+        tile.window_mut().cancel_interactive_resize();
+    }
 }
 
 // See docs/2d-canvas-plan/TODO.md for remaining work

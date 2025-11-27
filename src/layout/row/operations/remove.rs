@@ -24,19 +24,21 @@ impl<W: LayoutElement> Row<W> {
         let column = &self.columns[column_idx];
 
         let tile_idx = column.position(window).unwrap();
-        self.remove_tile_by_idx(column_idx, tile_idx, transaction)
+        self.remove_tile_by_idx(column_idx, tile_idx, transaction, None)
     }
 
     /// Removes a tile by column and tile index.
+    // TEAM_040: Added anim_config parameter to match ScrollingSpace
     pub fn remove_tile_by_idx(
         &mut self,
         column_idx: usize,
         tile_idx: usize,
         transaction: Transaction,
+        anim_config: Option<niri_config::Animation>,
     ) -> RemovedTile<W> {
         // If this is the only tile in the column, remove the whole column.
         if self.columns[column_idx].tiles.len() == 1 {
-            let mut column = self.remove_column_by_idx(column_idx);
+            let mut column = self.remove_column_by_idx_with_anim(column_idx, anim_config);
             return RemovedTile::new(
                 column.tiles.remove(tile_idx),
                 column.width,
@@ -48,7 +50,8 @@ impl<W: LayoutElement> Row<W> {
         let column = &mut self.columns[column_idx];
         let prev_width = self.data[column_idx].width;
 
-        let movement_config = self.options.animations.window_movement.0;
+        // TEAM_040: Use anim_config if provided, otherwise fall back to default
+        let movement_config = anim_config.unwrap_or(self.options.animations.window_movement.0);
 
         // Animate movement of other tiles.
         // FIXME: tiles can move by X too, in a centered or resizing layout with one window smaller
@@ -141,7 +144,7 @@ impl<W: LayoutElement> Row<W> {
         let column = &self.columns[column_idx];
         let tile_idx = column.active_tile_idx;
         
-        Some(self.remove_tile_by_idx(column_idx, tile_idx, transaction))
+        Some(self.remove_tile_by_idx(column_idx, tile_idx, transaction, None))
     }
 
     /// Removes the active column.
@@ -155,8 +158,18 @@ impl<W: LayoutElement> Row<W> {
 
     /// Removes a column by index with full animation support.
     pub fn remove_column_by_idx(&mut self, column_idx: usize) -> Column<W> {
+        self.remove_column_by_idx_with_anim(column_idx, None)
+    }
+
+    /// Removes a column by index with optional animation config.
+    // TEAM_040: Added to match ScrollingSpace's remove_column_by_idx signature
+    pub fn remove_column_by_idx_with_anim(
+        &mut self,
+        column_idx: usize,
+        anim_config: Option<niri_config::Animation>,
+    ) -> Column<W> {
         // Animate movement of the other columns.
-        let movement_config = self.options.animations.window_movement.0;
+        let movement_config = anim_config.unwrap_or(self.options.animations.window_movement.0);
         let offset = self.column_x(column_idx + 1) - self.column_x(column_idx);
         if self.active_column_idx <= column_idx {
             for col in &mut self.columns[column_idx + 1..] {
@@ -197,7 +210,7 @@ impl<W: LayoutElement> Row<W> {
             return column;
         }
 
-        let view_config = self.options.animations.horizontal_view_movement.0;
+        let view_config = anim_config.unwrap_or(self.options.animations.horizontal_view_movement.0);
 
         if column_idx < self.active_column_idx {
             // A column to the left was removed; preserve the current position.
