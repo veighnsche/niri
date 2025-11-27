@@ -55,7 +55,7 @@ When you modify code, add your team number:
 4. **Check** `.questions/` for any unanswered questions
 5. **Claim** your team number
 6. **Create** your team file
-7. **Run** `./scripts/verify-golden.sh` — golden tests must pass BEFORE you start
+7. **Run** `cargo xtask test-all golden` — golden tests must pass BEFORE you start
 8. **Then** start coding
 
 ---
@@ -87,16 +87,16 @@ If tests fail, your code is wrong — fix it, don't accept new snapshots.
 ### ⚠️ MANDATORY: If You Touch Layout Logic
 
 **Before ANY refactor that touches layout files, you MUST:**
-1. Run `./scripts/verify-golden.sh` — verify tests pass BEFORE your changes
+1. Run `cargo xtask test-all golden` — verify tests pass BEFORE your changes
 2. Make your changes
-3. Run `cargo test --lib golden` — verify they STILL pass
+3. Run `cargo xtask test-all golden` — verify they STILL pass
 4. If tests fail → you introduced a regression, fix it
 
 ### Key Files
 - `src/layout/snapshot.rs` — Snapshot types (positions, indices, etc.)
 - `src/layout/tests/golden.rs` — Snapshot comparison tests
 - `src/layout/tests/snapshots/*.snap` — Baseline snapshots (from `golden-snapshots` branch)
-- `scripts/verify-golden.sh` — Verification script
+- `xtask/src/test_all/mod.rs` — Test runner with golden verification
 - `xtask/src/golden_sync/mod.rs` — Golden sync tool
 
 ### What Snapshots Capture
@@ -191,7 +191,7 @@ If a single task takes > 1 hour or touches > 3 files: split it into sub-task fil
 1. **Update** your team file with all changes
 2. **Verify** code compiles: `cargo check`
 3. **Run** tests: `cargo test`
-4. **Run** golden tests: `cargo insta test` — if touching layout logic
+4. **Run** golden tests: `cargo xtask test-all golden` — if touching layout logic
 5. **Document** any failures or blockers
 6. **Write** clear handoff notes for next team
 
@@ -200,7 +200,7 @@ If a single task takes > 1 hour or touches > 3 files: split it into sub-task fil
 ## Handoff
 - [ ] Code compiles (`cargo check`)
 - [ ] Tests pass (`cargo test`)
-- [ ] Golden tests pass (`cargo insta test`) — if touching layout logic
+- [ ] Golden tests pass (`cargo xtask test-all golden`) — if touching layout logic
 - [ ] Team file complete
 ```
 
@@ -244,7 +244,8 @@ Add any new TODOs to: `docs/2d-canvas-plan/TODO.md`
 | **Golden snapshots** | `src/layout/tests/snapshots/*.snap` |
 | **Golden source branch** | `golden-snapshots` (NEVER accept on other branches!) |
 | **Golden sync tool** | `cargo xtask golden-sync` |
-| Verification script | `scripts/verify-golden.sh` |
+| **Golden verification** | `cargo xtask test-all golden` |
+| **Run all tests** | `cargo xtask test-all run` |
 | Your code comments | `// TEAM_XXX: ...` |
 
 ---
@@ -298,8 +299,8 @@ When porting from `scrolling.rs`:
 - Phase files should reflect actual module structure
 
 ### 5. Golden Tests
-Always run `./scripts/verify-golden.sh` before AND after changes to layout logic.
-The 58 golden tests catch regressions that unit tests miss.
+Always run `cargo xtask test-all golden` before AND after changes to layout logic.
+The golden tests catch regressions that unit tests miss.
 
 ### 6. Refactor Large Files Properly (TEAM_008)
 When a file exceeds 500 lines, **refactor it into submodules**:

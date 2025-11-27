@@ -3,6 +3,7 @@
 //! ## Available Tasks
 //!
 //! - `golden-sync` - Manage golden snapshots for regression testing
+//! - `test-all` - Run all tests with cleanup
 //!
 //! ## Future Tasks (planned)
 //!
@@ -12,6 +13,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 mod golden_sync;
+mod test_all;
 
 #[derive(Parser)]
 #[command(name = "xtask")]
@@ -28,6 +30,11 @@ enum Commands {
         #[command(subcommand)]
         action: golden_sync::Action,
     },
+    /// Run all tests with cleanup
+    TestAll {
+        #[command(subcommand)]
+        action: test_all::Action,
+    },
 }
 
 fn main() -> Result<()> {
@@ -35,5 +42,6 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::GoldenSync { action } => golden_sync::run(action),
+        Commands::TestAll { action } => test_all::run(action),
     }
 }

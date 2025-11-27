@@ -1,2 +1,7 @@
 /target
 /result
+
+# Insta snapshot test artifacts
+# These are generated when tests fail and should NOT be committed
+# They contain your (potentially broken) code's output, not golden baselines
+*.snap.new

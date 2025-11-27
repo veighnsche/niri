@@ -57,7 +57,7 @@ cat docs/2d-canvas-plan/ai-teams-rules.md
 ls -la docs/2d-canvas-plan/.teams/
 
 # 3. Verify golden tests pass BEFORE starting
-./scripts/verify-golden.sh
+cargo xtask test-all golden
 
 # 4. Claim your team number and create team file
 # 5. Continue Phase 1.5.3 work
@@ -69,7 +69,7 @@ ls -la docs/2d-canvas-plan/.teams/
 
 **Read [ai-teams-rules.md](ai-teams-rules.md) first.**
 
-⚠️ **Golden tests**: Run `./scripts/verify-golden.sh` before AND after changes.  
+⚠️ **Golden tests**: Run `cargo xtask test-all golden` before AND after changes.  
 ⚠️ **Never accept**: `cargo insta accept` on golden tests — snapshots come from `golden-snapshots` branch.
 
 ---

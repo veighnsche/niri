@@ -1,8 +1,9 @@
-# TEAM_036 — TODO List Audit + Hit Testing Implementation
+# TEAM_036 — TODO List Audit + Hit Testing + Test Infrastructure
 
 ## Mission
 1. Audit the TODO.md file against actual source code to verify implementation status
 2. Implement high-priority hit testing methods
+3. Create xtask for running all tests with cleanup
 
 ## Changes Made
 
@@ -92,6 +93,45 @@ Implement these in `src/layout/row/mod.rs`:
 ### Fixed hit_test.rs
 - Updated `Monitor::window_under()` to use new Row signature that returns `(&W, HitType)`
 
+### Created Test Infrastructure (xtask/src/test_all/)
+
+New xtask commands for running tests with cleanup:
+
+```bash
+# Verify golden snapshots (MANDATORY before touching layout code)
+cargo xtask test-all golden
+
+# Run all tests with pre-cleanup of .snap.new files
+cargo xtask test-all run
+
+# Run specific tests
+cargo xtask test-all run --filter golden
+
+# Show test artifact status
+cargo xtask test-all status
+
+# Clean up .snap.new files
+cargo xtask test-all clean
+```
+
+**Files created:**
+- `xtask/src/test_all/mod.rs` — Test runner with golden verification and cleanup
+
+**Files modified:**
+- `xtask/src/main.rs` — Added test-all command
+- `.gitignore` — Added `*.snap.new` pattern to ignore test artifacts
+
+### Migrated verify-golden.sh to xtask
+
+**Removed:**
+- `scripts/verify-golden.sh` — Functionality moved to `cargo xtask test-all golden`
+- `scripts/` directory — Now empty, removed
+
+**Updated documentation:**
+- `docs/2d-canvas-plan/ai-teams-rules.md` — All references updated to use `cargo xtask test-all golden`
+- `docs/2d-canvas-plan/GOLDEN_TEST_RULES.md` — Updated workflow commands
+- `docs/2d-canvas-plan/README.md` — Updated quick start guide
+
 ## Handoff
 - [x] Code compiles (`cargo check`)
 - [x] Tests compile (`cargo test --no-run`)
@@ -99,3 +139,8 @@ Implement these in `src/layout/row/mod.rs`:
 - [x] Team file complete
 - [x] TODO.md updated with accurate status
 - [x] Hit testing methods implemented
+- [x] Test infrastructure created (`cargo xtask test-all`)
+- [x] .gitignore updated to ignore .snap.new files
+- [x] Migrated `scripts/verify-golden.sh` to `cargo xtask test-all golden`
+- [x] Removed `scripts/` directory
+- [x] Updated all documentation to reference new xtask command

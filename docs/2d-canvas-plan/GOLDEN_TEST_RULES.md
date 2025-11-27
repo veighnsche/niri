@@ -113,7 +113,7 @@ chmod 444 src/layout/tests/snapshots/*.snap
 **DEBUGGING PROCESS:**
 ```bash
 # 1. Run golden tests to see failures
-cargo test --lib golden
+cargo xtask test-all golden
 
 # 2. Examine the differences (don't accept them!)
 # The .snap.new files show what your code produces vs expected
@@ -122,10 +122,10 @@ cargo test --lib golden
 # NOT the other way around!
 
 # 4. Clean up any .snap.new files
-cargo xtask golden-sync clean
+cargo xtask test-all clean
 
 # 5. Verify tests pass
-cargo test --lib golden
+cargo xtask test-all golden
 ```
 
 **COMMON FAILURE CAUSES:**
@@ -141,14 +141,17 @@ cargo test --lib golden
 
 **PROPER WORKFLOW:**
 ```bash
-# Check status
-cargo xtask golden-sync status
+# Run golden verification
+cargo xtask test-all golden
+
+# Check test artifact status
+cargo xtask test-all status
 
 # Pull fresh snapshots (if corrupted)
 cargo xtask golden-sync pull
 
 # Clean up .snap.new files (after fixing code)
-cargo xtask golden-sync clean
+cargo xtask test-all clean
 
 # NEVER: Modify snapshot files manually
 # NEVER: Accept snapshot changes without approval
@@ -237,4 +240,4 @@ Your convenience ≠ user stability.
 
 ---
 
-*Last updated: TEAM_018 - Learn from our mistakes so you don't make them.*
+*Last updated: TEAM_036 - Migrated verify-golden.sh to cargo xtask test-all golden*
