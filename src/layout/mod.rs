@@ -4644,18 +4644,18 @@ impl<W: LayoutElement> Layout<W> {
         match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
-                    for (_, ws) in mon.canvas.workspaces_mut() {
-                        if ws.has_window(window) {
-                            ws.start_close_animation_for_window(renderer, window, blocker);
+                    for row in mon.canvas.rows_mut() {
+                        if row.has_window(window) {
+                            row.start_close_animation_for_window(renderer, window, blocker);
                             return;
                         }
                     }
                 }
             }
             MonitorSet::NoOutputs { canvas, .. } => {
-                for (_, ws) in canvas.workspaces_mut() {
-                    if ws.has_window(window) {
-                        ws.start_close_animation_for_window(renderer, window, blocker);
+                for row in canvas.rows_mut() {
+                    if row.has_window(window) {
+                        row.start_close_animation_for_window(renderer, window, blocker);
                         return;
                     }
                 }

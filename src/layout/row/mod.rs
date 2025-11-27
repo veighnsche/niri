@@ -46,6 +46,7 @@ use niri_ipc::ColumnDisplay;
 use smithay::utils::{Logical, Rectangle, Size};
 use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
+use smithay::backend::renderer::gles::GlesRenderer;
 
 use super::animated_value::AnimatedValue;
 use super::closing_window::ClosingWindow;
@@ -54,6 +55,7 @@ use super::tile::Tile;
 use super::types::{InteractiveResize};
 use super::{LayoutElement, Options, ConfigureIntent};
 use crate::animation::Clock;
+use crate::utils::transaction::TransactionBlocker;
 
 /// Extra per-column data.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -267,23 +269,20 @@ impl<W: LayoutElement> Row<W> {
         self.view_offset_x.current()
     }
 
-    /// Returns whether this row contains the given window.
-    pub fn contains(&self, window: &W::Id) -> bool {
+    /// Returns whether this row contains the given window id.
+    pub fn has_window(&self, window: &W::Id) -> bool {
         self.columns.iter().any(|col| col.contains(window))
     }
-
-    /// Finds the column containing the given window.
-    pub fn find_column(&self, window: &W::Id) -> Option<usize> {
-        self.columns.iter().position(|col| col.contains(window))
-    }
-
-    /// Returns whether this row contains the given window.
-    /// TEAM_024: Use the has_window method that takes &W instead of &W::Id
 
     /// Returns whether the given window is floating in this row.
     /// TEAM_024: Added for workspace compatibility - always false for tiled rows
     pub fn is_floating(&self, _id: &W::Id) -> bool {
         false // Rows only contain tiled windows, floating windows are in Canvas2D.floating
+    }
+
+    /// Finds the column containing the given window.
+    pub fn find_column(&self, window: &W::Id) -> Option<usize> {
+        self.columns.iter().position(|col| col.contains(window))
     }
 
     /// Returns all tiles in this row.
@@ -452,6 +451,10 @@ impl<W: LayoutElement> Row<W> {
     ///
     /// This produces the same format as ScrollingSpace.snapshot() to ensure
     /// golden tests pass after the Monitor refactor.
+    ///
+    /// # Arguments
+    /// * `is_active` - Whether this row is on the active monitor
+    /// * `is_focused` - Whether this row is the focused row
     #[cfg(test)]
     pub fn snapshot(&self) -> crate::layout::snapshot::ScrollingSnapshot {
         use crate::layout::snapshot::{
@@ -885,16 +888,9 @@ impl<W: LayoutElement> Row<W> {
         self.columns().count() > 0
     }
 
-    /// Check if this row contains the given window.
-    /// TEAM_022: Stub implementation
-    pub fn has_window(&self, window: &W) -> bool {
-        // TEAM_022: TODO - implement window lookup
-        self.columns().any(|col| col.tiles_iter().any(|tile| tile.window() == window))
-    }
-
     /// Update a window in this row.
     /// TEAM_022: Stub implementation
-    pub fn update_window(&mut self, _window: &W) {
+    pub fn update_window(&mut self, _window: &W::Id) {
         // TEAM_022: TODO - implement window update
     }
 
@@ -904,9 +900,9 @@ impl<W: LayoutElement> Row<W> {
         // TEAM_022: TODO - rows don't have individual layout configs
     }
 
-    /// Resolve scrolling width for a window.
+    /// Resolve scrolling width for a window ID.
     /// TEAM_025: Stub implementation
-    pub fn resolve_scrolling_width(&self, _window: &W, _width: Option<niri_config::PresetSize>) -> f64 {
+    pub fn resolve_scrolling_width(&self, _window: &W::Id, _width: Option<niri_config::PresetSize>) -> f64 {
         // TEAM_025: TODO - implement proper scrolling width resolution
         1.0
     }
@@ -946,7 +942,7 @@ impl<W: LayoutElement> Row<W> {
 
     /// Activate window without raising.
     /// TEAM_025: Stub implementation
-    pub fn activate_window_without_raising(&mut self, _window: &W) {
+    pub fn activate_window_without_raising(&mut self, _window: &W::Id) {
         // TEAM_025: TODO - implement activation without raising
     }
 
@@ -966,7 +962,7 @@ impl<W: LayoutElement> Row<W> {
 
     /// Activate a window in this row.
     /// TEAM_025: Stub implementation
-    pub fn activate_window(&mut self, _window: &W) -> bool {
+    pub fn activate_window(&mut self, _window: &W::Id) -> bool {
         // TEAM_025: TODO - implement window activation
         false
     }
