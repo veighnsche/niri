@@ -43,10 +43,12 @@ use std::rc::Rc;
 use niri_config::{Struts, Border};
 use niri_config::utils::MergeWith;
 use niri_ipc::ColumnDisplay;
-use smithay::utils::{Logical, Rectangle, Size};
+use smithay::utils::{Logical, Point, Rectangle, Size};
 use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::backend::renderer::gles::GlesRenderer;
+
+use crate::utils::ResizeEdge;
 
 use super::animated_value::AnimatedValue;
 use super::closing_window::ClosingWindow;
@@ -274,6 +276,12 @@ impl<W: LayoutElement> Row<W> {
         self.columns.iter().any(|col| col.contains(window))
     }
 
+    /// Returns whether this row contains the given window id.
+    /// Alias for has_window for canvas compatibility.
+    pub fn contains(&self, window: &W::Id) -> bool {
+        self.has_window(window)
+    }
+
     /// Returns whether the given window is floating in this row.
     /// TEAM_024: Added for workspace compatibility - always false for tiled rows
     pub fn is_floating(&self, _id: &W::Id) -> bool {
@@ -368,8 +376,8 @@ impl<W: LayoutElement> Row<W> {
                 }
             }
 
-            let is_tabbed = col.display_mode() == ColumnDisplay::Tabbed;
-            let extra_size = col.extra_size();
+            let is_tabbed = col.display_mode == ColumnDisplay::Tabbed;
+            let extra_size = Size::new(0.0, 0.0); // TEAM_027: TODO - calculate proper extra_size
 
             // If transactions are disabled, also disable combined throttling, for more intuitive
             // behavior. In tabbed display mode, only one window is visible, so individual
@@ -396,10 +404,11 @@ impl<W: LayoutElement> Row<W> {
                     })
             };
 
+            let active_tile_idx = col.active_tile_idx;
             for (tile_idx, tile) in col.tiles_iter_mut().enumerate() {
                 let win = tile.window_mut();
 
-                let active_in_column = col.active_tile_idx() == Some(tile_idx);
+                let active_in_column = Some(active_tile_idx) == Some(tile_idx);
                 win.set_active_in_column(active_in_column);
                 win.set_floating(false);
 
@@ -683,7 +692,7 @@ impl<W: LayoutElement> Row<W> {
     /// TEAM_022: Stub implementation for compatibility
     pub fn configure_new_window<R>(
         &self,
-        _window: &crate::window::Window,
+        _window: &W::Id,
         _width: Option<niri_config::PresetSize>,
         _height: Option<niri_config::PresetSize>,
         _is_floating: bool,
@@ -695,14 +704,14 @@ impl<W: LayoutElement> Row<W> {
 
     /// Resolve the default width for a window.
     /// TEAM_022: Stub implementation
-    pub fn resolve_default_width<R>(&self, _rules: &R) -> Option<niri_config::PresetSize> {
+    pub fn resolve_default_width<R>(&self, rules: R, is_floating: bool) -> Option<niri_config::PresetSize> {
         // Return None for auto width
         None
     }
 
     /// Resolve the default height for a window.
     /// TEAM_022: Stub implementation
-    pub fn resolve_default_height<R>(&self, _rules: &R) -> Option<niri_config::PresetSize> {
+    pub fn resolve_default_height<R>(&self, rules: R, is_floating: bool) -> Option<niri_config::PresetSize> {
         // Return None for auto height
         None
     }
@@ -783,7 +792,8 @@ impl<W: LayoutElement> Row<W> {
     pub fn focus_tiling(&mut self) -> bool {
         // Focus the first tiled window in the active column
         if let Some(column) = self.active_column_mut() {
-            if let Some(tile) = column.active_tile_mut() {
+            let active_tile_idx = column.active_tile_idx;
+            if let Some(tile) = column.tiles_iter_mut().nth(active_tile_idx) {
                 tile.window().set_activated(true);
                 true
             } else {
@@ -817,7 +827,7 @@ impl<W: LayoutElement> Row<W> {
     
     pub fn active_window(&self) -> Option<&W> {
         self.active_column()
-            .and_then(|col| col.active_tile())
+            .and_then(|col| col.tiles_iter().nth(col.active_tile_idx))
             .map(|tile| tile.window())
     }
     
@@ -846,9 +856,12 @@ impl<W: LayoutElement> Row<W> {
     /// TEAM_022: Stub implementation
     pub fn active_window_mut(&mut self) -> Option<&mut W> {
         // TEAM_022: TODO - implement active window logic
-        self.active_column_mut()
-            .and_then(|col| col.active_tile_mut())
-            .map(|tile| tile.window_mut())
+        if let Some(col) = self.active_column_mut() {
+            let active_tile_idx = col.active_tile_idx;
+            col.tiles_iter_mut().nth(active_tile_idx).map(|tile| tile.window_mut())
+        } else {
+            None
+        }
     }
 
     /// Check if this row is urgent.
@@ -867,7 +880,7 @@ impl<W: LayoutElement> Row<W> {
 
     /// Find resize edges under the given point.
     /// TEAM_022: Stub implementation
-    pub fn resize_edges_under(&self, _point: Point<f64, Logical>) -> Option<crate::layout::resize_edges::ResizeEdges> {
+    pub fn resize_edges_under(&self, _point: Point<f64, Logical>) -> Option<ResizeEdge> {
         // TEAM_022: TODO - implement resize edge detection
         None
     }
@@ -877,8 +890,8 @@ impl<W: LayoutElement> Row<W> {
     pub fn active_tile_visual_rectangle(&self) -> Option<Rectangle<f64, Logical>> {
         // TEAM_022: TODO - implement active tile visual rectangle
         self.active_column()
-            .and_then(|col| col.active_tile())
-            .map(|tile| tile.visual_rectangle())
+            .and_then(|col| col.tiles_iter().nth(col.active_tile_idx))
+            .map(|tile| Rectangle::from_loc_and_size(Point::new(0.0, 0.0), tile.tile_size()))
     }
 
     /// Check if this row has any windows or a name.
@@ -921,14 +934,14 @@ impl<W: LayoutElement> Row<W> {
 
     /// Find a Wayland surface.
     /// TEAM_025: Stub implementation
-    pub fn find_wl_surface(&self, _wl_surface: &wl_surface::WlSurface) -> Option<&W> {
+    pub fn find_wl_surface(&self, _wl_surface: &WlSurface) -> Option<&W> {
         // TEAM_025: TODO - implement surface lookup
         None
     }
 
     /// Find a Wayland surface mutably.
     /// TEAM_025: Stub implementation
-    pub fn find_wl_surface_mut(&mut self, _wl_surface: &wl_surface::WlSurface) -> Option<&mut W> {
+    pub fn find_wl_surface_mut(&mut self, _wl_surface: &WlSurface) -> Option<&mut W> {
         // TEAM_025: TODO - implement mutable surface lookup
         None
     }
@@ -951,20 +964,6 @@ impl<W: LayoutElement> Row<W> {
     pub fn tiles_with_ipc_layouts(&self) -> Vec<niri_ipc::WindowLayout> {
         // TEAM_025: TODO - implement IPC layout generation
         Vec::new()
-    }
-
-    /// Check if transitions are ongoing.
-    /// TEAM_025: Stub implementation
-    pub fn are_transitions_ongoing(&self) -> bool {
-        // TEAM_025: TODO - implement transition checking
-        false
-    }
-
-    /// Activate a window in this row.
-    /// TEAM_025: Stub implementation
-    pub fn activate_window(&mut self, _window: &W::Id) -> bool {
-        // TEAM_025: TODO - implement window activation
-        false
     }
 }
 
