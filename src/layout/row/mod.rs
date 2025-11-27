@@ -40,9 +40,10 @@ pub use render::RowRenderElement;
 
 use std::rc::Rc;
 
-use niri_config::{Struts, Border, Direction, SetColumnWidth};
+use niri_config::{Struts, Border};
 use niri_config::utils::MergeWith;
-use niri_ipc::{ColumnDisplay, WorkspaceId};
+use niri_ipc::{ColumnDisplay, SizeChange};
+use crate::layout::workspace_types::WorkspaceId;
 use smithay::utils::{Logical, Point, Rectangle, Size};
 use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
@@ -974,7 +975,7 @@ impl<W: LayoutElement> Row<W> {
 
     /// Swap window in given direction.
     /// TEAM_028: Stub implementation
-    pub fn swap_window_in_direction(&mut self, _direction: Direction) {
+    pub fn swap_window_in_direction(&mut self, _direction: super::types::ScrollDirection) {
         // TEAM_028: TODO - implement window swapping
     }
 
@@ -1028,13 +1029,13 @@ impl<W: LayoutElement> Row<W> {
 
     /// Set column width.
     /// TEAM_028: Stub implementation
-    pub fn set_column_width(&mut self, _change: SetColumnWidth) {
+    pub fn set_column_width(&mut self, _change: SizeChange) {
         // TEAM_028: TODO - implement column width setting
     }
 
     /// Set window width.
     /// TEAM_028: Stub implementation
-    pub fn set_window_width(&mut self, _window: &W::Id, _change: SetColumnWidth) {
+    pub fn set_window_width(&mut self, _window: &W::Id, _change: SizeChange) {
         // TEAM_028: TODO - implement window width setting
     }
 

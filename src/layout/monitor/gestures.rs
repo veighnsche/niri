@@ -21,7 +21,7 @@ impl<W: LayoutElement> Monitor<W> {
     // =========================================================================
 
     pub fn workspace_switch_gesture_begin(&mut self, is_touchpad: bool) {
-        let center_idx = self.active_workspace_idx;
+        let center_idx = self.active_workspace_idx();
         let current_idx = self.workspace_render_idx();
 
         let gesture = WorkspaceSwitchGesture {

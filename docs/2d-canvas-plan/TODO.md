@@ -3,7 +3,236 @@
 > **Check this file first** to see where past teams planned to add features.
 > This maintains architectural consistency across teams.
 
-**Last updated**: TEAM_028 (Row Navigation Methods Implementation)
+**Last updated**: TEAM_029 (Error Categorization)
+
+---
+
+# 🚨 COMPILATION ERRORS — BATCH FIX GUIDE
+
+> **Total Errors: 142** — Categorized for efficient batch fixing
+> Each category can often be fixed in a single pass through the codebase
+
+---
+
+## Category 1: E0026/E0027 — MonitorSet::NoOutputs Pattern (23 errors) ✅ EASY
+
+**Problem**: Pattern uses old `workspaces` field instead of `canvas`
+
+**Fix Pattern**:
+```rust
+// BEFORE:
+MonitorSet::NoOutputs { workspaces } => ...
+
+// AFTER:
+MonitorSet::NoOutputs { canvas } => ...
+```
+
+**Locations** (src/layout/mod.rs):
+- [ ] Line 786 — `workspaces` → `canvas` (also missing `canvas` field)
+- [ ] Line 1143 — `workspaces` → `canvas`
+- [ ] Line 1206 — `workspaces` → `canvas`
+- [ ] Line 1320 — `workspaces` → `canvas` (also missing `canvas` field)
+- [ ] Line 1354 — `workspaces` → `canvas` (also missing `canvas` field)
+- [ ] Line 1386 — `workspaces` → `canvas` (also missing `canvas` field)
+- [ ] Line 1669 — `workspaces` → `canvas` (also missing `canvas` field)
+- [ ] Line 1694 — `workspaces` → `canvas` (also missing `canvas` field)
+- [ ] Line 2689 — `workspaces` → `canvas`
+- [ ] Line 2782 — `workspaces` → `canvas`
+- [ ] Line 2948 — `workspaces` → `canvas` (also missing `canvas` field)
+- [ ] Line 4370 — `workspaces` → `canvas`
+- [ ] Line 4403 — `workspaces` → `canvas`
+- [ ] Line 4433 — `workspaces` → `canvas`
+- [ ] Line 4563 — `workspaces` → `canvas`
+- [ ] Line 4593 — `workspaces` → `canvas`
+
+**Also E0559 (variant has no field named `workspaces`):**
+- [ ] Line 667 — Construction with `workspaces: vec![]` → `canvas: ...`
+- [ ] Line 836 — Construction with `workspaces` field
+
+---
+
+## Category 2: E0615 — Method Call Missing Parens (14 errors) ✅ EASY
+
+**Problem**: Accessing `active_workspace_idx` as field instead of method
+
+**Fix Pattern**:
+```rust
+// BEFORE:
+mon.active_workspace_idx
+
+// AFTER:
+mon.active_workspace_idx()
+```
+
+**Locations** (src/layout/mod.rs):
+- [ ] Line 823 — `active_workspace_idx` → `active_workspace_idx()`
+- [ ] Line 1116 — `active_workspace_idx` → `active_workspace_idx()`
+- [ ] Line 1122 — `active_workspace_idx` → `active_workspace_idx()`
+- [ ] Line 1123 — `active_workspace_idx` → `active_workspace_idx()` (also being assigned to)
+- [ ] Line 1136 — `active_workspace_idx` → `active_workspace_idx()` (also being assigned to)
+- [ ] Line 3294 — `active_workspace_idx` → `active_workspace_idx()`
+- [ ] Line 3297 — `active_workspace_idx` → `active_workspace_idx()`
+- [ ] Line 3388 — `active_workspace_idx` → `active_workspace_idx()`
+- [ ] Line 3404 — `active_workspace_idx` → `active_workspace_idx()`
+- [ ] Line 3454 — `active_workspace_idx` → `active_workspace_idx()`
+- [ ] Line 3460 — `active_workspace_idx` → `active_workspace_idx()`
+- [ ] Line 3685 — `active_workspace_idx` → `active_workspace_idx()`
+- [ ] Line 4487 — `active_workspace_idx` → `active_workspace_idx()`
+
+**Note**: Lines 1123 and 1136 are assignments (`-= 1` and `= 0`). These need a setter method like `set_active_workspace_idx()` or direct field access refactor.
+
+---
+
+## Category 3: E0609 — No Field `workspaces` (11 errors) ✅ EASY
+
+**Problem**: Accessing `mon.workspaces` which no longer exists
+
+**Fix Pattern**:
+```rust
+// BEFORE:
+mon.workspaces[idx]
+mon.workspaces.len()
+
+// AFTER:
+mon.canvas.workspaces()[idx]  // or appropriate canvas method
+mon.canvas.workspaces().len()
+```
+
+**Locations** (src/layout/mod.rs):
+- [ ] Line 1480 — `workspaces` field access
+- [ ] Line 2600 — `workspaces` field access
+- [ ] Line 2656 — `workspaces` field access
+- [ ] Line 2816 — `workspaces` field access
+- [ ] Line 3285 — `workspaces` field access
+- [ ] Line 3446 — `workspaces` field access
+- [ ] Line 3682 — `workspaces` field access
+- [ ] Line 3710 — `workspaces` field access
+- [ ] Line 3733 — `workspaces` field access
+- [ ] Line 4142 — `workspaces` field access
+- [ ] Line 4633 — `workspaces` field access
+
+---
+
+## Category 4: E0599 — Missing Monitor Methods (10 errors) ⚠️ MEDIUM
+
+**Problem**: Methods that need to be implemented on Monitor or delegated to canvas
+
+**Missing Methods**:
+- [ ] `Monitor::has_window()` — Line 2119 (layout/mod.rs)
+- [ ] `Monitor::advance_animations()` — Line 2686 (layout/mod.rs)
+- [ ] `Monitor::are_animations_ongoing()` — Line 2725 (layout/mod.rs)
+- [ ] `Monitor::unname_workspace()` — Line 1211 (layout/mod.rs)
+- [ ] `Monitor::stop_workspace_switch()` — Line 1395 (layout/mod.rs)
+- [ ] `Monitor::remove_workspace_by_idx()` — Line 3456 (layout/mod.rs)
+- [ ] `Monitor::insert_workspace()` — Line 3460 (layout/mod.rs)
+- [ ] `Monitor::activate_workspace_with_anim_config()` — Line 2666 (layout/mod.rs)
+- [ ] `Layout::active_monitor_mut()` — Line 4213 (layout/mod.rs)
+
+**Implementation Strategy**: These likely delegate to `canvas` methods or need to be added to `monitor/mod.rs`.
+
+---
+
+## Category 5: E0599 — Missing Row Methods (5 errors) ⚠️ MEDIUM
+
+**Problem**: Row methods called with wrong signature or on wrong type
+
+**Issues**:
+- [ ] `Row::move_column_to_index()` — Line 1822 (layout/mod.rs)
+- [ ] `(i32, &Row)::scrolling_insert_position()` — Lines 3934, 3958 (layout/mod.rs)
+- [ ] `(i32, &Row)::id()` — Lines 2661, 3307 (layout/mod.rs)
+
+**Fix**: These are called on tuple `(i32, &Row)` instead of just `Row`. Need to extract the row: `(idx, row).1.method()` or pattern match.
+
+---
+
+## Category 6: E0308 — Type Mismatches (39 errors) ⚠️ MEDIUM-HARD
+
+**Common patterns**:
+
+### Return Type Mismatches (Row methods returning wrong types):
+- [ ] Line 2985 — Row method returns `()` not expected type
+- [ ] Line 3008 — Row method returns `()` not expected type  
+- [ ] Line 3045 — Row method returns `()` not expected type
+- [ ] Line 3091 — Row method returns `()` not expected type
+- [ ] Line 3161 — Row method returns `()` not expected type
+- [ ] Line 3187 — Row method returns `()` not expected type
+- [ ] Line 3887 — Row method returns `()` not expected type
+- [ ] Line 3900 — Row method returns `()` not expected type
+- [ ] Line 3912 — Row method returns `()` not expected type
+
+**Fix Strategy**: Check what `layout/mod.rs` expects these methods to return, then update `Row` method signatures in `row/mod.rs`.
+
+### i32/usize Conversions:
+- [ ] Various lines — `.try_into().unwrap()` or `as usize` / `as i32`
+
+### Option/Result Mismatches:
+- [ ] Line 3849 — `.cloned()` on `Option<LayoutPart>` (not `Option<&T>`)
+
+---
+
+## Category 7: E0277 — Comparison Type Mismatches (4 errors) ✅ EASY
+
+**Problem**: Comparing `i32` with `&i32` or `usize` with `i32`
+
+**Locations** (src/layout/mod.rs):
+- [ ] Line 2887 — `i32 == &i32` comparison
+- [ ] Line 2898 — `i32 == &i32` comparison
+- [ ] Line 1998 — `usize == i32` comparison
+
+**Fix**: Dereference or convert types: `== *other` or `.try_into().unwrap()`
+
+---
+
+## Category 8: E0061 — Wrong Argument Count (8 errors) ⚠️ MANUAL
+
+**Issues**:
+- [ ] Line 1200 — `()` takes 0 args but 1 supplied
+- [ ] Line 1383 — `()` takes 0 args but 1 supplied  
+- [ ] Line 3098 — takes 1 arg but 0 supplied
+- [ ] Line 4166 — takes 5 args but 4 supplied
+
+**Fix Strategy**: Check method signatures and adjust call sites.
+
+---
+
+## Category 9: E0432 — Unresolved Imports (2 errors) ✅ EASY
+
+**Locations**:
+- [ ] src/layout/workspace_types.rs — `niri_config::Direction`, `niri_config::SetColumnWidth`
+- [ ] src/ipc/server.rs — `niri_ipc::WorkspaceId`
+
+**Fix**: Add correct imports or use existing types.
+
+---
+
+## Category 10: E0499/E0596 — Borrow Checker Issues (2 errors) ⚠️ HARD
+
+**Problem**: Multiple mutable borrows or borrowing from immutable reference
+
+**Locations**:
+- [ ] src/layout/mod.rs:1522 — Double mutable borrow of `mon` in loop
+- [ ] src/layout/row/mod.rs:797 — Cannot borrow as mutable from `&` reference
+
+**Fix Strategy**: Refactor loop structure or use interior mutability patterns.
+
+---
+
+## Category 11: E0282 — Type Annotations Needed (2 errors) ✅ EASY
+
+**Locations**:
+- [ ] src/layout/mod.rs:3309 — Add type annotation `&mut _`
+- [ ] src/layout/mod.rs:4063 — Add type annotation `Option<_>`
+
+---
+
+## Recommended Fix Order for Future Teams
+
+1. **TEAM_030**: Categories 1, 2, 3 (Easy batch fixes) — ~50 errors
+2. **TEAM_031**: Category 9, 11 (Imports and annotations) — ~4 errors  
+3. **TEAM_032**: Category 7 (Type comparisons) — ~4 errors
+4. **TEAM_033**: Categories 4, 5 (Missing methods) — ~15 errors
+5. **TEAM_034**: Category 6 (Type mismatches) — ~39 errors
+6. **TEAM_035**: Categories 8, 10 (Complex fixes) — ~10 errors
 
 ---
 

@@ -4482,7 +4482,7 @@ impl Niri {
                     .map(OutputRenderElements::from),
             );
 
-            let mut ws_background = None;
+            let mut ws_background: Option<SolidColorRenderElement> = None;
             // TODO: TEAM_023: Update render elements handling for Canvas2D
             // The old workspace-based render elements need to be adapted
             elements.extend(
