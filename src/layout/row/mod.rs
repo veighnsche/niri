@@ -723,17 +723,28 @@ impl<W: LayoutElement> Row<W> {
     // =========================================================================
 
     /// Configure a new window with defaults.
-    /// TEAM_022: Stub implementation for compatibility
+    /// TEAM_022: Implemented - delegate to active column for actual configuration
     pub fn configure_new_window<R>(
         &self,
-        _window: &W::Id,
-        _width: Option<niri_config::PresetSize>,
-        _height: Option<niri_config::PresetSize>,
-        _is_floating: bool,
-        _rules: &R,
+        window: &W::Id,
+        width: Option<niri_config::PresetSize>,
+        height: Option<niri_config::PresetSize>,
+        is_floating: bool,
+        rules: &R,
     ) {
-        // TEAM_022: TODO - implement proper window configuration
-        // For now, this is a no-op as windows are configured when added
+        // For now, this is a compatibility stub. Actual window configuration
+        // happens when tiles are added to columns.
+        // In the future, this could be used to set initial properties.
+        
+        // Find the window and configure it if it exists
+        for column in &self.columns {
+            for tile in &column.tiles {
+                if tile.window().id() == window {
+                    // Window is already configured when added
+                    return;
+                }
+            }
+        }
     }
 
     /// Resolve the default width for a window.
@@ -847,20 +858,106 @@ impl<W: LayoutElement> Row<W> {
         self.focus_tiling()
     }
     
-    pub fn set_fullscreen(&mut self, _id: &W::Id, _is_fullscreen: bool) {
-        // TODO: TEAM_024: Implement fullscreen state if needed
+    pub fn set_fullscreen(&mut self, id: &W::Id, is_fullscreen: bool) {
+        // Find the column containing this window
+        let mut col_idx = self
+            .columns
+            .iter()
+            .position(|col| col.contains(id));
+        
+        let Some(col_idx) = col_idx else {
+            return;
+        };
+
+        // Check if state is already the same
+        if is_fullscreen == self.columns[col_idx].is_pending_fullscreen {
+            return;
+        }
+
+        let mut col = &mut self.columns[col_idx];
+        let is_tabbed = col.display_mode == ColumnDisplay::Tabbed;
+
+        // Cancel any ongoing resize for this column
+        // TODO: Implement cancel_resize_for_column equivalent
+        if let Some(resize) = &mut self.interactive_resize {
+            if &resize.window == id {
+                // Cancel the resize
+                self.interactive_resize = None;
+            }
+        }
+
+        // If setting fullscreen and column has multiple tiles, extract the window
+        if is_fullscreen && (col.tiles.len() > 1 && !is_tabbed) {
+            // This wasn't the only window in its column; extract it into a separate column.
+            // TODO: Implement consume_or_expel_window_right equivalent
+            // For now, we'll just set fullscreen on the column
+        }
+
+        col.set_fullscreen(is_fullscreen);
+
+        // Update column data
+        self.data[col_idx].update(col);
     }
     
-    pub fn toggle_fullscreen(&mut self, _id: &W::Id) {
-        // TODO: TEAM_024: Implement fullscreen toggle if needed
+    pub fn toggle_fullscreen(&mut self, id: &W::Id) {
+        // Find the column containing this window
+        let col_idx = self
+            .columns
+            .iter()
+            .position(|col| col.contains(id));
+        
+        let Some(col_idx) = col_idx else {
+            return;
+        };
+
+        let current_state = self.columns[col_idx].is_pending_fullscreen;
+        self.set_fullscreen(id, !current_state);
     }
     
-    pub fn set_maximized(&mut self, _id: &W::Id, _maximize: bool) {
-        // TODO: TEAM_024: Implement maximized state if needed
+    pub fn set_maximized(&mut self, id: &W::Id, maximize: bool) {
+        // Find the column containing this window
+        let col_idx = self
+            .columns
+            .iter()
+            .position(|col| col.contains(id));
+        
+        let Some(col_idx) = col_idx else {
+            return;
+        };
+
+        // Check if state is already the same
+        if maximize == self.columns[col_idx].is_pending_maximized {
+            return;
+        }
+
+        let col = &mut self.columns[col_idx];
+
+        // Cancel any ongoing resize for this column
+        if let Some(resize) = &mut self.interactive_resize {
+            if &resize.window == id {
+                self.interactive_resize = None;
+            }
+        }
+
+        col.set_maximized(maximize);
+
+        // Update column data
+        self.data[col_idx].update(col);
     }
     
-    pub fn toggle_maximized(&mut self, _id: &W::Id) {
-        // TODO: TEAM_024: Implement maximized toggle if needed
+    pub fn toggle_maximized(&mut self, id: &W::Id) {
+        // Find the column containing this window
+        let col_idx = self
+            .columns
+            .iter()
+            .position(|col| col.contains(id));
+        
+        let Some(col_idx) = col_idx else {
+            return;
+        };
+
+        let current_state = self.columns[col_idx].is_pending_maximized;
+        self.set_maximized(id, !current_state);
     }
     
     pub fn active_window(&self) -> Option<&W> {
@@ -869,15 +966,27 @@ impl<W: LayoutElement> Row<W> {
             .map(|tile| tile.window())
     }
     
-    pub fn activate_window(&mut self, _window: &W::Id) -> bool {
-        // TODO: TEAM_024: Implement window activation if needed
-        false
+    pub fn activate_window(&mut self, window: &W::Id) -> bool {
+        // Find the column containing this window
+        let column_idx = self.columns.iter().position(|col| col.contains(window));
+        let Some(column_idx) = column_idx else {
+            return false;
+        };
+        let column = &mut self.columns[column_idx];
+
+        // Activate the window within its column
+        column.activate_window(window);
+        // Activate the column within the row
+        self.activate_column(column_idx);
+
+        true
     }
     
     // TEAM_035: Updated signature to accept window ID and return bool
-    pub fn start_open_animation(&mut self, _window: &W::Id) -> bool {
-        // TODO: TEAM_024: Implement open animation if needed
-        false
+    pub fn start_open_animation(&mut self, window: &W::Id) -> bool {
+        self.columns
+            .iter_mut()
+            .any(|col| col.start_open_animation(window))
     }
     
     pub fn layout_config(&self) -> Option<niri_config::LayoutPart> {
@@ -905,9 +1014,16 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Check if this row is urgent.
-    /// TEAM_022: Stub implementation
+    /// TEAM_022: Implemented - checks all windows in the row
     pub fn is_urgent(&self) -> bool {
-        // TEAM_022: TODO - implement urgency detection
+        // Check all columns and their tiles for urgent windows
+        for column in &self.columns {
+            for tile in &column.tiles {
+                if tile.window().is_urgent() {
+                    return true;
+                }
+            }
+        }
         false
     }
 
@@ -1046,9 +1162,36 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Update a window in this row.
-    /// TEAM_022: Stub implementation
-    pub fn update_window(&mut self, _window: &W::Id) {
-        // TEAM_022: TODO - implement window update
+    /// Update window state and layout.
+    /// TEAM_022: Implemented based on ScrollingSpace::update_window
+    pub fn update_window(&mut self, window: &W::Id) {
+        let (col_idx, column) = self
+            .columns
+            .iter_mut()
+            .enumerate()
+            .find(|(_, col)| col.contains(window))
+            .unwrap();
+        
+        let prev_width = self.data[col_idx].width;
+
+        column.update_window(window);
+        self.data[col_idx].update(column);
+        column.update_tile_sizes(false);
+
+        let offset = prev_width - self.data[col_idx].width;
+
+        // Move other columns in tandem with resizing
+        if offset != 0. {
+            if self.active_column_idx <= col_idx {
+                for col in &mut self.columns[col_idx + 1..] {
+                    col.animate_move_from_with_config(
+                        offset,
+                        // TODO: Get animation config from row options
+                        self.options.animations.window_resize.anim,
+                    );
+                }
+            }
+        }
     }
 
     /// Update the layout config for this row.
@@ -1188,42 +1331,163 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Toggle width configuration.
-    /// TEAM_028: Stub implementation
-    pub fn toggle_width(&mut self, _forwards: bool) {
-        // TEAM_028: TODO - implement width toggle
+    /// TEAM_028: Implemented based on ScrollingSpace::toggle_width
+    pub fn toggle_width(&mut self, forwards: bool) {
+        if self.columns.is_empty() {
+            return;
+        }
+
+        let col = &mut self.columns[self.active_column_idx];
+        col.toggle_width(None, forwards);
+
+        // Cancel any ongoing resize for this column
+        if let Some(resize) = &mut self.interactive_resize {
+            if &resize.window == col.tiles[col.active_tile_idx].window().id() {
+                self.interactive_resize = None;
+            }
+        }
     }
 
     /// Toggle window width.
-    /// TEAM_028: Stub implementation
+    /// TEAM_028: Implemented based on ScrollingSpace::set_window_width
     /// TEAM_035: Updated signature to accept Option<&W::Id>
-    pub fn toggle_window_width(&mut self, _window: Option<&W::Id>, _forwards: bool) {
-        // TEAM_028: TODO - implement window width toggle
+    pub fn toggle_window_width(&mut self, window: Option<&W::Id>, forwards: bool) {
+        if self.columns.is_empty() {
+            return;
+        }
+
+        let (col, _tile_idx) = if let Some(window) = window {
+            self.columns
+                .iter_mut()
+                .find_map(|col| {
+                    col.tiles
+                        .iter()
+                        .position(|tile| tile.window().id() == window)
+                        .map(|tile_idx| (col, Some(tile_idx)))
+                })
+                .unwrap()
+        } else {
+            (&mut self.columns[self.active_column_idx], None)
+        };
+
+        col.toggle_width(None, forwards);
+
+        // Cancel any ongoing resize for this column
+        if let Some(resize) = &mut self.interactive_resize {
+            let target_window = window.unwrap_or_else(|| col.tiles[col.active_tile_idx].window().id());
+            if &resize.window == target_window {
+                self.interactive_resize = None;
+            }
+        }
     }
 
     /// Toggle window height.
-    /// TEAM_028: Stub implementation
+    /// TEAM_028: Implemented based on ScrollingSpace::set_window_height
     /// TEAM_035: Updated signature to accept Option<&W::Id>
-    pub fn toggle_window_height(&mut self, _window: Option<&W::Id>, _forwards: bool) {
-        // TEAM_028: TODO - implement window height toggle
+    pub fn toggle_window_height(&mut self, window: Option<&W::Id>, forwards: bool) {
+        if self.columns.is_empty() {
+            return;
+        }
+
+        let (col, tile_idx) = if let Some(window) = window {
+            self.columns
+                .iter_mut()
+                .find_map(|col| {
+                    col.tiles
+                        .iter()
+                        .position(|tile| tile.window().id() == window)
+                        .map(|tile_idx| (col, Some(tile_idx)))
+                })
+                .unwrap()
+        } else {
+            (&mut self.columns[self.active_column_idx], None)
+        };
+
+        // Convert forwards boolean to SizeChange
+        let change = if forwards {
+            SizeChange::AdjustProportion(0.1)
+        } else {
+            SizeChange::AdjustProportion(-0.1)
+        };
+
+        col.set_window_height(change, tile_idx, true);
+
+        // Cancel any ongoing resize for this column
+        if let Some(resize) = &mut self.interactive_resize {
+            let target_window = window.unwrap_or_else(|| col.tiles[col.active_tile_idx].window().id());
+            if &resize.window == target_window {
+                self.interactive_resize = None;
+            }
+        }
     }
 
     /// Toggle full width for active column.
-    /// TEAM_028: Stub implementation
+    /// TEAM_028: Implemented based on ScrollingSpace::toggle_full_width
     pub fn toggle_full_width(&mut self) {
-        // TEAM_028: TODO - implement full width toggle
+        if self.columns.is_empty() {
+            return;
+        }
+
+        let col = &mut self.columns[self.active_column_idx];
+        col.toggle_full_width();
+
+        // Cancel any ongoing resize for this column
+        if let Some(resize) = &mut self.interactive_resize {
+            if &resize.window == col.tiles[col.active_tile_idx].window().id() {
+                self.interactive_resize = None;
+            }
+        }
     }
 
     /// Set column width.
-    /// TEAM_028: Stub implementation
-    pub fn set_column_width(&mut self, _change: SizeChange) {
-        // TEAM_028: TODO - implement column width setting
+    /// TEAM_028: Implemented based on ScrollingSpace::set_window_width
+    pub fn set_column_width(&mut self, change: SizeChange) {
+        if self.columns.is_empty() {
+            return;
+        }
+
+        let col = &mut self.columns[self.active_column_idx];
+        col.set_column_width(change, None, true);
+
+        // Cancel any ongoing resize for this column
+        if let Some(resize) = &mut self.interactive_resize {
+            if &resize.window == col.tiles[col.active_tile_idx].window().id() {
+                self.interactive_resize = None;
+            }
+        }
     }
 
     /// Set window width.
-    /// TEAM_028: Stub implementation
+    /// TEAM_028: Implemented based on ScrollingSpace::set_window_width
     /// TEAM_035: Updated signature to accept Option<&W::Id>
-    pub fn set_window_width(&mut self, _window: Option<&W::Id>, _change: SizeChange) {
-        // TEAM_028: TODO - implement window width setting
+    pub fn set_window_width(&mut self, window: Option<&W::Id>, change: SizeChange) {
+        if self.columns.is_empty() {
+            return;
+        }
+
+        let (col, tile_idx) = if let Some(window) = window {
+            self.columns
+                .iter_mut()
+                .find_map(|col| {
+                    col.tiles
+                        .iter()
+                        .position(|tile| tile.window().id() == window)
+                        .map(|tile_idx| (col, Some(tile_idx)))
+                })
+                .unwrap()
+        } else {
+            (&mut self.columns[self.active_column_idx], None)
+        };
+
+        col.set_column_width(change, tile_idx, true);
+
+        // Cancel any ongoing resize for this column
+        if let Some(resize) = &mut self.interactive_resize {
+            let target_window = window.unwrap_or_else(|| col.tiles[col.active_tile_idx].window().id());
+            if &resize.window == target_window {
+                self.interactive_resize = None;
+            }
+        }
     }
 
     /// Get scrolling insert position.

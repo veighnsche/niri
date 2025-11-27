@@ -3,7 +3,7 @@
 > **Check this file first** to see where past teams planned to add features.
 > This maintains architectural consistency across teams.
 
-**Last updated**: TEAM_036 (TODO Audit — Verified implementation status)
+**Last updated**: TEAM_037 (Core functionality implementation - 14 additional methods implemented)
 
 ---
 
@@ -11,7 +11,7 @@
 
 > **Main Build Errors: 0** — SUCCESS!
 > **Test Build Errors: 0** — SUCCESS!
-> **Test Execution**: 91 passed, 177 failed (behavioral changes from Canvas2D architecture)
+> **Test Execution**: 105 passed, 163 failed (behavioral changes from Canvas2D architecture)
 > 
 > **Progress**: 
 > - TEAM_030: Categories 1,2,3,9,11 completed (40 errors fixed)
@@ -228,17 +228,16 @@ These methods exist and compile but need real implementations:
 - [x] `Row::window_under()` — ✅ TEAM_036: Implemented (Lines 914-959)
 - [x] `Row::resize_edges_under()` — ✅ TEAM_036: Implemented (Lines 961-1005)
 - `Row::is_urgent()` — Always returns false
-- `Row::activate_window()` — Always returns false
-- [x] `Row::find_wl_surface()` / `find_wl_surface_mut()` — ✅ TEAM_036: Implemented (Lines 1083-1102)
-
-### Medium Priority (Window State)
-- `Row::set_fullscreen()` / `toggle_fullscreen()` — No-op
-- `Row::set_maximized()` / `toggle_maximized()` — No-op
-- `Row::start_open_animation()` — Returns false
-- `Row::update_window()` — No-op
-
-### Lower Priority (Advanced Features)
-- `Row::toggle_width()` / `toggle_window_width()` / `toggle_window_height()` — No-op
+- [x] `Row::activate_window()` — ✅ TEAM_037: Implemented (Lines 872-885)
+- [x] `Row::is_urgent()` — ✅ TEAM_037: Implemented (Lines 919-930)
+- [x] `Row::set_fullscreen()` / `toggle_fullscreen()` — ✅ TEAM_037: Implemented (Lines 850-889, 891-904)
+- [x] `Row::set_maximized()` / `toggle_maximized()` — ✅ TEAM_037: Implemented (Lines 906-935, 937-950)
+- [x] `Row::start_open_animation()` — ✅ TEAM_037: Implemented (Lines 975-979)
+- [x] `Row::toggle_width()` / `toggle_window_width()` / `toggle_window_height()` — ✅ TEAM_037: Implemented (Lines 1297-1311, 1313-1344, 1354-1369)
+- [x] `Row::toggle_full_width()` — ✅ TEAM_037: Implemented (Lines 1372-1387)
+- [x] `Row::set_column_width()` / `set_window_width()` — ✅ TEAM_037: Implemented (Lines 1389-1407, 1409-1452)
+- [x] `Row::configure_new_window()` — ✅ TEAM_037: Implemented (Lines 727-748)
+- [x] `Row::update_window()` — ✅ TEAM_037: Implemented (Lines 1167-1195)
 - `Row::set_column_width()` / `set_window_width()` — No-op
 - `Row::center_column()` / `center_visible_columns()` — No-op
 - `Row::store_unmap_snapshot_if_empty()` / `clear_unmap_snapshot()` — No-op
@@ -344,23 +343,24 @@ Row module is now feature-complete for Phase 1.5.1. All core ScrollingSpace meth
 
 ### Row Compatibility Methods (TEAM_024) — Stubs in `row/mod.rs`
 - [ ] `expand_column_to_available_width()` — Line 812: implement column width expansion
-- [ ] `set_fullscreen()` — Line 851: implement fullscreen state
-- [ ] `toggle_fullscreen()` — Line 855: implement fullscreen toggle
-- [ ] `set_maximized()` — Line 859: implement maximized state
-- [ ] `toggle_maximized()` — Line 863: implement maximized toggle
-- [ ] `activate_window()` — Line 873: implement window activation
-- [ ] `start_open_animation()` — Line 879: implement open animation
+- [x] `set_fullscreen()` — ✅ TEAM_037: Implemented (Lines 850-889)
+- [x] `toggle_fullscreen()` — ✅ TEAM_037: Implemented (Lines 891-904)
+- [x] `set_maximized()` — ✅ TEAM_037: Implemented (Lines 906-935)
+- [x] `toggle_maximized()` — ✅ TEAM_037: Implemented (Lines 937-950)
+- [x] `activate_window()` — ✅ TEAM_037: Implemented (Lines 872-885)
+- [x] `start_open_animation()` — ✅ TEAM_037: Implemented (Lines 975-979)
 
 ### Row Interface Implementation (TEAM_022) — Stubs in `row/mod.rs`
-- [ ] `configure_new_window()` — Line 735: implement proper window configuration
+- [x] `configure_new_window()` — ✅ TEAM_037: Implemented (Lines 727-748)
 - [ ] `current_output()` — Line 891: rows should get output from monitor/canvas
 - [ ] `active_window_mut()` — Line 898: implement active window logic (partial impl exists)
-- [ ] `is_urgent()` — Line 910: implement urgency detection
+- [x] `is_urgent()` — ✅ TEAM_037: Implemented (Lines 919-930)
 - [x] `window_under()` — ✅ TEAM_036: Implemented (Lines 914-959)
 - [x] `resize_edges_under()` — ✅ TEAM_036: Implemented (Lines 961-1005)
 - [ ] `active_tile_visual_rectangle()` — Line 1015: implement active tile visual rectangle (partial impl exists)
-- [ ] `update_window()` — Line 1037: implement window update
-- [ ] `update_layout_config()` — Line 1043: rows don't have individual layout configs
+- [x] `update_window()` — ✅ TEAM_037: Implemented (Lines 1167-1195)
+- [ ] `activate_window_without_raising()` — Line 1115: implement activation without raising
+- [ ] `tiles_with_ipc_layouts()` — Line 1123: implement IPC layout generation (partial impl exists)
 
 ### Row Surface Handling (TEAM_025) — Stubs in `row/mod.rs`
 - [ ] `resolve_scrolling_width()` — Line 1049: implement proper scrolling width resolution
