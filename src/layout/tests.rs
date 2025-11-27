@@ -945,10 +945,11 @@ impl Op {
                     }
                 }
 
-                match &mut layout.monitor_set {
+                // TEAM_035: Updated for Canvas2D architecture
+                match &layout.monitor_set {
                     MonitorSet::Normal { monitors, .. } => {
                         for mon in monitors {
-                            for ws in &mut mon.workspaces {
+                            for (_, ws) in mon.canvas.workspaces() {
                                 for win in ws.windows() {
                                     if win.0.id == params.id {
                                         return;
@@ -961,8 +962,8 @@ impl Op {
                             }
                         }
                     }
-                    MonitorSet::NoOutputs { workspaces, .. } => {
-                        for ws in workspaces {
+                    MonitorSet::NoOutputs { canvas, .. } => {
+                        for (_, ws) in canvas.workspaces() {
                             for win in ws.windows() {
                                 if win.0.id == params.id {
                                     return;
@@ -1011,10 +1012,11 @@ impl Op {
                     }
                 }
 
-                match &mut layout.monitor_set {
+                // TEAM_035: Updated for Canvas2D architecture
+                match &layout.monitor_set {
                     MonitorSet::Normal { monitors, .. } => {
                         for mon in monitors {
-                            for ws in &mut mon.workspaces {
+                            for (_, ws) in mon.canvas.workspaces() {
                                 for win in ws.windows() {
                                     if win.0.id == params.id {
                                         return;
@@ -1022,8 +1024,7 @@ impl Op {
                                 }
 
                                 if ws
-                                    .name
-                                    .as_ref()
+                                    .name()
                                     .is_some_and(|name| name.eq_ignore_ascii_case(&ws_name))
                                 {
                                     ws_id = Some(ws.id());
@@ -1031,8 +1032,8 @@ impl Op {
                             }
                         }
                     }
-                    MonitorSet::NoOutputs { workspaces, .. } => {
-                        for ws in workspaces {
+                    MonitorSet::NoOutputs { canvas, .. } => {
+                        for (_, ws) in canvas.workspaces() {
                             for win in ws.windows() {
                                 if win.0.id == params.id {
                                     return;
@@ -1040,8 +1041,7 @@ impl Op {
                             }
 
                             if ws
-                                .name
-                                .as_ref()
+                                .name()
                                 .is_some_and(|name| name.eq_ignore_ascii_case(&ws_name))
                             {
                                 ws_id = Some(ws.id());
@@ -1229,7 +1229,8 @@ impl Op {
                 let mon = layout.monitor_for_output(&output).unwrap();
 
                 let window_id = window_id.filter(|id| layout.has_window(id));
-                let target_ws_idx = target_ws_idx.filter(|idx| mon.workspaces.len() > *idx);
+                // TEAM_035: Use canvas.workspaces().count() instead of mon.workspaces.len()
+                let target_ws_idx = target_ws_idx.filter(|idx| mon.canvas.workspaces().count() > *idx);
                 layout.move_to_output(
                     window_id.as_ref(),
                     &output,
@@ -1260,13 +1261,14 @@ impl Op {
                     return;
                 };
 
+                // TEAM_035: Updated for Canvas2D architecture
                 let Some((old_idx, old_output)) = monitors.iter().find_map(|monitor| {
                     monitor
-                        .workspaces
-                        .iter()
+                        .canvas
+                        .workspaces()
                         .enumerate()
-                        .find_map(|(i, ws)| {
-                            if ws.name == Some(format!("ws{ws_name}")) {
+                        .find_map(|(i, (_, ws))| {
+                            if ws.name() == Some(&format!("ws{ws_name}")) {
                                 Some(i)
                             } else {
                                 None
@@ -1305,13 +1307,14 @@ impl Op {
                     return;
                 };
 
+                // TEAM_035: Updated for Canvas2D architecture
                 let Some((old_idx, old_output)) = monitors.iter().find_map(|monitor| {
                     monitor
-                        .workspaces
-                        .iter()
+                        .canvas
+                        .workspaces()
                         .enumerate()
-                        .find_map(|(i, ws)| {
-                            if ws.name == Some(format!("ws{ws_name}")) {
+                        .find_map(|(i, (_, ws))| {
+                            if ws.name() == Some(&format!("ws{ws_name}")) {
                                 Some(i)
                             } else {
                                 None
@@ -1411,10 +1414,11 @@ impl Op {
                     }
                 }
 
-                match &mut layout.monitor_set {
+                // TEAM_035: Updated for Canvas2D architecture
+                match &layout.monitor_set {
                     MonitorSet::Normal { monitors, .. } => {
                         'outer: for mon in monitors {
-                            for ws in &mut mon.workspaces {
+                            for (_, ws) in mon.canvas.workspaces() {
                                 for win in ws.windows() {
                                     if win.0.id == id {
                                         win.0.parent_id.set(new_parent_id);
@@ -1425,8 +1429,8 @@ impl Op {
                             }
                         }
                     }
-                    MonitorSet::NoOutputs { workspaces, .. } => {
-                        'outer: for ws in workspaces {
+                    MonitorSet::NoOutputs { canvas, .. } => {
+                        'outer: for (_, ws) in canvas.workspaces() {
                             for win in ws.windows() {
                                 if win.0.id == id {
                                     win.0.parent_id.set(new_parent_id);
@@ -1469,10 +1473,11 @@ impl Op {
                     }
                 }
 
-                match &mut layout.monitor_set {
+                // TEAM_035: Updated for Canvas2D architecture
+                match &layout.monitor_set {
                     MonitorSet::Normal { monitors, .. } => {
                         'outer: for mon in monitors {
-                            for ws in &mut mon.workspaces {
+                            for (_, ws) in mon.canvas.workspaces() {
                                 for win in ws.windows() {
                                     if win.0.id == id {
                                         if win.communicate() {
@@ -1484,8 +1489,8 @@ impl Op {
                             }
                         }
                     }
-                    MonitorSet::NoOutputs { workspaces, .. } => {
-                        'outer: for ws in workspaces {
+                    MonitorSet::NoOutputs { canvas, .. } => {
+                        'outer: for (_, ws) in canvas.workspaces() {
                             for win in ws.windows() {
                                 if win.0.id == id {
                                     if win.communicate() {
@@ -2022,7 +2027,8 @@ fn removing_output_must_keep_empty_focus_on_primary() {
 
     // The workspace from the removed output was inserted at position 0, so the active workspace
     // must change to 1 to keep the focus on the empty workspace.
-    assert_eq!(monitors[0].active_workspace_idx, 1);
+    // TEAM_035: Use active_workspace_idx() method instead of field
+    assert_eq!(monitors[0].active_workspace_idx(), 1);
 }
 
 #[test]
@@ -2050,7 +2056,9 @@ fn move_to_workspace_by_idx_does_not_leave_empty_workspaces() {
         unreachable!()
     };
 
-    assert!(monitors[0].workspaces[1].has_windows());
+    // TEAM_035: Use canvas.workspaces() instead of mon.workspaces
+    let (_, ws) = monitors[0].canvas.workspaces().nth(1).unwrap();
+    assert!(ws.has_windows());
 }
 
 #[test]
@@ -2205,11 +2213,14 @@ fn move_workspace_to_output() {
     };
 
     assert_eq!(active_monitor_idx, 1);
-    assert_eq!(monitors[0].workspaces.len(), 1);
-    assert!(!monitors[0].workspaces[0].has_windows());
-    assert_eq!(monitors[1].active_workspace_idx, 0);
-    assert_eq!(monitors[1].workspaces.len(), 2);
-    assert!(monitors[1].workspaces[0].has_windows());
+    // TEAM_035: Use canvas.workspaces() instead of mon.workspaces
+    assert_eq!(monitors[0].canvas.workspaces().count(), 1);
+    let (_, ws0) = monitors[0].canvas.workspaces().nth(0).unwrap();
+    assert!(!ws0.has_windows());
+    assert_eq!(monitors[1].active_workspace_idx(), 0);
+    assert_eq!(monitors[1].canvas.workspaces().count(), 2);
+    let (_, ws1) = monitors[1].canvas.workspaces().nth(0).unwrap();
+    assert!(ws1.has_windows());
 }
 
 #[test]
@@ -2231,11 +2242,12 @@ fn removing_all_outputs_preserves_empty_named_workspaces() {
 
     let layout = check_ops(ops);
 
-    let MonitorSet::NoOutputs { workspaces } = layout.monitor_set else {
+    // TEAM_035: Use canvas instead of workspaces
+    let MonitorSet::NoOutputs { canvas } = layout.monitor_set else {
         unreachable!()
     };
 
-    assert_eq!(workspaces.len(), 2);
+    assert_eq!(canvas.workspaces().count(), 2);
 }
 
 #[test]
@@ -3206,7 +3218,8 @@ fn move_column_to_workspace_down_focus_false_on_floating_window() {
         unreachable!()
     };
 
-    assert_eq!(monitors[0].active_workspace_idx, 0);
+    // TEAM_035: Use active_workspace_idx() method
+    assert_eq!(monitors[0].active_workspace_idx(), 0);
 }
 
 #[test]
@@ -3229,7 +3242,8 @@ fn move_column_to_workspace_focus_false_on_floating_window() {
         unreachable!()
     };
 
-    assert_eq!(monitors[0].active_workspace_idx, 0);
+    // TEAM_035: Use active_workspace_idx() method
+    assert_eq!(monitors[0].active_workspace_idx(), 0);
 }
 
 #[test]

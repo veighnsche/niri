@@ -536,9 +536,9 @@ impl<W: LayoutElement> Canvas2D<W> {
     }
 
     /// Workspace equivalent: get all rows for mutable iteration - TEAM_021
-    /// TEAM_033: Updated to map tuples from rows_mut() to just the row
-    pub fn workspaces_mut(&mut self) -> impl Iterator<Item = &mut Row<W>> + '_ {
-        self.rows_mut().map(|(_, row)| row)
+    /// TEAM_035: Returns (i32, &mut Row<W>) tuples like workspaces() for consistency
+    pub fn workspaces_mut(&mut self) -> impl Iterator<Item = (i32, &mut Row<W>)> + '_ {
+        self.rows_mut()
     }
 
     /// Workspace equivalent: get active workspace (row) - TEAM_021

@@ -394,9 +394,10 @@ impl<W: LayoutElement> Monitor<W> {
     // TEAM_031: Missing Monitor Methods Implementation
     // =========================================================================
 
-    /// Check if monitor contains a specific window.
-    pub fn has_window(&self, window: &W) -> bool {
-        self.canvas.contains(window.id())
+    /// Check if monitor contains a specific window by ID.
+    /// TEAM_035: Updated to accept &W::Id instead of &W
+    pub fn has_window(&self, window: &W::Id) -> bool {
+        self.canvas.contains(window)
     }
 
     /// Advance animations on the monitor.
@@ -454,8 +455,17 @@ impl<W: LayoutElement> Monitor<W> {
     }
 
     /// Activate workspace/row with animation config.
-    pub fn activate_workspace_with_anim_config(&mut self, idx: usize, _config: niri_config::Animation) {
+    /// TEAM_035: Updated to accept Option<Animation>
+    pub fn activate_workspace_with_anim_config(&mut self, idx: usize, _config: Option<niri_config::Animation>) {
         self.canvas.focus_row(idx as i32);
+    }
+
+    /// Verifies internal invariants for testing.
+    /// TEAM_035: Added for test compatibility
+    #[cfg(test)]
+    pub fn verify_invariants(&self) {
+        // Basic canvas invariants
+        assert!(self.canvas.rows().count() > 0 || !self.canvas.has_windows());
     }
 
     // TEAM_033: Removed duplicate into_canvas - kept the one defined earlier

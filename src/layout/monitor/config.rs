@@ -30,7 +30,8 @@ impl<W: LayoutElement> Monitor<W> {
             }
         }
 
-        for ws in self.canvas.workspaces_mut() {
+        // TEAM_035: Extract row from tuple
+        for (_, ws) in self.canvas.workspaces_mut() {
             ws.update_config(self.view_size, self.working_area, self.scale.fractional_scale(), options.clone());
         }
 
@@ -53,7 +54,8 @@ impl<W: LayoutElement> Monitor<W> {
     }
 
     pub fn update_shaders(&mut self) {
-        for ws in self.canvas.workspaces_mut() {
+        // TEAM_035: Extract row from tuple
+        for (_, ws) in self.canvas.workspaces_mut() {
             ws.update_shaders();
         }
 
@@ -69,7 +71,8 @@ impl<W: LayoutElement> Monitor<W> {
         self.view_size = output_size(&self.output);
         self.working_area = compute_working_area(&self.output);
 
-        for ws in self.canvas.workspaces_mut() {
+        // TEAM_035: Extract row from tuple
+        for (_, ws) in self.canvas.workspaces_mut() {
             ws.update_output_size();
         }
     }

@@ -157,7 +157,8 @@ impl<W: LayoutElement> Monitor<W> {
 
         self.canvas
             .workspaces_mut()
-            .map(move |row| {
+            // TEAM_035: Extract row from (i32, &mut Row) tuple
+            .map(move |(_, row)| {
                 let row_height = row.row_height();
                 let y_offset = row.y_offset();
                 let geo = Rectangle::new(

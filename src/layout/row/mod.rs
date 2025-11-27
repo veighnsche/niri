@@ -270,6 +270,12 @@ impl<W: LayoutElement> Row<W> {
         self.view_offset_x.current()
     }
 
+    /// Returns a reference to the view offset animated value.
+    /// TEAM_035: Added for test compatibility
+    pub fn view_offset(&self) -> &AnimatedValue {
+        &self.view_offset_x
+    }
+
     /// Returns whether this row contains the given window id.
     pub fn has_window(&self, window: &W::Id) -> bool {
         self.columns.iter().any(|col| col.contains(window))
@@ -454,6 +460,35 @@ impl<W: LayoutElement> Row<W> {
     // Golden Snapshot Testing
     // TEAM_010: Added snapshot() for golden test compatibility
     // =========================================================================
+
+    /// Returns self for test compatibility.
+    /// 
+    /// In the old architecture, Workspace had a scrolling() method that returned
+    /// the ScrollingSpace. In Canvas2D, Row IS the scrolling space, so this just
+    /// returns self.
+    /// 
+    /// TEAM_035: Added for test compatibility
+    #[cfg(test)]
+    pub fn scrolling(&self) -> &Self {
+        self
+    }
+
+    /// Verifies internal invariants for testing.
+    /// TEAM_035: Added for test compatibility
+    #[cfg(test)]
+    pub fn verify_invariants(&self, _move_win_id: Option<&W::Id>) {
+        assert!(self.view_size.w > 0.);
+        assert!(self.view_size.h > 0.);
+        assert!(self.scale > 0.);
+
+        if !self.columns.is_empty() {
+            assert!(self.active_column_idx < self.columns.len());
+        }
+
+        for col in &self.columns {
+            col.verify_invariants();
+        }
+    }
 
     /// Creates a snapshot of this row's layout state for golden testing.
     ///
@@ -767,19 +802,23 @@ impl<W: LayoutElement> Row<W> {
         // Rows don't control individual window heights - this is a no-op
     }
     
-    pub fn reset_window_height(&mut self, _window: &W::Id) {
+    // TEAM_035: Updated signature to accept Option<&W::Id>
+    pub fn reset_window_height(&mut self, _window: Option<&W::Id>) {
         // Rows don't control individual window heights - this is a no-op
     }
     
-    pub fn expand_column_to_available_width(&mut self, _column_idx: usize) {
+    // TEAM_035: Updated signature to take no arguments (uses active column)
+    pub fn expand_column_to_available_width(&mut self) {
         // TODO: TEAM_024: Implement column width expansion if needed
     }
     
-    pub fn toggle_window_floating(&mut self, _window: &W::Id) {
+    // TEAM_035: Updated signature to accept Option<&W::Id>
+    pub fn toggle_window_floating(&mut self, _window: Option<&W::Id>) {
         // Floating is handled at Canvas2D level - this is a no-op for rows
     }
     
-    pub fn set_window_floating(&mut self, _window: &W::Id, _floating: bool) {
+    // TEAM_035: Updated signature to accept Option<&W::Id>
+    pub fn set_window_floating(&mut self, _window: Option<&W::Id>, _floating: bool) {
         // Floating is handled at Canvas2D level - this is a no-op for rows
     }
     
@@ -835,8 +874,10 @@ impl<W: LayoutElement> Row<W> {
         false
     }
     
-    pub fn start_open_animation(&mut self) {
+    // TEAM_035: Updated signature to accept window ID and return bool
+    pub fn start_open_animation(&mut self, _window: &W::Id) -> bool {
         // TODO: TEAM_024: Implement open animation if needed
+        false
     }
     
     pub fn layout_config(&self) -> Option<niri_config::LayoutPart> {
@@ -992,22 +1033,36 @@ impl<W: LayoutElement> Row<W> {
 
     /// Get popup target rectangle.
     /// TEAM_025: Stub implementation
-    pub fn popup_target_rect(&self, _window: &W::Id) -> Option<Rectangle<i32, Logical>> {
+    /// TEAM_035: Updated return type to Rectangle<f64, Logical>
+    pub fn popup_target_rect(&self, _window: &W::Id) -> Option<Rectangle<f64, Logical>> {
         // TEAM_025: TODO - implement popup target rect
         None
     }
 
     /// Activate window without raising.
     /// TEAM_025: Stub implementation
-    pub fn activate_window_without_raising(&mut self, _window: &W::Id) {
+    /// TEAM_035: Updated return type to bool
+    pub fn activate_window_without_raising(&mut self, _window: &W::Id) -> bool {
         // TEAM_025: TODO - implement activation without raising
+        false
     }
 
     /// Get tiles with IPC layouts.
     /// TEAM_025: Stub implementation
-    pub fn tiles_with_ipc_layouts(&self) -> Vec<niri_ipc::WindowLayout> {
+    /// TEAM_035: Updated return type to iterator of (tile, layout) tuples
+    pub fn tiles_with_ipc_layouts(&self) -> impl Iterator<Item = (&Tile<W>, niri_ipc::WindowLayout)> {
         // TEAM_025: TODO - implement IPC layout generation
-        Vec::new()
+        // For now, return tiles with empty layouts
+        self.tiles().map(|tile| {
+            let layout = niri_ipc::WindowLayout {
+                pos_in_scrolling_layout: None,
+                tile_size: (0.0, 0.0),
+                window_size: (0, 0),
+                tile_pos_in_workspace_view: None,
+                window_offset_in_tile: (0.0, 0.0),
+            };
+            (tile, layout)
+        })
     }
 
     /// Expel window from column to floating.
@@ -1054,13 +1109,15 @@ impl<W: LayoutElement> Row<W> {
 
     /// Toggle window width.
     /// TEAM_028: Stub implementation
-    pub fn toggle_window_width(&mut self, _window: &W::Id, _forwards: bool) {
+    /// TEAM_035: Updated signature to accept Option<&W::Id>
+    pub fn toggle_window_width(&mut self, _window: Option<&W::Id>, _forwards: bool) {
         // TEAM_028: TODO - implement window width toggle
     }
 
     /// Toggle window height.
     /// TEAM_028: Stub implementation
-    pub fn toggle_window_height(&mut self, _window: &W::Id, _forwards: bool) {
+    /// TEAM_035: Updated signature to accept Option<&W::Id>
+    pub fn toggle_window_height(&mut self, _window: Option<&W::Id>, _forwards: bool) {
         // TEAM_028: TODO - implement window height toggle
     }
 
@@ -1078,32 +1135,37 @@ impl<W: LayoutElement> Row<W> {
 
     /// Set window width.
     /// TEAM_028: Stub implementation
-    pub fn set_window_width(&mut self, _window: &W::Id, _change: SizeChange) {
+    /// TEAM_035: Updated signature to accept Option<&W::Id>
+    pub fn set_window_width(&mut self, _window: Option<&W::Id>, _change: SizeChange) {
         // TEAM_028: TODO - implement window width setting
     }
 
     /// Get scrolling insert position.
     /// TEAM_028: Stub implementation
-    pub fn scrolling_insert_position(&self, _pos: Point<f64, Logical>) -> usize {
+    /// TEAM_035: Updated return type to InsertPosition
+    pub fn scrolling_insert_position(&self, _pos: Point<f64, Logical>) -> super::types::InsertPosition {
         // TEAM_028: TODO - implement insert position calculation
-        0
+        super::types::InsertPosition::NewColumn(0)
     }
 
     /// Store unmap snapshot if empty.
     /// TEAM_028: Stub implementation
-    pub fn store_unmap_snapshot_if_empty(&mut self, _renderer: &mut GlesRenderer, _window: &W) {
+    /// TEAM_035: Updated signature to accept &W::Id
+    pub fn store_unmap_snapshot_if_empty(&mut self, _renderer: &mut GlesRenderer, _window: &W::Id) {
         // TEAM_028: TODO - implement unmap snapshot storage
     }
 
     /// Clear unmap snapshot.
     /// TEAM_028: Stub implementation
-    pub fn clear_unmap_snapshot(&mut self, _window: &W) {
+    /// TEAM_035: Updated signature to accept &W::Id
+    pub fn clear_unmap_snapshot(&mut self, _window: &W::Id) {
         // TEAM_028: TODO - implement unmap snapshot clearing
     }
 
     /// Start close animation for window.
     /// TEAM_028: Stub implementation
-    pub fn start_close_animation_for_window(&mut self, _renderer: &mut GlesRenderer, _window: &W, _blocker: TransactionBlocker) {
+    /// TEAM_035: Updated signature to accept &W::Id
+    pub fn start_close_animation_for_window(&mut self, _renderer: &mut GlesRenderer, _window: &W::Id, _blocker: TransactionBlocker) {
         // TEAM_028: TODO - implement close animation
     }
 
@@ -1119,6 +1181,14 @@ impl<W: LayoutElement> Row<W> {
     ) {
         // TODO(TEAM_033): Implement proper close animation with snapshot
         // This requires ClosingWindow infrastructure similar to ScrollingSpace
+    }
+
+    /// Convert logical position to size fraction for floating windows.
+    /// TEAM_035: Stub implementation for compatibility
+    pub fn floating_logical_to_size_frac(&self, pos: Point<f64, Logical>) -> Point<f64, super::SizeFrac> {
+        // TODO: Implement proper conversion using working area
+        // For now, just convert the coordinates
+        Point::from((pos.x, pos.y))
     }
 }
 
