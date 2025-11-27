@@ -256,6 +256,23 @@ impl<W: LayoutElement> Column<W> {
             assert_eq!(auto_tiles_left, 0);
         }
 
+        // TEAM_039: Capture old tile Y positions BEFORE applying size changes
+        let gaps = self.options.layout.gaps;
+        let mut old_y_offset = 0.0;
+        let old_y_positions: Vec<_> = self.data.iter().map(|data| {
+            let pos = old_y_offset;
+            old_y_offset += data.size.h + gaps;
+            pos
+        }).collect();
+        
+        // Extract heights before consuming heights in the loop
+        let new_heights: Vec<f64> = heights.iter().map(|h| {
+            match h {
+                WindowHeight::Fixed(height) => *height,
+                _ => max_tile_height,
+            }
+        }).collect();
+
         for (tile_idx, (tile, h)) in zip(&mut self.tiles, heights).enumerate() {
             let WindowHeight::Fixed(height) = h else {
                 unreachable!()
@@ -271,6 +288,29 @@ impl<W: LayoutElement> Column<W> {
             };
 
             tile.request_tile_size(size, animate, transaction);
+        }
+
+        // TEAM_039: Create move animations for tiles that changed Y position
+        if animate && !is_tabbed {
+            let gaps = self.options.layout.gaps;
+
+            // Calculate new Y positions based on new heights
+            let mut new_y_offset = 0.0;
+            let new_y_positions: Vec<_> = new_heights.iter().map(|height| {
+                let pos = new_y_offset;
+                new_y_offset += height + gaps;
+                pos
+            }).collect();
+
+            // Create move animations
+            for (tile_idx, (tile, old_y)) in self.tiles.iter_mut().zip(old_y_positions).enumerate() {
+                let new_y = new_y_positions.get(tile_idx).unwrap_or(&old_y);
+                let y_delta = old_y - new_y;
+                
+                if y_delta.abs() > 0.1 {
+                    tile.animate_move_y_from(y_delta);
+                }
+            }
         }
     }
 }

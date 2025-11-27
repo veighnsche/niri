@@ -259,7 +259,7 @@ fn build_name(ws: &crate::layout::row::Row<Mapped>, ws_idx: usize) -> String {
 }
 
 /// Generate a WorkspaceId for a row based on its index or name
-fn row_workspace_id(row_idx: usize, ws: &crate::layout::row::Row<Mapped>) -> WorkspaceId {
+fn row_workspace_id(row_idx: usize, _ws: &crate::layout::row::Row<Mapped>) -> WorkspaceId {
     // Use the row index as the primary ID for consistency
     WorkspaceId::specific(row_idx as u64)
 }

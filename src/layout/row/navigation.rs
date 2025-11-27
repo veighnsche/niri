@@ -46,8 +46,10 @@ impl<W: LayoutElement> Row<W> {
         self.view_offset_to_restore = None;
 
         let new_idx = self.active_column_idx - 1;
+        // TEAM_039: Pass old active column index for proper view offset calculation
+        let prev_idx = self.active_column_idx;
+        self.animate_view_offset_to_column(None, new_idx, Some(prev_idx));
         self.active_column_idx = new_idx;
-        self.animate_view_offset_to_column(None, new_idx, None);
         true
     }
 
@@ -61,24 +63,33 @@ impl<W: LayoutElement> Row<W> {
         self.view_offset_to_restore = None;
 
         let new_idx = self.active_column_idx + 1;
+        // TEAM_039: Pass old active column index for proper view offset calculation
+        let prev_idx = self.active_column_idx;
+        self.animate_view_offset_to_column(None, new_idx, Some(prev_idx));
         self.active_column_idx = new_idx;
-        self.animate_view_offset_to_column(None, new_idx, None);
         true
     }
 
     /// Focuses a specific column by index.
-    pub fn focus_column(&mut self, idx: usize) {
-        if idx >= self.columns.len() {
+    /// TEAM_039: Note - index is 1-based in the original API, so we convert to 0-based
+    pub fn focus_column(&mut self, index: usize) {
+        if self.columns.is_empty() {
             return;
         }
 
+        // Convert 1-based index to 0-based, clamped to valid range
+        let idx = index.saturating_sub(1).min(self.columns.len() - 1);
+
+        // TEAM_039: Pass old active column index for proper view offset calculation
+        let prev_idx = self.active_column_idx;
+        
         if idx != self.active_column_idx {
             self.activate_prev_column_on_removal = None;
             self.view_offset_to_restore = None;
         }
 
+        self.animate_view_offset_to_column(None, idx, Some(prev_idx));
         self.active_column_idx = idx;
-        self.animate_view_offset_to_column(None, idx, None);
     }
 
     /// Focuses the first column in the row.

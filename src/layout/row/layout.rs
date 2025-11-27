@@ -67,7 +67,7 @@ impl<W: LayoutElement> Row<W> {
                 col.tiles().enumerate().map(move |(tile_idx, (tile, tile_offset))| {
                     let tile_pos = Point::from((
                         col_x + tile_offset.x,
-                        y_offset + tile_offset.y,
+                        y_offset + tile_offset.y + tile.render_offset().y,  // Include move animations
                     ));
                     let is_active = is_active_col && tile_idx == col.active_tile_idx;
                     (tile, tile_pos, is_active)

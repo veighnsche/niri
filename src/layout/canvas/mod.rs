@@ -48,6 +48,7 @@ use super::row::{Row, RowRenderElement};
 use super::tile::Tile;
 use super::LayoutElement;
 use super::Options;
+use super::workspace_types::WorkspaceId;
 use crate::animation::Clock;
 use crate::niri_render_elements;
 
@@ -109,6 +110,9 @@ pub struct Canvas2D<W: LayoutElement> {
 
     /// Layout options.
     pub(crate) options: Rc<Options>,
+    
+    /// TEAM_039: Counter for generating unique workspace IDs for rows
+    workspace_id_counter: u64,
 }
 
 impl<W: LayoutElement> Canvas2D<W> {
@@ -121,6 +125,7 @@ impl<W: LayoutElement> Canvas2D<W> {
         scale: f64,
         clock: Clock,
         options: Rc<Options>,
+        initial_workspace_id: WorkspaceId,
     ) -> Self {
         // Create origin row (row 0)
         let mut rows = BTreeMap::new();
@@ -128,6 +133,7 @@ impl<W: LayoutElement> Canvas2D<W> {
             0,
             Row::new(
                 0,
+                initial_workspace_id,
                 view_size,
                 parent_area,
                 scale,
@@ -159,6 +165,7 @@ impl<W: LayoutElement> Canvas2D<W> {
             scale,
             clock,
             options,
+            workspace_id_counter: initial_workspace_id.0,
         }
     }
 

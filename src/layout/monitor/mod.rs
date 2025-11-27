@@ -18,7 +18,7 @@ use smithay::utils::{Logical, Rectangle, Size};
 use crate::animation::Clock;
 use crate::layout::canvas::Canvas2D;
 use crate::layout::insert_hint_element::InsertHintElement;
-use crate::layout::workspace_types::compute_working_area;
+use crate::layout::workspace_types::{WorkspaceId, compute_working_area};
 use crate::layout::row::Row;
 use crate::layout::{LayoutElement, Options};
 use crate::niri_render_elements;
@@ -115,6 +115,7 @@ impl<W: LayoutElement> Monitor<W> {
         clock: Clock,
         base_options: Rc<Options>,
         layout_config: Option<LayoutPart>,
+        initial_workspace_id: WorkspaceId,
     ) -> Self {
         let options =
             Rc::new(Options::clone(&base_options).with_merged_layout(layout_config.as_ref()));
@@ -132,6 +133,7 @@ impl<W: LayoutElement> Monitor<W> {
             scale.fractional_scale(),
             clock.clone(),
             options.clone(),
+            initial_workspace_id,
         );
 
         Self {
@@ -348,10 +350,13 @@ impl<W: LayoutElement> Monitor<W> {
         // Create tile and add to row
         let tile = self.canvas.make_tile(window);
         let width = crate::layout::types::ColumnWidth::Proportion(1.0);
+        // TEAM_039: Use map_smart to properly handle ActivateWindow::Smart
+        // Smart should activate unless there's a reason not to (like pending fullscreen)
+        let should_activate = activate.map_smart(|| true);
         self.canvas.add_tile_to_row(
             row_idx,
             tile,
-            activate == crate::layout::ActivateWindow::Yes,
+            should_activate,
             width,
             false,
         );

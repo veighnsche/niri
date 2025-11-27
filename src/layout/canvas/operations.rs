@@ -7,9 +7,12 @@ use std::rc::Rc;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use crate::layout::canvas::Canvas2D;
 use crate::layout::row::Row;
-use crate::layout::tile::Tile;
-use crate::layout::types::ColumnWidth;
-use crate::layout::{LayoutElement, Options};
+use super::super::floating::FloatingSpace;
+use super::super::tile::Tile;
+use super::super::LayoutElement;
+use super::super::Options;
+use super::super::workspace_types::WorkspaceId;
+use super::super::ColumnWidth;
 use niri_ipc::PositionChange;
 
 impl<W: LayoutElement> Canvas2D<W> {
@@ -20,8 +23,13 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Creates a new row at the specified index if it doesn't exist.
     pub fn ensure_row(&mut self, row_idx: i32) -> &mut Row<W> {
         self.rows.entry(row_idx).or_insert_with(|| {
+            // TEAM_039: Generate unique workspace ID for new row
+            self.workspace_id_counter += 1;
+            let workspace_id = WorkspaceId(self.workspace_id_counter);
+            
             Row::new(
                 row_idx,
+                workspace_id,
                 self.view_size,
                 self.parent_area,
                 self.scale,

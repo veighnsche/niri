@@ -38,9 +38,10 @@ mod view_offset;
 
 pub use render::RowRenderElement;
 
+use std::cmp::max;
 use std::rc::Rc;
 
-use niri_config::{Struts, Border};
+use niri_config::{Struts, Border, PresetSize};
 use niri_config::utils::MergeWith;
 use niri_ipc::{ColumnDisplay, SizeChange};
 use crate::layout::workspace_types::WorkspaceId;
@@ -49,16 +50,20 @@ use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::backend::renderer::gles::GlesRenderer;
 
-use crate::utils::ResizeEdge;
+use crate::utils::{ResizeEdge, ensure_min_max_size, ensure_min_max_size_maybe_zero, send_scale_transform};
+use crate::window::ResolvedWindowRules;
 
 use super::animated_value::AnimatedValue;
 use super::closing_window::ClosingWindow;
-use super::column::Column;
+use super::column::{Column, resolve_preset_size};
 use super::tile::Tile;
-use super::types::{InteractiveResize};
+use super::types::{InteractiveResize, ResolvedSize};
+use super::tab_indicator::TabIndicator;
 use super::{LayoutElement, Options, ConfigureIntent};
 use crate::animation::Clock;
 use crate::utils::transaction::TransactionBlocker;
+use smithay::wayland::compositor::with_states;
+use smithay::wayland::shell::xdg::SurfaceCachedState;
 
 /// Extra per-column data.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -91,6 +96,9 @@ pub struct Row<W: LayoutElement> {
     /// 
     /// Used for user-identifiable rows in the 2D canvas.
     name: Option<String>,
+
+    /// TEAM_039: Unique workspace ID for this row
+    workspace_id: WorkspaceId,
 
     // =========================================================================
     // Column management (from ScrollingSpace)
@@ -151,6 +159,7 @@ impl<W: LayoutElement> Row<W> {
     /// Creates a new empty row at the specified index.
     pub fn new(
         row_index: i32,
+        workspace_id: WorkspaceId,
         view_size: Size<f64, Logical>,
         parent_area: Rectangle<f64, Logical>,
         scale: f64,
@@ -163,6 +172,7 @@ impl<W: LayoutElement> Row<W> {
             row_index,
             y_offset: row_index as f64 * view_size.h,
             name: None,
+            workspace_id,
             view_size,
             parent_area,
             working_area,
@@ -216,9 +226,9 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Returns the workspace ID for this row.
-    /// TEAM_024: Added for workspace compatibility during Canvas2D migration
+    /// TEAM_039: Return the unique workspace ID stored in the row
     pub fn id(&self) -> crate::layout::workspace_types::WorkspaceId {
-        crate::layout::workspace_types::WorkspaceId::from_row_index(self.row_index)
+        self.workspace_id
     }
 
     /// Sets the row index (used internally by canvas for reordering).
@@ -723,42 +733,187 @@ impl<W: LayoutElement> Row<W> {
     // =========================================================================
 
     /// Configure a new window with defaults.
-    /// TEAM_022: Implemented - delegate to active column for actual configuration
-    pub fn configure_new_window<R>(
+    /// TEAM_039: Properly implemented - sends scale/transform and sets size/bounds
+    pub fn configure_new_window(
         &self,
-        window: &W::Id,
-        width: Option<niri_config::PresetSize>,
-        height: Option<niri_config::PresetSize>,
+        window: &smithay::desktop::Window,
+        width: Option<PresetSize>,
+        height: Option<PresetSize>,
         is_floating: bool,
-        rules: &R,
+        rules: &ResolvedWindowRules,
     ) {
-        // For now, this is a compatibility stub. Actual window configuration
-        // happens when tiles are added to columns.
-        // In the future, this could be used to set initial properties.
+        // Send scale and transform to all surfaces
+        // TEAM_039: Convert f64 scale to output::Scale
+        let scale = smithay::output::Scale::Fractional(self.scale);
+        window.with_surfaces(|surface, data| {
+            send_scale_transform(surface, data, scale, smithay::utils::Transform::Normal);
+        });
+
+        let toplevel = window.toplevel().expect("no x11 support");
+        let (min_size, max_size) = with_states(toplevel.wl_surface(), |state| {
+            let mut guard = state.cached_state.get::<SurfaceCachedState>();
+            let current = guard.current();
+            (current.min_size, current.max_size)
+        });
         
-        // Find the window and configure it if it exists
-        for column in &self.columns {
-            for tile in &column.tiles {
-                if tile.window().id() == window {
-                    // Window is already configured when added
-                    return;
-                }
+        toplevel.with_pending_state(|state| {
+            use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
+            
+            if state.states.contains(xdg_toplevel::State::Fullscreen) {
+                state.size = Some(self.view_size.to_i32_round());
+            } else if state.states.contains(xdg_toplevel::State::Maximized) {
+                state.size = Some(self.working_area.size.to_i32_round());
+            } else {
+                let size = self.new_window_size(width, height, is_floating, rules, (min_size, max_size));
+                state.size = Some(size);
             }
+
+            // Set bounds for the window
+            state.bounds = Some(self.new_window_toplevel_bounds(rules));
+        });
+    }
+
+    /// Compute the size for a new window.
+    /// TEAM_039: Ported from original Workspace implementation
+    pub fn new_window_size(
+        &self,
+        width: Option<PresetSize>,
+        height: Option<PresetSize>,
+        is_floating: bool,
+        rules: &ResolvedWindowRules,
+        (min_size, max_size): (Size<i32, Logical>, Size<i32, Logical>),
+    ) -> Size<i32, Logical> {
+        // For tiled windows, use scrolling logic
+        let mut size = self.scrolling_new_window_size(width, height, rules);
+
+        // Apply min/max size constraints
+        let (min_size, max_size) = rules.apply_min_max_size(min_size, max_size);
+        size.w = ensure_min_max_size_maybe_zero(size.w, min_size.w, max_size.w);
+        
+        // For scrolling (where height is > 0) only ensure fixed height
+        if min_size.h == max_size.h {
+            size.h = ensure_min_max_size(size.h, min_size.h, max_size.h);
+        } else if size.h > 0 {
+            // Also always honor min height
+            size.h = max(size.h, min_size.h);
         }
+
+        size
+    }
+
+    /// Compute the size for a new scrolling window.
+    /// TEAM_039: Ported from ScrollingSpace::new_window_size
+    fn scrolling_new_window_size(
+        &self,
+        width: Option<PresetSize>,
+        height: Option<PresetSize>,
+        rules: &ResolvedWindowRules,
+    ) -> Size<i32, Logical> {
+        let border = self.options.layout.border.merged_with(&rules.border);
+
+        let display_mode = rules
+            .default_column_display
+            .unwrap_or(self.options.layout.default_column_display);
+        let will_tab = display_mode == ColumnDisplay::Tabbed;
+        let extra = if will_tab {
+            TabIndicator::new(self.options.layout.tab_indicator).extra_size(1, self.scale)
+        } else {
+            Size::from((0., 0.))
+        };
+
+        let working_size = self.working_area.size;
+
+        let width = if let Some(size) = width {
+            let size = match resolve_preset_size(size, &self.options, working_size.w, extra.w) {
+                ResolvedSize::Tile(mut size) => {
+                    if !border.off {
+                        size -= border.width * 2.;
+                    }
+                    size
+                }
+                ResolvedSize::Window(size) => size,
+            };
+
+            max(1, size.floor() as i32)
+        } else {
+            0
+        };
+
+        let mut full_height = self.working_area.size.h - self.options.layout.gaps * 2.;
+        if !border.off {
+            full_height -= border.width * 2.;
+        }
+
+        let height = if let Some(height) = height {
+            let height = match resolve_preset_size(height, &self.options, working_size.h, extra.h) {
+                ResolvedSize::Tile(mut size) => {
+                    if !border.off {
+                        size -= border.width * 2.;
+                    }
+                    size
+                }
+                ResolvedSize::Window(size) => size,
+            };
+            f64::min(height, full_height)
+        } else {
+            full_height
+        };
+
+        Size::from((width, max(height.floor() as i32, 1)))
+    }
+
+    /// Compute the toplevel bounds for new windows.
+    /// TEAM_039: Ported from ScrollingSpace::new_window_toplevel_bounds
+    pub fn new_window_toplevel_bounds(&self, rules: &ResolvedWindowRules) -> Size<i32, Logical> {
+        let border_config = self.options.layout.border.merged_with(&rules.border);
+
+        let display_mode = rules
+            .default_column_display
+            .unwrap_or(self.options.layout.default_column_display);
+        let will_tab = display_mode == ColumnDisplay::Tabbed;
+        let extra_size = if will_tab {
+            TabIndicator::new(self.options.layout.tab_indicator).extra_size(1, self.scale)
+        } else {
+            Size::from((0., 0.))
+        };
+
+        compute_toplevel_bounds(
+            border_config,
+            self.working_area.size,
+            extra_size,
+            self.options.layout.gaps,
+        )
     }
 
     /// Resolve the default width for a window.
-    /// TEAM_022: Stub implementation
-    pub fn resolve_default_width<R>(&self, rules: R, is_floating: bool) -> Option<niri_config::PresetSize> {
-        // Return None for auto width
-        None
+    /// TEAM_039: Ported from original Workspace implementation
+    pub fn resolve_default_width(
+        &self,
+        default_width: Option<Option<PresetSize>>,
+        is_floating: bool,
+    ) -> Option<PresetSize> {
+        match default_width {
+            Some(Some(width)) => Some(width),
+            Some(None) => None,
+            None if is_floating => None,
+            None => self.options.layout.default_column_width,
+        }
     }
 
     /// Resolve the default height for a window.
-    /// TEAM_022: Stub implementation
-    pub fn resolve_default_height<R>(&self, rules: R, is_floating: bool) -> Option<niri_config::PresetSize> {
-        // Return None for auto height
-        None
+    /// TEAM_039: Ported from original Workspace implementation
+    pub fn resolve_default_height(
+        &self,
+        default_height: Option<Option<PresetSize>>,
+        is_floating: bool,
+    ) -> Option<PresetSize> {
+        match default_height {
+            Some(Some(height)) => Some(height),
+            Some(None) => None,
+            None if is_floating => None,
+            // We don't have a global default at the moment.
+            None => None,
+        }
     }
 
     /// Move focus down within the active column.
@@ -809,8 +964,29 @@ impl<W: LayoutElement> Row<W> {
     // TEAM_024: Workspace compatibility methods - these are mostly no-ops for rows
     // since floating windows are handled at the Canvas2D level
     
-    pub fn set_window_height(&mut self, _window: Option<&W::Id>, _height: super::SizeChange) {
-        // Rows don't control individual window heights - this is a no-op
+    pub fn set_window_height(&mut self, window: Option<&W::Id>, change: super::SizeChange) {
+        if self.columns.is_empty() {
+            return;
+        }
+
+        let (col_idx, tile_idx) = if let Some(window) = window {
+            // Find the window across all columns
+            let mut found = None;
+            for (col_idx, col) in self.columns.iter_mut().enumerate() {
+                if let Some(tile_idx) = col.tiles.iter().position(|tile| tile.window().id() == window) {
+                    found = Some((col_idx, Some(tile_idx)));
+                    break;
+                }
+            }
+            found.unwrap_or_else(|| (self.active_column_idx, None))
+        } else {
+            // Use active column, no specific tile
+            (self.active_column_idx, None)
+        };
+
+        if let Some(col) = self.columns.get_mut(col_idx) {
+            col.set_window_height(change, tile_idx, true);
+        }
     }
     
     // TEAM_035: Updated signature to accept Option<&W::Id>
@@ -1200,11 +1376,25 @@ impl<W: LayoutElement> Row<W> {
         // TEAM_022: TODO - rows don't have individual layout configs
     }
 
-    /// Resolve scrolling width for a window ID.
-    /// TEAM_025: Stub implementation
-    pub fn resolve_scrolling_width(&self, _window: &W::Id, _width: Option<niri_config::PresetSize>) -> f64 {
-        // TEAM_025: TODO - implement proper scrolling width resolution
-        1.0
+    /// Resolve scrolling width for a window.
+    /// TEAM_039: Properly implemented - returns ColumnWidth based on preset or window size
+    pub fn resolve_scrolling_width(&self, window: &W, width: Option<PresetSize>) -> crate::layout::types::ColumnWidth {
+        let width = width.unwrap_or_else(|| PresetSize::Fixed(window.size().w));
+        match width {
+            PresetSize::Fixed(fixed) => {
+                let mut fixed = f64::from(fixed);
+
+                // Add border width since ColumnWidth includes borders.
+                let rules = window.rules();
+                let border = self.options.layout.border.merged_with(&rules.border);
+                if !border.off {
+                    fixed += border.width * 2.;
+                }
+
+                crate::layout::types::ColumnWidth::Fixed(fixed)
+            }
+            PresetSize::Proportion(prop) => crate::layout::types::ColumnWidth::Proportion(prop),
+        }
     }
 
     /// Make a tile for a window.
@@ -1319,9 +1509,25 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Center the active column.
-    /// TEAM_028: Stub implementation
+    /// TEAM_039: Implemented based on ScrollingSpace::center_column
     pub fn center_column(&mut self) {
-        // TEAM_028: TODO - implement column centering
+        if self.columns.is_empty() {
+            return;
+        }
+
+        self.animate_view_offset_to_column_centered(
+            None,
+            self.active_column_idx,
+            self.options.animations.horizontal_view_movement.0,
+        );
+
+        // Cancel any interactive resize on the active column
+        let col = &mut self.columns[self.active_column_idx];
+        if let Some(resize) = &self.interactive_resize {
+            if col.contains(&resize.window) {
+                self.interactive_resize = None;
+            }
+        }
     }
 
     /// Center all visible columns.

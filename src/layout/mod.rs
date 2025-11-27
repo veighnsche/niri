@@ -313,6 +313,8 @@ pub struct Layout<W: LayoutElement> {
     /// The workspace id does not necessarily point to a valid workspace. If it doesn't, then it is
     /// simply ignored.
     last_active_workspace_id: HashMap<String, WorkspaceId>,
+    /// TEAM_039: Counter for generating unique workspace IDs
+    workspace_id_counter: u64,
     /// Ongoing interactive move.
     interactive_move: Option<InteractiveMoveState<W>>,
     /// Ongoing drag-and-drop operation.
@@ -662,16 +664,25 @@ impl<W: LayoutElement> Layout<W> {
         Self::with_options_and_workspaces(clock, config, Options::from_config(config))
     }
 
+    /// TEAM_039: Generate a unique workspace ID
+    pub fn next_workspace_id(&mut self) -> WorkspaceId {
+        self.workspace_id_counter += 1;
+        WorkspaceId(self.workspace_id_counter)
+    }
+
     pub fn with_options(clock: Clock, options: Options) -> Self {
         let opts = Rc::new(options);
 
         // Create a Canvas2D for the NoOutputs variant
-        // Since there's no output, we use default sizes
-        let view_size = Size::from((1920.0, 1080.0)); // Default size
+        // TEAM_039: Use 1280x720 as default size to match original Workspace behavior
+        let view_size = Size::from((1280.0, 720.0));
         let parent_area = Rectangle::from_loc_and_size((0.0, 0.0), view_size);
         let working_area = parent_area;
         let scale = 1.0;
 
+        // Generate unique workspace ID for the initial row
+        let initial_workspace_id = WorkspaceId(1);
+        
         let canvas = crate::layout::canvas::Canvas2D::new(
             None,
             view_size,
@@ -680,12 +691,14 @@ impl<W: LayoutElement> Layout<W> {
             scale,
             clock.clone(),
             opts.clone(),
+            initial_workspace_id,
         );
 
         Self {
             monitor_set: MonitorSet::NoOutputs { canvas },
             is_active: true,
             last_active_workspace_id: HashMap::new(),
+            workspace_id_counter: 1,  // TEAM_039: Start at 1 since we used ID 1 for initial row
             interactive_move: None,
             dnd: None,
             clock,
@@ -699,12 +712,15 @@ impl<W: LayoutElement> Layout<W> {
         let opts = Rc::new(options);
 
         // Create a Canvas2D for the NoOutputs variant
-        // Since there's no output, we use default sizes
-        let view_size = Size::from((1920.0, 1080.0)); // Default size
+        // TEAM_039: Use 1280x720 as default size to match original Workspace behavior
+        let view_size = Size::from((1280.0, 720.0));
         let parent_area = Rectangle::from_loc_and_size((0.0, 0.0), view_size);
         let working_area = parent_area;
         let scale = 1.0;
 
+        // Generate unique workspace ID for the initial row
+        let initial_workspace_id = WorkspaceId(1);
+        
         let canvas = crate::layout::canvas::Canvas2D::new(
             None,
             view_size,
@@ -713,6 +729,7 @@ impl<W: LayoutElement> Layout<W> {
             scale,
             clock.clone(),
             opts.clone(),
+            initial_workspace_id,
         );
 
         // TODO: TEAM_023: Apply workspace config to canvas rows if needed
@@ -722,6 +739,7 @@ impl<W: LayoutElement> Layout<W> {
             monitor_set: MonitorSet::NoOutputs { canvas },
             is_active: true,
             last_active_workspace_id: HashMap::new(),
+            workspace_id_counter: 1,  // TEAM_039: Start at 1 since we used ID 1 for initial row
             interactive_move: None,
             dnd: None,
             clock,
@@ -781,6 +799,7 @@ impl<W: LayoutElement> Layout<W> {
                     self.clock.clone(),
                     self.options.clone(),
                     layout_config,
+                    self.next_workspace_id(),
                 );
                 // DEPRECATED(overview): Removed overview state sync
                 monitors.push(monitor);
@@ -799,6 +818,7 @@ impl<W: LayoutElement> Layout<W> {
                     self.clock.clone(),
                     self.options.clone(),
                     layout_config,
+                    self.next_workspace_id(),
                 );
                 // DEPRECATED(overview): Removed overview state sync
 
@@ -989,9 +1009,8 @@ impl<W: LayoutElement> Layout<W> {
 
                 let (ws_idx, _) = mon.resolve_add_window_target(&target);
                 let ws = &mon.canvas.workspaces().nth(ws_idx as usize).unwrap().1;
-                let scrolling_width_f64 = ws.resolve_scrolling_width(window.id(), width);
-                // TEAM_033: Wrap f64 in ColumnWidth for add_window
-                let scrolling_width = Some(crate::layout::types::ColumnWidth::Proportion(scrolling_width_f64));
+                // TEAM_039: resolve_scrolling_width now takes &W and returns ColumnWidth
+                let scrolling_width = Some(ws.resolve_scrolling_width(&window, width));
 
                 mon.add_window(
                     window,
@@ -1064,12 +1083,12 @@ impl<W: LayoutElement> Layout<W> {
                 // TEAM_033: Fixed tile creation and add_tile arguments
                 // First ensure the row exists
                 let ws = canvas.ensure_row(ws_idx);
-                let scrolling_width_f64 = ws.resolve_scrolling_width(window.id(), width);
+                // TEAM_039: resolve_scrolling_width now takes &W and returns ColumnWidth
+                let scrolling_width = ws.resolve_scrolling_width(&window, width);
                 
                 // Create tile using canvas's make_tile (returns proper Tile<W>)
                 let tile = canvas.make_tile(window);
                 let activate_bool = activate.map_smart(|| false);
-                let width = crate::layout::types::ColumnWidth::Proportion(scrolling_width_f64);
                 
                 // Get the row again (ensure_row may have modified the canvas)
                 if let Some(ws) = canvas.row_mut(ws_idx) {
@@ -1077,7 +1096,7 @@ impl<W: LayoutElement> Layout<W> {
                         None,
                         tile,
                         activate_bool,
-                        width,
+                        scrolling_width,
                         is_full_width,
                     );
 
@@ -2602,10 +2621,12 @@ impl<W: LayoutElement> Layout<W> {
             // Each monitor has its own canvas, so workspace migration checks are not applicable
 
             for (_, workspace) in monitor.canvas.workspaces() {
-                assert!(
-                    seen_workspace_id.insert(workspace.id()),
-                    "workspace id must be unique"
-                );
+                let ws_id = workspace.id();
+                // TEAM_039: Debug workspace ID uniqueness
+                if seen_workspace_id.contains(&ws_id) {
+                    panic!("workspace id must be unique: duplicate ID {:?} found", ws_id);
+                }
+                seen_workspace_id.insert(ws_id);
 
                 if let Some(name) = workspace.name() {
                     assert!(
@@ -4989,6 +5010,7 @@ impl<W: LayoutElement> Default for MonitorSet<W> {
             1.0,
             clock,
             options,
+            WorkspaceId(1),
         );
         
         Self::NoOutputs { canvas }

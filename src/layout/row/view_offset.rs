@@ -247,6 +247,17 @@ impl<W: LayoutElement> Row<W> {
         self.animate_view_offset_with_config(idx, new_view_offset, config);
     }
 
+    /// TEAM_039: Animates the view offset to center the specified column.
+    pub(crate) fn animate_view_offset_to_column_centered(
+        &mut self,
+        target_x: Option<f64>,
+        idx: usize,
+        config: niri_config::Animation,
+    ) {
+        let new_view_offset = self.compute_new_view_offset_for_column_centered(target_x, idx);
+        self.animate_view_offset_with_config(idx, new_view_offset, config);
+    }
+
     /// Animates the view offset to show the specified column.
     pub(crate) fn animate_view_offset_to_column(
         &mut self,
