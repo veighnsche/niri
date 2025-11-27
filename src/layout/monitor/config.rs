@@ -30,7 +30,7 @@ impl<W: LayoutElement> Monitor<W> {
             }
         }
 
-        for (_, ws) in self.canvas.workspaces_mut() {
+        for ws in self.canvas.workspaces_mut() {
             ws.update_config(options.clone());
         }
 
@@ -53,7 +53,7 @@ impl<W: LayoutElement> Monitor<W> {
     }
 
     pub fn update_shaders(&mut self) {
-        for (_, ws) in self.canvas.workspaces_mut() {
+        for ws in self.canvas.workspaces_mut() {
             ws.update_shaders();
         }
 
@@ -69,7 +69,7 @@ impl<W: LayoutElement> Monitor<W> {
         self.view_size = output_size(&self.output);
         self.working_area = compute_working_area(&self.output);
 
-        for (_, ws) in self.canvas.workspaces_mut() {
+        for ws in self.canvas.workspaces_mut() {
             ws.update_output_size();
         }
     }

@@ -17,12 +17,16 @@ impl<W: LayoutElement> Row<W> {
 
     /// Moves the active column to the right.
     pub fn move_right(&mut self) -> bool {
-        let new_idx = self.active_column_idx + 1;
-        if new_idx >= self.columns.len() {
+        if self.active_column_idx >= self.columns.len().saturating_sub(1) {
             return false;
         }
-        self.move_column_to(new_idx);
+        self.move_column_to(self.active_column_idx + 1);
         true
+    }
+
+    /// Moves the active column to a specific index.
+    pub fn move_column_to_index(&mut self, index: usize) {
+        self.move_column_to(index.saturating_sub(1).min(self.columns.len() - 1));
     }
 
     /// Moves the active column to a specific index.

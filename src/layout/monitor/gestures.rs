@@ -58,7 +58,7 @@ impl<W: LayoutElement> Monitor<W> {
         let total_height = if gesture.is_touchpad {
             WORKSPACE_GESTURE_MOVEMENT
         } else {
-            self.workspace_size_with_gap(1.).h
+            self.workspace_size_with_gap(1.)
         };
 
         let Some(WorkspaceSwitch::Gesture(gesture)) = &mut self.workspace_switch else {
@@ -108,7 +108,7 @@ impl<W: LayoutElement> Monitor<W> {
         } else if gesture.is_touchpad {
             WORKSPACE_GESTURE_MOVEMENT
         } else {
-            self.workspace_size_with_gap(1.).h
+            self.workspace_size_with_gap(1.)
         };
 
         let Some(WorkspaceSwitch::Gesture(gesture)) = &mut self.workspace_switch else {

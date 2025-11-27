@@ -364,5 +364,56 @@ impl<W: LayoutElement> Monitor<W> {
         self.canvas.focus_row(idx as i32);
     }
 
+    // =========================================================================
+    // TEAM_031: Missing Monitor Methods Implementation
+    // =========================================================================
+
+    /// Check if monitor contains a specific window.
+    pub fn has_window(&self, window: &W) -> bool {
+        self.canvas.contains(window.id())
+    }
+
+    /// Advance animations on the monitor.
+    pub fn advance_animations(&mut self) {
+        self.canvas.advance_animations();
+    }
+
+    /// Check if any animations are ongoing.
+    pub fn are_animations_ongoing(&self) -> bool {
+        self.canvas.are_animations_ongoing()
+    }
+
+    /// Remove name from a row/workspace.
+    pub fn unname_workspace(&mut self, idx: usize) {
+        if let Some(row) = self.canvas.rows_mut().find(|row| row.idx() == idx as i32) {
+            row.set_name(None);
+        }
+    }
+
+    /// Stop workspace/row switching animation.
+    pub fn stop_workspace_switch(&mut self) {
+        self.workspace_switch = None;
+    }
+
+    /// Remove a row/workspace by index.
+    pub fn remove_workspace_by_idx(&mut self, idx: usize) {
+        self.canvas.remove_row(idx as i32);
+    }
+
+    /// Insert a workspace/row at specific index.
+    pub fn insert_workspace(&mut self, idx: usize) {
+        self.canvas.ensure_row(idx as i32);
+    }
+
+    /// Activate workspace/row with animation config.
+    pub fn activate_workspace_with_anim_config(&mut self, idx: usize, _config: niri_config::Animation) {
+        self.canvas.focus_row(idx as i32);
+    }
+
+    /// Convert monitor to canvas (for output removal).
+    pub fn into_canvas(self) -> Canvas2D<W> {
+        self.canvas
+    }
+
 }
 

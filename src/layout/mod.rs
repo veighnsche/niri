@@ -1294,12 +1294,12 @@ impl<W: LayoutElement> Layout<W> {
         if let WorkspaceReference::Index(index) = reference {
             self.active_monitor_mut().and_then(|m| {
                 let row_idx = index.saturating_sub(1) as i32;
-                m.canvas.rows_mut().find(|row| row.idx() == row_idx)
+                m.canvas.rows_mut().find(|(idx, row)| *idx == row_idx)
             })
         } else {
             // Find the workspace by name or id across all monitors
             for monitor in self.monitors_mut() {
-                if let Some(row) = monitor.canvas.rows_mut().find(|row| {
+                if let Some((_, row)) = monitor.canvas.rows_mut().find(|(idx, row)| {
                     match &reference {
                         WorkspaceReference::Name(ref_name) => row
                             .name()
@@ -1733,6 +1733,19 @@ impl<W: LayoutElement> Layout<W> {
         Some(&mut monitors[*active_monitor_idx])
     }
 
+    pub fn active_monitor_mut(&mut self) -> Option<&mut Monitor<W>> {
+        let MonitorSet::Normal {
+            monitors,
+            active_monitor_idx,
+            ..
+        } = &mut self.monitor_set
+        else {
+            return None;
+        };
+
+        Some(&mut monitors[*active_monitor_idx])
+    }
+
     pub fn active_monitor_ref(&self) -> Option<&Monitor<W>> {
         let MonitorSet::Normal {
             monitors,
@@ -1776,7 +1789,7 @@ impl<W: LayoutElement> Layout<W> {
 
     pub fn monitor_for_workspace(&self, workspace_name: &str) -> Option<&Monitor<W>> {
         self.monitors().find(|monitor| {
-            monitor.canvas.workspaces().any(|ws| {
+            monitor.canvas.workspaces().any(|(idx, ws)| {
                 ws.name
                     .as_ref()
                     .is_some_and(|name| name.eq_ignore_ascii_case(workspace_name))
@@ -2676,7 +2689,7 @@ impl<W: LayoutElement> Layout<W> {
                                     .position(|ws| ws.activate_window(&id))
                                     .unwrap(),
                                 DndHoldTarget::Workspace(id) => {
-                                    mon.canvas.workspaces().position(|ws| ws.id() == id).unwrap()
+                                    mon.canvas.workspaces().position(|(idx, ws)| ws.id() == id).unwrap()
                                 }
                             };
 
@@ -3321,7 +3334,7 @@ impl<W: LayoutElement> Layout<W> {
                 return;
             }
 
-            let ws_id = mon.canvas.workspaces().nth(workspace_idx).unwrap().id();
+            let ws_id = mon.canvas.workspaces().nth(workspace_idx).unwrap().1.id();
 
             let mon = &mut monitors[mon_idx];
             let activate = activate.map_smart(|| {
@@ -4165,7 +4178,7 @@ impl<W: LayoutElement> Layout<W> {
                                 } else {
                                     let pos_within_workspace =
                                         move_.pointer_pos_within_output - geo.loc;
-                                    let ws = &mut mon.canvas.workspaces().nth(ws_idx).unwrap();
+                                    let ws = &mut mon.canvas.workspaces_mut().nth(ws_idx).unwrap();
                                     ws.scrolling_insert_position(pos_within_workspace)
                                 };
 
@@ -4188,7 +4201,7 @@ impl<W: LayoutElement> Layout<W> {
                         let mon = &mut monitors[*active_monitor_idx];
                         // TEAM_014: Removed overview_zoom (Part 3) - always 1.0
                         // No point in trying to use the pointer position on the wrong output.
-                        let ws = &mon.canvas.workspaces().nth(0).unwrap();
+                        let ws = &mon.canvas.workspaces().nth(0).unwrap().1;
                         let ws_geo = mon.workspaces_render_geo().next().unwrap();
 
                         let position = if move_.is_floating {

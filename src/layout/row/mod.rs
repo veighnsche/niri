@@ -158,33 +158,25 @@ impl<W: LayoutElement> Row<W> {
         options: Rc<Options>,
     ) -> Self {
         let working_area = compute_working_area(parent_area, scale, options.layout.struts);
-        let y_offset = row_index as f64 * view_size.h;
 
         Self {
-            // Row-specific
             row_index,
-            y_offset,
-            name: None,  // Rows start unnamed
-            
-            // Column management
+            y_offset: row_index as f64 * view_size.h,
+            name: None,
+            view_size,
+            parent_area,
+            working_area,
+            scale,
+            clock,
+            options,
             columns: Vec::new(),
             data: Vec::new(),
             active_column_idx: 0,
             interactive_resize: None,
-            
-            // View state
-            view_offset_x: AnimatedValue::new(0.),
+            view_offset_x: AnimatedValue::new(0.0),
             activate_prev_column_on_removal: None,
             view_offset_to_restore: None,
             closing_windows: Vec::new(),
-            
-            // Configuration
-            view_size,
-            working_area,
-            parent_area,
-            scale,
-            clock,
-            options,
         }
     }
 
@@ -194,6 +186,12 @@ impl<W: LayoutElement> Row<W> {
 
     /// Returns the row index.
     pub fn row_index(&self) -> i32 {
+        self.row_index
+    }
+
+    /// Get the row index (alias for row_index).
+    /// TEAM_031: Added for compatibility with workspace patterns
+    pub fn idx(&self) -> i32 {
         self.row_index
     }
 
@@ -884,6 +882,26 @@ impl<W: LayoutElement> Row<W> {
     pub fn resize_edges_under(&self, _point: Point<f64, Logical>) -> Option<ResizeEdge> {
         // TEAM_022: TODO - implement resize edge detection
         None
+    }
+
+    /// Update shaders for all tiles in the row.
+    /// TEAM_031: Added for monitor config compatibility
+    pub fn update_shaders(&mut self) {
+        for column in &mut self.columns {
+            for tile in &mut column.tiles {
+                tile.update_shaders();
+            }
+        }
+    }
+
+    /// Update output size for all tiles in the row.
+    /// TEAM_031: Added for monitor config compatibility
+    pub fn update_output_size(&mut self) {
+        for column in &mut self.columns {
+            for tile in &mut column.tiles {
+                tile.update_window();
+            }
+        }
     }
 
     /// Get the visual rectangle of the active tile.

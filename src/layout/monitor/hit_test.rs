@@ -52,7 +52,11 @@ impl<W: LayoutElement> Monitor<W> {
         let (ws, geo) = self.workspace_under(pos_within_output)?;
 
         // DEPRECATED(overview): Removed overview_progress zoom handling
-        let (win, hit) = ws.window_under(pos_within_output - geo.loc)?;
+        // TEAM_031: Row's window_under returns Option<&W>, not (&W, HitType)
+        let win = ws.window_under(pos_within_output - geo.loc)?;
+        let hit = HitType::Activate {
+            is_tab_indicator: false,
+        };
         Some((win, hit.offset_win_pos(geo.loc)))
     }
 
@@ -79,7 +83,7 @@ impl<W: LayoutElement> Monitor<W> {
 
         // Check if above first.
         if pos_within_output.y < geo.loc.y {
-            return (InsertWorkspace::NewAt(idx), dummy);
+            return (InsertWorkspace::NewAt(idx as usize), dummy);
         }
 
         let contains = move |geo: Rectangle<f64, Logical>| {
@@ -99,7 +103,7 @@ impl<W: LayoutElement> Monitor<W> {
             let gap_size = Size::from((geo.size.w, geo.loc.y - gap_loc.y));
             let gap_geo = Rectangle::new(gap_loc, gap_size);
             if contains(gap_geo) {
-                return (InsertWorkspace::NewAt(idx), dummy);
+                return (InsertWorkspace::NewAt(idx as usize), dummy);
             }
 
             // Check workspace itself.
@@ -112,7 +116,7 @@ impl<W: LayoutElement> Monitor<W> {
         }
 
         // Anything below.
-        (InsertWorkspace::NewAt(last_idx + 1), dummy)
+        (InsertWorkspace::NewAt((last_idx + 1) as usize), dummy)
     }
 
     // =========================================================================
