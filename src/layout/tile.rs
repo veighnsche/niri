@@ -592,8 +592,8 @@ impl<W: LayoutElement> Tile<W> {
         // Preserve the previous config if ongoing.
         let anim = self.move_y_animation.take().map(|move_| move_.anim);
         let anim = anim
-            .map(|anim| anim.restarted(0., 1., 0.))
-            .unwrap_or_else(|| Animation::new(self.clock.clone(), 0., 1., 0., config));
+            .map(|anim| anim.restarted(1., 0., 0.))
+            .unwrap_or_else(|| Animation::new(self.clock.clone(), 1., 0., 0., config));
 
         let final_from = from + current_offset;
 
