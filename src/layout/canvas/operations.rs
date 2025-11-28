@@ -415,15 +415,26 @@ impl<W: LayoutElement> Canvas2D<W> {
     }
 
     /// Workspace equivalent: find window by wl_surface
+    // TEAM_054: Fixed to also search floating space
     pub fn find_wl_surface(&self, wl_surface: &WlSurface) -> Option<&W> {
-        self.tiled_tiles()
+        // Check tiled windows
+        if let Some(window) = self.tiled_tiles()
+            .find(|tile| tile.window().is_wl_surface(wl_surface))
+            .map(|tile| tile.window()) 
+        {
+            return Some(window);
+        }
+        
+        // Check floating windows
+        self.floating.tiles()
             .find(|tile| tile.window().is_wl_surface(wl_surface))
             .map(|tile| tile.window())
     }
 
     /// Workspace equivalent: find window by wl_surface (mutable)  
+    // TEAM_054: Fixed to also search floating space
     pub fn find_wl_surface_mut(&mut self, wl_surface: &WlSurface) -> Option<&mut W> {
-        // Check tiled only for now
+        // Check tiled windows
         for row in self.rows.values_mut() {
             for tile in row.tiles_mut() {
                 if tile.window().is_wl_surface(wl_surface) {
@@ -431,6 +442,14 @@ impl<W: LayoutElement> Canvas2D<W> {
                 }
             }
         }
+        
+        // Check floating windows
+        for tile in self.floating.tiles_mut() {
+            if tile.window().is_wl_surface(wl_surface) {
+                return Some(tile.window_mut());
+            }
+        }
+        
         None
     }
 

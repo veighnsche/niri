@@ -1442,19 +1442,16 @@ impl<W: LayoutElement> Layout<W> {
         match &self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
-                    for (_, ws) in mon.canvas.workspaces() {
-                        if let Some(window) = ws.find_wl_surface(wl_surface) {
-                            return Some((window, Some(&mon.output)));
-                        }
+                    // TEAM_054: Use canvas.find_wl_surface which includes floating
+                    if let Some(window) = mon.canvas.find_wl_surface(wl_surface) {
+                        return Some((window, Some(&mon.output)));
                     }
                 }
             }
             MonitorSet::NoOutputs { canvas } => {
-                // TEAM_035: Use workspaces() not workspaces_mut() since we have &self
-                for (_, ws) in canvas.workspaces() {
-                    if let Some(window) = ws.find_wl_surface(wl_surface) {
-                        return Some((window, None));
-                    }
+                // TEAM_054: Use canvas.find_wl_surface which includes floating
+                if let Some(window) = canvas.find_wl_surface(wl_surface) {
+                    return Some((window, None));
                 }
             }
         }
@@ -1475,18 +1472,16 @@ impl<W: LayoutElement> Layout<W> {
         match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
-                    for (_, ws) in mon.canvas.workspaces_mut() {
-                        if let Some(window) = ws.find_wl_surface_mut(wl_surface) {
-                            return Some((window, Some(&mon.output)));
-                        }
+                    // TEAM_054: Use canvas.find_wl_surface_mut which includes floating
+                    if let Some(window) = mon.canvas.find_wl_surface_mut(wl_surface) {
+                        return Some((window, Some(&mon.output)));
                     }
                 }
             }
             MonitorSet::NoOutputs { canvas } => {
-                for (_, ws) in canvas.workspaces_mut() {
-                    if let Some(window) = ws.find_wl_surface_mut(wl_surface) {
-                        return Some((window, None));
-                    }
+                // TEAM_054: Use canvas.find_wl_surface_mut which includes floating
+                if let Some(window) = canvas.find_wl_surface_mut(wl_surface) {
+                    return Some((window, None));
                 }
             }
         }
@@ -4922,6 +4917,7 @@ impl<W: LayoutElement> Layout<W> {
                     // TEAM_043: Refresh all rows in the canvas
                     let active_row_idx = mon.canvas().active_row_idx();
                     let floating_is_active = mon.canvas().floating_is_active;
+                    
                     for (row_idx, row) in mon.canvas_mut().workspaces_mut() {
                         let is_focused = is_active && row_idx == active_row_idx && !floating_is_active;
                         row.refresh(is_active, is_focused);
