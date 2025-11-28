@@ -5,7 +5,8 @@
 use std::rc::Rc;
 
 use crate::layout::monitor::Monitor;
-use crate::layout::workspace_types::compute_working_area;
+// TEAM_055: Renamed from workspace_types to row_types
+use crate::layout::row_types::compute_working_area;
 use crate::layout::{LayoutElement, Options};
 use crate::utils::output_size;
 
@@ -18,11 +19,11 @@ impl<W: LayoutElement> Monitor<W> {
         let options =
             Rc::new(Options::clone(&base_options).with_merged_layout(self.layout_config.as_ref()));
 
-        if self.options.layout.empty_workspace_above_first
-            != options.layout.empty_workspace_above_first
+        if self.options.layout.empty_row_above_first
+            != options.layout.empty_row_above_first
             && self.canvas.rows().count() > 1
         {
-            if options.layout.empty_workspace_above_first {
+            if options.layout.empty_row_above_first {
                 self.add_workspace_top();
             } else if self.workspace_switch.is_none() && self.active_workspace_idx() != 0 {
                 // Remove row 0 only if it's empty and unnamed

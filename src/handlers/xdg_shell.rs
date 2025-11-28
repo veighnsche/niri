@@ -1049,9 +1049,10 @@ impl State {
             return;
         };
 
-        // Pick the target monitor. First, check if we had a workspace set in the window rules.
+        // TEAM_055: Renamed from open_on_workspace to open_on_row
+        // Pick the target monitor. First, check if we had a row set in the window rules.
         let mon = rules
-            .open_on_workspace
+            .open_on_row
             .as_deref()
             .and_then(|name| self.niri.layout.monitor_for_workspace(name));
 
@@ -1110,9 +1111,10 @@ impl State {
         let is_full_width = rules.open_maximized.unwrap_or(false);
         let is_floating = rules.compute_open_floating(toplevel);
 
+        // TEAM_055: Renamed from open_on_workspace to open_on_row
         // Tell the surface the preferred size and bounds for its likely output.
         let ws = rules
-            .open_on_workspace
+            .open_on_row
             .as_deref()
             .and_then(|name| mon.map(|mon| mon.find_named_workspace(name)))
             .unwrap_or_else(|| {

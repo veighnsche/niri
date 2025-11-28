@@ -48,7 +48,8 @@ use super::row::{Row, RowRenderElement};
 use super::tile::Tile;
 use super::LayoutElement;
 use super::Options;
-use super::workspace_types::WorkspaceId;
+// TEAM_055: Renamed from workspace_types to row_types, WorkspaceId to RowId
+use super::row_types::RowId as WorkspaceId;
 use crate::animation::Clock;
 use crate::niri_render_elements;
 
@@ -115,8 +116,9 @@ pub struct Canvas2D<W: LayoutElement> {
     /// Layout options.
     pub(crate) options: Rc<Options>,
     
-    /// TEAM_039: Counter for generating unique workspace IDs for rows
-    workspace_id_counter: u64,
+    /// TEAM_039: Counter for generating unique row IDs for rows
+    /// TEAM_055: Renamed from workspace_id_counter to row_id_counter
+    row_id_counter: u64,
 }
 
 impl<W: LayoutElement> Canvas2D<W> {
@@ -170,7 +172,8 @@ impl<W: LayoutElement> Canvas2D<W> {
             scale,
             clock,
             options,
-            workspace_id_counter: initial_workspace_id.0,
+            // TEAM_055: Renamed from workspace_id_counter to row_id_counter
+            row_id_counter: initial_workspace_id.0,
         }
     }
 

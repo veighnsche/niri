@@ -73,7 +73,8 @@ use smithay::{
 };
 
 pub use crate::handlers::xdg_shell::KdeDecorationsModeState;
-use crate::layout::workspace_types::WorkspaceId;
+// TEAM_055: Renamed from workspace_types to row_types, WorkspaceId to RowId
+use crate::layout::row_types::RowId as WorkspaceId;
 use crate::layout::ActivateWindow;
 use crate::niri::{DndIcon, NewClient, State};
 use crate::protocols::ext_workspace::{self, ExtWorkspaceHandler, ExtWorkspaceManagerState};

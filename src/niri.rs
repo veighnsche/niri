@@ -140,7 +140,8 @@ use crate::ipc::server::IpcServer;
 use crate::layer::mapped::LayerSurfaceRenderElement;
 use crate::layer::MappedLayer;
 use crate::layout::tile::TileRenderElement;
-use crate::layout::workspace_types::WorkspaceId;
+// TEAM_055: Renamed from workspace_types to row_types, WorkspaceId to RowId
+use crate::layout::row_types::RowId as WorkspaceId;
 use crate::layout::{HitType, Layout, LayoutElement as _, MonitorRenderElement};
 use crate::niri_render_elements;
 use crate::protocols::ext_workspace::{self, ExtWorkspaceManagerState};
@@ -1406,14 +1407,15 @@ impl State {
 
         self.niri.config_error_notification.hide();
 
-        // Find & orphan removed named workspaces.
-        let mut removed_workspaces: Vec<String> = vec![];
-        for ws in &self.niri.config.borrow().workspaces {
-            if !config.workspaces.iter().any(|w| w.name == ws.name) {
-                removed_workspaces.push(ws.name.0.clone());
+        // TEAM_055: Renamed from workspaces to rows
+        // Find & orphan removed named rows.
+        let mut removed_rows: Vec<String> = vec![];
+        for row in &self.niri.config.borrow().rows {
+            if !config.rows.iter().any(|r| r.name == row.name) {
+                removed_rows.push(row.name.0.clone());
             }
         }
-        for name in removed_workspaces {
+        for name in removed_rows {
             self.niri.layout.unname_workspace(&name);
         }
 
@@ -1422,9 +1424,10 @@ impl State {
             mapped.update_config(&config);
         }
 
-        // Create new named workspaces.
-        for ws_config in &config.workspaces {
-            self.niri.layout.ensure_named_workspace(ws_config);
+        // TEAM_055: Renamed from workspaces to rows
+        // Create new named rows.
+        for row_config in &config.rows {
+            self.niri.layout.ensure_named_row(row_config);
         }
 
         let rate = 1.0 / config.animations.slowdown.max(0.001);
@@ -3064,18 +3067,19 @@ impl Niri {
 
         self.layout.add_output(output.clone(), layout_config);
 
-        // TEAM_042: Ensure named workspaces from config are created on the correct output.
-        // This is needed because Layout::new doesn't create named workspaces, and they need
+        // TEAM_042: Ensure named rows from config are created on the correct output.
+        // TEAM_055: Renamed from workspaces to rows
+        // This is needed because Layout::new doesn't create named rows, and they need
         // to be created after outputs are added so they can be placed on the correct output.
-        // Only create workspaces that target this specific output or have no target output.
+        // Only create rows that target this specific output or have no target output.
         let config = self.config.borrow();
-        for ws_config in &config.workspaces {
-            let targets_this_output = ws_config
+        for row_config in &config.rows {
+            let targets_this_output = row_config
                 .open_on_output
                 .as_deref()
                 .is_none_or(|target_name| output_matches_name(&output, target_name));
             if targets_this_output {
-                self.layout.ensure_named_workspace(ws_config);
+                self.layout.ensure_named_row(row_config);
             }
         }
         drop(config);

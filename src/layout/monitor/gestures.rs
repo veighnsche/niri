@@ -150,7 +150,8 @@ impl<W: LayoutElement> Monitor<W> {
             gesture.current_idx,
             new_idx as f64,
             velocity,
-            self.options.animations.workspace_switch.0,
+            // TEAM_055: Renamed from workspace_switch to row_switch
+            self.options.animations.row_switch.0,
         )));
 
         true

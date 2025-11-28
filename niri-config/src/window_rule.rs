@@ -19,8 +19,9 @@ pub struct WindowRule {
     pub default_window_height: Option<DefaultPresetSize>,
     #[knuffel(child, unwrap(argument))]
     pub open_on_output: Option<String>,
+    // TEAM_055: Renamed from open_on_workspace to open_on_row
     #[knuffel(child, unwrap(argument))]
-    pub open_on_workspace: Option<String>,
+    pub open_on_row: Option<String>,
     #[knuffel(child, unwrap(argument))]
     pub open_maximized: Option<bool>,
     #[knuffel(child, unwrap(argument))]

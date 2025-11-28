@@ -1,4 +1,5 @@
-// TEAM_022: Minimal workspace types remaining after Canvas2D migration
+// TEAM_022: Minimal row types remaining after Canvas2D migration
+// TEAM_055: Renamed from workspace_types.rs to row_types.rs
 // These types are kept ONLY for external system compatibility (IPC, protocols, etc.)
 // Most functionality has been moved to Canvas2D/Row.
 
@@ -6,18 +7,19 @@ use std::fmt;
 use smithay::output::Output;
 use smithay::utils::{Logical, Rectangle};
 
-/// Legacy workspace ID for external system compatibility
+// TEAM_055: Renamed from WorkspaceId to RowId
+/// Legacy row ID for external system compatibility
 /// TODO: Eventually remove when external systems are updated to use canvas concepts
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct WorkspaceId(pub u64);
+pub struct RowId(pub u64);
 
-impl fmt::Display for WorkspaceId {
+impl fmt::Display for RowId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl WorkspaceId {
+impl RowId {
     pub fn get(&self) -> u64 {
         self.0
     }
@@ -26,17 +28,17 @@ impl WorkspaceId {
         Self(id)
     }
     
-    /// TEAM_024: Create a WorkspaceId from a row index
-    /// This maps row indices to workspace IDs for compatibility
+    /// TEAM_024: Create a RowId from a row index
+    /// This maps row indices to row IDs for compatibility
     pub fn from_row_index(row_index: i32) -> Self {
-        // Map row index to workspace ID
-        // Row 0 (origin) -> workspace ID 1
-        // Row 1 -> workspace ID 2, etc.
-        // Row -1 -> workspace ID 0, Row -2 -> workspace ID 99, etc.
+        // Map row index to row ID
+        // Row 0 (origin) -> row ID 1
+        // Row 1 -> row ID 2, etc.
+        // Row -1 -> row ID 0, Row -2 -> row ID 99, etc.
         if row_index >= 0 {
             Self((row_index + 1) as u64)
         } else {
-            // Negative rows map to high workspace IDs
+            // Negative rows map to high row IDs
             Self(((-row_index) as u64).wrapping_mul(10))
         }
     }
@@ -59,10 +61,11 @@ impl OutputId {
     }
 }
 
-/// Legacy workspace add window target for external compatibility
+// TEAM_055: Renamed from WorkspaceAddWindowTarget to RowAddWindowTarget
+/// Legacy row add window target for external compatibility
 /// TEAM_022: Still needed by layout/mod.rs callers
 #[derive(Debug, Clone, Copy)]
-pub enum WorkspaceAddWindowTarget<'a, W: super::LayoutElement> {
+pub enum RowAddWindowTarget<'a, W: super::LayoutElement> {
     AtWindow(&'a W),
     AtEnd,
     Auto,

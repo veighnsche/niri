@@ -167,13 +167,15 @@ fn target_output_and_workspaces() {
 
     // Here we test a massive powerset of settings that can affect where a window opens:
     //
-    // * open-on-workspace
+    // TEAM_055: Renamed from open-on-workspace to open-on-row
+    // * open-on-row
     // * open-on-output
     // * has parent (windows will open next to their parent)
     // * want fullscreen (windows can request the target fullscreen output)
     // * open-fullscreen (can deny the fullscreen request)
 
-    let open_on_workspace = [None, Some("1"), Some("2")];
+    // TEAM_055: Renamed from open_on_workspace to open_on_row
+    let open_on_row = [None, Some("1"), Some("2")];
     let open_on_output = [None, Some("1"), Some("2")];
     let open_fullscreen = [None, Some("false"), Some("true")];
     let want_fullscreen = [
@@ -197,7 +199,7 @@ fn target_output_and_workspaces() {
     ];
 
     let mut powerset = Vec::new();
-    for ws in open_on_workspace {
+    for ws in open_on_row {
         for out in open_on_output {
             for fs in open_fullscreen {
                 for wfs in want_fullscreen {
@@ -215,7 +217,8 @@ fn target_output_and_workspaces() {
 }
 
 fn check_target_output_and_workspace(
-    open_on_workspace: Option<&str>,
+    // TEAM_055: Renamed from open_on_workspace to open_on_row
+    open_on_row: Option<&str>,
     open_on_output: Option<&str>,
     open_fullscreen: Option<&str>,
     want_fullscreen: WantFullscreen,
@@ -258,8 +261,9 @@ window-rule {
 "##,
     );
 
-    if let Some(x) = open_on_workspace {
-        writeln!(config, "    open-on-workspace \"ws-{x}\"").unwrap();
+    // TEAM_055: Renamed from open-on-workspace to open-on-row
+    if let Some(x) = open_on_row {
+        writeln!(config, "    open-on-row \"ws-{x}\"").unwrap();
         snapshot_suffix.push(format!("ws{x}"));
     }
 

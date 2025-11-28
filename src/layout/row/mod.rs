@@ -44,7 +44,8 @@ use std::rc::Rc;
 use niri_config::{Struts, Border, PresetSize};
 use niri_config::utils::MergeWith;
 use niri_ipc::{ColumnDisplay, SizeChange};
-use crate::layout::workspace_types::WorkspaceId;
+// TEAM_055: Renamed from workspace_types to row_types, WorkspaceId to RowId
+use crate::layout::row_types::RowId as WorkspaceId;
 use smithay::utils::{Logical, Point, Rectangle, Size, Serial};
 use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
@@ -225,9 +226,10 @@ impl<W: LayoutElement> Row<W> {
         self.name = name;
     }
 
-    /// Returns the workspace ID for this row.
-    /// TEAM_039: Return the unique workspace ID stored in the row
-    pub fn id(&self) -> crate::layout::workspace_types::WorkspaceId {
+    /// Returns the row ID for this row.
+    /// TEAM_039: Return the unique row ID stored in the row
+    /// TEAM_055: Renamed from workspace ID to row ID
+    pub fn id(&self) -> crate::layout::row_types::RowId {
         self.workspace_id
     }
 

@@ -42,7 +42,8 @@ pub mod output;
 pub mod recent_windows;
 pub mod utils;
 pub mod window_rule;
-pub mod workspace;
+// TEAM_055: Renamed from workspace to row
+pub mod row;
 
 pub use crate::animations::{Animation, Animations};
 pub use crate::appearance::*;
@@ -60,7 +61,8 @@ pub use crate::recent_windows::{MruDirection, MruFilter, MruPreviews, MruScope, 
 pub use crate::utils::FloatOrInt;
 use crate::utils::{Flag, MergeWith as _};
 pub use crate::window_rule::{FloatingPosition, RelativeTo, WindowRule};
-pub use crate::workspace::{Workspace, WorkspaceLayoutPart};
+// TEAM_055: Renamed from Workspace to RowConfig, WorkspaceLayoutPart to RowLayoutPart
+pub use crate::row::{RowConfig, RowLayoutPart};
 
 const RECURSION_LIMIT: u8 = 10;
 
@@ -86,7 +88,8 @@ pub struct Config {
     pub binds: Binds,
     pub switch_events: SwitchBinds,
     pub debug: Debug,
-    pub workspaces: Vec<Workspace>,
+    // TEAM_055: Renamed from workspaces to rows
+    pub rows: Vec<RowConfig>,
     pub recent_windows: RecentWindows,
 }
 
@@ -160,7 +163,8 @@ where
                     | "spawn-sh-at-startup"
                     | "window-rule"
                     | "layer-rule"
-                    | "workspace"
+                    // TEAM_055: Renamed from workspace to row
+                    | "row"
                     | "include"
             ) && !seen.insert(name)
             {
@@ -207,7 +211,8 @@ where
                 "spawn-sh-at-startup" => m_push!(spawn_sh_at_startup),
                 "window-rule" => m_push!(window_rules),
                 "layer-rule" => m_push!(layer_rules),
-                "workspace" => m_push!(workspaces),
+                // TEAM_055: Renamed from workspace to row
+                "row" => m_push!(rows),
 
                 // Single-part sections.
                 "binds" => {
@@ -773,7 +778,8 @@ mod tests {
             animations {
                 slowdown 2.0
 
-                workspace-switch {
+                // TEAM_055: Renamed from workspace-switch to row-switch
+                row-switch {
                     spring damping-ratio=1.0 stiffness=1000 epsilon=0.0001
                 }
 
@@ -850,10 +856,11 @@ mod tests {
                 Mod+Ctrl+Alt+O { move-window-to-monitor "eDP-1"; }
                 Mod+Ctrl+Alt+P { move-column-to-monitor "DP-1"; }
                 Mod+Comma { consume-window-into-column; }
-                Mod+1 { focus-workspace 1; }
-                Mod+Shift+1 { focus-workspace "workspace-1"; }
+                // TEAM_055: Updated to use row-based actions
+                Mod+1 { focus-row-down; }
+                Mod+Shift+1 { focus-row-up; }
                 Mod+Shift+E allow-inhibiting=false { quit skip-confirmation=true; }
-                Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+                Mod+WheelScrollDown cooldown-ms=150 { focus-row-down; }
                 Super+Alt+S allow-when-locked=true { spawn-sh "pkill orca || exec orca"; }
             }
 
@@ -868,11 +875,12 @@ mod tests {
                 ignore-drm-device "/dev/dri/renderD130"
             }
 
-            workspace "workspace-1" {
+            // TEAM_055: Renamed from workspace to row
+            row "row-1" {
                 open-on-output "eDP-1"
             }
-            workspace "workspace-2"
-            workspace "workspace-3"
+            row "row-2"
+            row "row-3"
 
             recent-windows {
                 off
@@ -1376,7 +1384,7 @@ mod tests {
                 ],
                 center_focused_column: OnOverflow,
                 always_center_single_column: false,
-                empty_workspace_above_first: false,
+                empty_row_above_first: false,
                 default_column_display: Tabbed,
                 gaps: 8.0,
                 struts: Struts {
@@ -1427,7 +1435,7 @@ mod tests {
             animations: Animations {
                 off: false,
                 slowdown: 2.0,
-                workspace_switch: WorkspaceSwitchAnim(
+                row_switch: RowSwitchAnim(
                     Animation {
                         off: false,
                         kind: Spring(
@@ -1669,7 +1677,7 @@ mod tests {
                     open_on_output: Some(
                         "eDP-1",
                     ),
-                    open_on_workspace: None,
+                    open_on_row: None,
                     open_maximized: Some(
                         true,
                     ),
@@ -1988,11 +1996,7 @@ mod tests {
                                 COMPOSITOR,
                             ),
                         },
-                        action: FocusWorkspace(
-                            Index(
-                                1,
-                            ),
-                        ),
+                        action: FocusRowDown,
                         repeat: true,
                         cooldown: None,
                         allow_when_locked: false,
@@ -2008,11 +2012,7 @@ mod tests {
                                 SHIFT | COMPOSITOR,
                             ),
                         },
-                        action: FocusWorkspace(
-                            Name(
-                                "workspace-1",
-                            ),
-                        ),
+                        action: FocusRowUp,
                         repeat: true,
                         cooldown: None,
                         allow_when_locked: false,
@@ -2044,7 +2044,7 @@ mod tests {
                                 COMPOSITOR,
                             ),
                         },
-                        action: FocusWorkspaceDown,
+                        action: FocusRowDown,
                         repeat: true,
                         cooldown: Some(
                             150ms,
@@ -2122,26 +2122,26 @@ mod tests {
                 deactivate_unfocused_windows: false,
                 skip_cursor_only_updates_during_vrr: false,
             },
-            workspaces: [
-                Workspace {
-                    name: WorkspaceName(
-                        "workspace-1",
+            rows: [
+                RowConfig {
+                    name: RowName(
+                        "row-1",
                     ),
                     open_on_output: Some(
                         "eDP-1",
                     ),
                     layout: None,
                 },
-                Workspace {
-                    name: WorkspaceName(
-                        "workspace-2",
+                RowConfig {
+                    name: RowName(
+                        "row-2",
                     ),
                     open_on_output: None,
                     layout: None,
                 },
-                Workspace {
-                    name: WorkspaceName(
-                        "workspace-3",
+                RowConfig {
+                    name: RowName(
+                        "row-3",
                     ),
                     open_on_output: None,
                     layout: None,

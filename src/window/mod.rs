@@ -55,8 +55,9 @@ pub struct ResolvedWindowRules {
     /// Output to open this window on.
     pub open_on_output: Option<String>,
 
-    /// Workspace to open this window on.
-    pub open_on_workspace: Option<String>,
+    // TEAM_055: Renamed from open_on_workspace to open_on_row
+    /// Row to open this window on.
+    pub open_on_row: Option<String>,
 
     /// Whether the window should open full-width.
     pub open_maximized: Option<bool>,
@@ -186,7 +187,8 @@ impl ResolvedWindowRules {
             }
 
             let mut open_on_output = None;
-            let mut open_on_workspace = None;
+            // TEAM_055: Renamed from open_on_workspace to open_on_row
+            let mut open_on_row = None;
 
             for rule in rules {
                 let matches = |m: &Match| {
@@ -227,8 +229,9 @@ impl ResolvedWindowRules {
                     open_on_output = Some(x);
                 }
 
-                if let Some(x) = rule.open_on_workspace.as_deref() {
-                    open_on_workspace = Some(x);
+                // TEAM_055: Renamed from open_on_workspace to open_on_row
+                if let Some(x) = rule.open_on_row.as_deref() {
+                    open_on_row = Some(x);
                 }
 
                 if let Some(x) = rule.open_maximized {
@@ -299,7 +302,8 @@ impl ResolvedWindowRules {
             }
 
             resolved.open_on_output = open_on_output.map(|x| x.to_owned());
-            resolved.open_on_workspace = open_on_workspace.map(|x| x.to_owned());
+            // TEAM_055: Renamed from open_on_workspace to open_on_row
+            resolved.open_on_row = open_on_row.map(|x| x.to_owned());
         });
 
         resolved

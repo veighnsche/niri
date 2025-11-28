@@ -64,38 +64,38 @@
 
 ## Config Changes Needed
 
-### niri-config/src/
+### niri-config/src/ (TEAM_055 - COMPLETE ✅)
 
-- [ ] **workspace.rs** → rename to `row.rs`
-  - [ ] Rename `Workspace` struct to `RowConfig`
-  - [ ] Rename `WorkspaceName` to `RowName`
-  - [ ] Update all references
+- [x] **workspace.rs** → rename to `row.rs`
+  - [x] Rename `Workspace` struct to `RowConfig`
+  - [x] Rename `WorkspaceName` to `RowName`
+  - [x] Update all references
 
-- [ ] **lib.rs**
-  - [ ] Change `workspaces: Vec<Workspace>` to `rows: Vec<RowConfig>`
-  - [ ] Update `pub use` statements
+- [x] **lib.rs**
+  - [x] Change `workspaces: Vec<Workspace>` to `rows: Vec<RowConfig>`
+  - [x] Update `pub use` statements
 
-- [ ] **window_rule.rs** (or wherever window rules are)
-  - [ ] Rename `open-on-workspace` to `open-on-row`
+- [x] **window_rule.rs** (or wherever window rules are)
+  - [x] Rename `open-on-workspace` to `open-on-row`
 
-- [ ] **animations.rs**
-  - [ ] Rename `workspace_switch` to `row_switch` (or remove if not needed)
+- [x] **animations.rs**
+  - [x] Rename `workspace_switch` to `row_switch` (or remove if not needed)
 
-- [ ] **layout.rs**
-  - [ ] Rename `empty_workspace_above_first` to `empty_row_above_first`
+- [x] **layout.rs**
+  - [x] Rename `empty_workspace_above_first` to `empty_row_above_first`
 
-### src/layout/
+### src/layout/ (TEAM_055 - COMPLETE ✅)
 
-- [ ] **workspace_types.rs** → rename to `row_types.rs`
-  - [ ] Rename `WorkspaceId` to `RowId`
-  - [ ] Rename `WorkspaceAddWindowTarget` to `RowAddWindowTarget`
-  - [ ] Update all imports across codebase
+- [x] **workspace_types.rs** → rename to `row_types.rs`
+  - [x] Rename `WorkspaceId` to `RowId`
+  - [x] Rename `WorkspaceAddWindowTarget` to `RowAddWindowTarget`
+  - [x] Update all imports across codebase
 
-- [ ] **mod.rs**
-  - [ ] Rename `find_workspace_by_name` to `find_row_by_name`
-  - [ ] Rename `ensure_named_workspace` to `ensure_named_row`
-  - [ ] Rename `last_active_workspace_id` to `last_active_row_id`
-  - [ ] Rename `workspace_id_counter` to `row_id_counter`
+- [x] **mod.rs**
+  - [x] Rename `find_workspace_by_name` to `find_row_by_name`
+  - [x] Rename `ensure_named_workspace` to `ensure_named_row`
+  - [x] Rename `last_active_workspace_id` to `last_active_row_id`
+  - [x] Rename `workspace_id_counter` to `row_id_counter`
 
 ### src/handlers/
 

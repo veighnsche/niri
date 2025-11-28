@@ -1,7 +1,9 @@
 use std::cell::{Cell, OnceCell, RefCell};
 
 use niri_config::utils::{Flag, MergeWith as _};
-use niri_config::workspace::WorkspaceName;
+// TEAM_055: Renamed from workspace to row
+use niri_config::row::RowName;
+use niri_config::RowConfig;
 // TEAM_012: Removed WorkspaceReference import (no longer used)
 use niri_config::{
     CenterFocusedColumn, FloatOrInt, OutputName, Struts, TabIndicatorLength, TabIndicatorPosition,
@@ -874,10 +876,11 @@ impl Op {
                 output_name,
                 layout_config,
             } => {
-                layout.ensure_named_workspace(&WorkspaceConfig {
-                    name: WorkspaceName(format!("ws{ws_name}")),
+                // TEAM_055: Updated to use RowConfig and RowName
+                layout.ensure_named_row(&RowConfig {
+                    name: RowName(format!("ws{ws_name}")),
                     open_on_output: output_name.map(|name| format!("output{name}")),
-                    layout: layout_config.map(|x| niri_config::WorkspaceLayoutPart(*x)),
+                    layout: layout_config.map(|x| niri_config::RowLayoutPart(*x)),
                 });
             }
             Op::UnnameWorkspace { ws_name } => {
@@ -2472,7 +2475,7 @@ fn interactive_move_onto_empty_output_ewaf() {
 
     let options = Options {
         layout: niri_config::Layout {
-            empty_workspace_above_first: true,
+            empty_row_above_first: true,
             ..Default::default()
         },
         ..Default::default()
@@ -2536,7 +2539,7 @@ fn interactive_move_onto_first_empty_workspace() {
     ];
     let options = Options {
         layout: niri_config::Layout {
-            empty_workspace_above_first: true,
+            empty_row_above_first: true,
             ..Default::default()
         },
         ..Default::default()
@@ -2560,7 +2563,7 @@ fn named_workspace_to_output() {
 }
 
 #[test]
-// empty_workspace_above_first = true
+// empty_row_above_first = true
 fn named_workspace_to_output_ewaf() {
     let ops = [
         Op::AddNamedWorkspace {
@@ -2573,7 +2576,7 @@ fn named_workspace_to_output_ewaf() {
     ];
     let options = Options {
         layout: niri_config::Layout {
-            empty_workspace_above_first: true,
+            empty_row_above_first: true,
             ..Default::default()
         },
         ..Default::default()
@@ -2582,7 +2585,7 @@ fn named_workspace_to_output_ewaf() {
 }
 
 #[test]
-fn move_window_to_empty_workspace_above_first() {
+fn move_window_to_empty_row_above_first() {
     let ops = [
         Op::AddOutput(1),
         Op::AddWindow {
@@ -2595,7 +2598,7 @@ fn move_window_to_empty_workspace_above_first() {
     ];
     let options = Options {
         layout: niri_config::Layout {
-            empty_workspace_above_first: true,
+            empty_row_above_first: true,
             ..Default::default()
         },
         ..Default::default()
@@ -2615,7 +2618,7 @@ fn move_window_to_different_output() {
     ];
     let options = Options {
         layout: niri_config::Layout {
-            empty_workspace_above_first: true,
+            empty_row_above_first: true,
             ..Default::default()
         },
         ..Default::default()
@@ -2634,7 +2637,7 @@ fn close_window_empty_ws_above_first() {
     ];
     let options = Options {
         layout: niri_config::Layout {
-            empty_workspace_above_first: true,
+            empty_row_above_first: true,
             ..Default::default()
         },
         ..Default::default()
@@ -2654,7 +2657,7 @@ fn add_and_remove_output() {
     ];
     let options = Options {
         layout: niri_config::Layout {
-            empty_workspace_above_first: true,
+            empty_row_above_first: true,
             ..Default::default()
         },
         ..Default::default()
@@ -2674,7 +2677,7 @@ fn switch_ewaf_on() {
     let mut layout = check_ops(ops);
     layout.update_options(Options {
         layout: niri_config::Layout {
-            empty_workspace_above_first: true,
+            empty_row_above_first: true,
             ..Default::default()
         },
         ..Default::default()
@@ -2693,7 +2696,7 @@ fn switch_ewaf_off() {
 
     let options = Options {
         layout: niri_config::Layout {
-            empty_workspace_above_first: true,
+            empty_row_above_first: true,
             ..Default::default()
         },
         ..Default::default()
@@ -3074,7 +3077,7 @@ fn set_first_workspace_name_ewaf() {
 
     let options = Options {
         layout: niri_config::Layout {
-            empty_workspace_above_first: true,
+            empty_row_above_first: true,
             ..Default::default()
         },
         ..Default::default()
@@ -3549,14 +3552,14 @@ prop_compose! {
         tab_indicator in prop::option::of(arbitrary_tab_indicator()),
         center_focused_column in prop::option::of(arbitrary_center_focused_column()),
         always_center_single_column in prop::option::of(any::<bool>().prop_map(Flag)),
-        empty_workspace_above_first in prop::option::of(any::<bool>().prop_map(Flag)),
+        empty_row_above_first in prop::option::of(any::<bool>().prop_map(Flag)),
     ) -> niri_config::LayoutPart {
         niri_config::LayoutPart {
             gaps,
             struts,
             center_focused_column,
             always_center_single_column,
-            empty_workspace_above_first,
+            empty_row_above_first,
             focus_ring,
             border,
             shadow,

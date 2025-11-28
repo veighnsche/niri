@@ -19,7 +19,8 @@ pub struct Layout {
     pub preset_window_heights: Vec<PresetSize>,
     pub center_focused_column: CenterFocusedColumn,
     pub always_center_single_column: bool,
-    pub empty_workspace_above_first: bool,
+    // TEAM_055: Renamed from empty_workspace_above_first to empty_row_above_first
+    pub empty_row_above_first: bool,
     pub default_column_display: ColumnDisplay,
     pub gaps: f64,
     pub struts: Struts,
@@ -42,7 +43,7 @@ impl Default for Layout {
             default_column_width: Some(PresetSize::Proportion(0.5)),
             center_focused_column: CenterFocusedColumn::Never,
             always_center_single_column: false,
-            empty_workspace_above_first: false,
+            empty_row_above_first: false,
             default_column_display: ColumnDisplay::Normal,
             gaps: 16.,
             struts: Struts::default(),
@@ -66,7 +67,7 @@ impl MergeWith<LayoutPart> for Layout {
             tab_indicator,
             insert_hint,
             always_center_single_column,
-            empty_workspace_above_first,
+            empty_row_above_first,
             gaps,
         );
 
@@ -116,8 +117,9 @@ pub struct LayoutPart {
     pub center_focused_column: Option<CenterFocusedColumn>,
     #[knuffel(child)]
     pub always_center_single_column: Option<Flag>,
+    // TEAM_055: Renamed from empty_workspace_above_first to empty_row_above_first
     #[knuffel(child)]
-    pub empty_workspace_above_first: Option<Flag>,
+    pub empty_row_above_first: Option<Flag>,
     #[knuffel(child, unwrap(argument, str))]
     pub default_column_display: Option<ColumnDisplay>,
     #[knuffel(child, unwrap(argument))]

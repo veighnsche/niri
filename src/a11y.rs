@@ -9,7 +9,8 @@ use accesskit_unix::Adapter;
 use calloop::LoopHandle;
 use niri_config::MruScope;
 
-use crate::layout::workspace_types::WorkspaceId;
+// TEAM_055: Renamed from workspace_types to row_types, WorkspaceId to RowId
+use crate::layout::row_types::RowId as WorkspaceId;
 use crate::niri::{KeyboardFocus, Niri, State};
 use crate::utils::with_toplevel_role;
 use crate::window::mapped::MappedId;
@@ -120,7 +121,7 @@ impl Niri {
         let ws_id = self.layout.active_workspace().map(|ws| {
             // Generate a WorkspaceId from the row - for now we'll use a simple approach
             // TODO: TEAM_023: Implement proper row ID generation
-            crate::layout::workspace_types::WorkspaceId::specific(0)
+            crate::layout::row_types::RowId::specific(0)
         });
         if let Some(ws_id) = ws_id {
             if self.a11y.workspace_id != Some(ws_id) {
@@ -129,7 +130,7 @@ impl Niri {
                     .workspaces()
                     .find(|(_, _, ws)| {
                         // Generate the same ID for comparison
-                        let generated_id = crate::layout::workspace_types::WorkspaceId::specific(0);
+                        let generated_id = crate::layout::row_types::RowId::specific(0);
                         generated_id == ws_id
                     })
                     .unwrap();

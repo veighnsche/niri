@@ -8,7 +8,8 @@ use crate::FloatOrInt;
 pub struct Animations {
     pub off: bool,
     pub slowdown: f64,
-    pub workspace_switch: WorkspaceSwitchAnim,
+    // TEAM_055: Renamed from workspace_switch to row_switch
+    pub row_switch: RowSwitchAnim,
     pub window_open: WindowOpenAnim,
     pub window_close: WindowCloseAnim,
     pub horizontal_view_movement: HorizontalViewMovementAnim,
@@ -25,7 +26,7 @@ impl Default for Animations {
         Self {
             off: false,
             slowdown: 1.,
-            workspace_switch: Default::default(),
+            row_switch: Default::default(),
             horizontal_view_movement: Default::default(),
             window_movement: Default::default(),
             window_open: Default::default(),
@@ -47,8 +48,9 @@ pub struct AnimationsPart {
     pub on: bool,
     #[knuffel(child, unwrap(argument))]
     pub slowdown: Option<FloatOrInt<0, { i32::MAX }>>,
+    // TEAM_055: Renamed from workspace_switch to row_switch
     #[knuffel(child)]
-    pub workspace_switch: Option<WorkspaceSwitchAnim>,
+    pub row_switch: Option<RowSwitchAnim>,
     #[knuffel(child)]
     pub window_open: Option<WindowOpenAnim>,
     #[knuffel(child)]
@@ -82,7 +84,7 @@ impl MergeWith<AnimationsPart> for Animations {
         // ourselves the work and not merge within individual animations.
         merge_clone!(
             (self, part),
-            workspace_switch,
+            row_switch,
             window_open,
             window_close,
             horizontal_view_movement,
@@ -130,10 +132,11 @@ pub struct SpringParams {
     pub epsilon: f64,
 }
 
+// TEAM_055: Renamed from WorkspaceSwitchAnim to RowSwitchAnim
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct WorkspaceSwitchAnim(pub Animation);
+pub struct RowSwitchAnim(pub Animation);
 
-impl Default for WorkspaceSwitchAnim {
+impl Default for RowSwitchAnim {
     fn default() -> Self {
         Self(Animation {
             off: false,
@@ -305,7 +308,7 @@ impl Default for RecentWindowsCloseAnim {
     }
 }
 
-impl<S> knuffel::Decode<S> for WorkspaceSwitchAnim
+impl<S> knuffel::Decode<S> for RowSwitchAnim
 where
     S: knuffel::traits::ErrorSpan,
 {

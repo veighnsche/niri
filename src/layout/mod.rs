@@ -38,8 +38,9 @@ use std::time::Duration;
 
 use monitor::{InsertHint, InsertPosition, InsertWorkspace, MonitorAddWindowTarget};
 use niri_config::utils::MergeWith as _;
+// TEAM_055: Renamed from Workspace to RowConfig
 use niri_config::{
-    Config, CornerRadius, LayoutPart, PresetSize, Workspace as WorkspaceConfig, WorkspaceReference,
+    Config, CornerRadius, LayoutPart, PresetSize, RowConfig as WorkspaceConfig, WorkspaceReference,
 };
 use niri_ipc::{ColumnDisplay, PositionChange, SizeChange, WindowLayout};
 use column::Column;
@@ -51,8 +52,12 @@ use smithay::output::{self, Output};
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point, Rectangle, Scale, Serial, Size, Transform};
 use tile::{Tile, TileRenderElement};
-// TEAM_021: Use minimal workspace types after Canvas2D migration
-use workspace_types::{WorkspaceAddWindowTarget, WorkspaceId, OutputId, compute_working_area};
+// TEAM_021: Use minimal row types after Canvas2D migration
+// TEAM_055: Renamed from workspace_types to row_types
+use row_types::{RowAddWindowTarget, RowId, OutputId, compute_working_area};
+// TEAM_055: Type aliases for backwards compatibility during migration
+type WorkspaceId = RowId;
+type WorkspaceAddWindowTarget<'a, W> = RowAddWindowTarget<'a, W>;
 
 pub use self::monitor::MonitorRenderElement;
 use self::monitor::{Monitor, WorkspaceSwitch};
@@ -94,7 +99,8 @@ pub mod animated_value;
 pub mod row;
 // TEAM_006: Canvas2D module for 2D tiling layout
 pub mod canvas;
-pub mod workspace_types;  // TEAM_021: Minimal workspace types for external compatibility
+// TEAM_055: Renamed from workspace_types to row_types
+pub mod row_types;  // TEAM_021: Minimal row types for external compatibility
 // DEPRECATED: workspace module removed - functionality migrated to Canvas2D
 
 // TEAM_004: Golden snapshot infrastructure
@@ -310,11 +316,13 @@ pub struct Layout<W: LayoutElement> {
     /// This data is stored upon monitor removal and is used to restore the active workspace when
     /// the monitor is reconnected.
     ///
-    /// The workspace id does not necessarily point to a valid workspace. If it doesn't, then it is
+    // TEAM_055: Renamed from last_active_workspace_id to last_active_row_id
+    /// The row id does not necessarily point to a valid row. If it doesn't, then it is
     /// simply ignored.
-    last_active_workspace_id: HashMap<String, WorkspaceId>,
-    /// TEAM_039: Counter for generating unique workspace IDs
-    workspace_id_counter: u64,
+    last_active_row_id: HashMap<String, WorkspaceId>,
+    /// TEAM_039: Counter for generating unique row IDs
+    /// TEAM_055: Renamed from workspace_id_counter to row_id_counter
+    row_id_counter: u64,
     /// Ongoing interactive move.
     interactive_move: Option<InteractiveMoveState<W>>,
     /// Ongoing drag-and-drop operation.
@@ -664,10 +672,11 @@ impl<W: LayoutElement> Layout<W> {
         Self::with_options_and_workspaces(clock, config, Options::from_config(config))
     }
 
-    /// TEAM_039: Generate a unique workspace ID
-    pub fn next_workspace_id(&mut self) -> WorkspaceId {
-        self.workspace_id_counter += 1;
-        WorkspaceId(self.workspace_id_counter)
+    /// TEAM_039: Generate a unique row ID
+    /// TEAM_055: Renamed from next_workspace_id to next_row_id
+    pub fn next_row_id(&mut self) -> WorkspaceId {
+        self.row_id_counter += 1;
+        WorkspaceId(self.row_id_counter)
     }
 
     pub fn with_options(clock: Clock, options: Options) -> Self {
@@ -697,8 +706,9 @@ impl<W: LayoutElement> Layout<W> {
         Self {
             monitor_set: MonitorSet::NoOutputs { canvas },
             is_active: true,
-            last_active_workspace_id: HashMap::new(),
-            workspace_id_counter: 1,  // TEAM_039: Start at 1 since we used ID 1 for initial row
+            // TEAM_055: Renamed from last_active_workspace_id to last_active_row_id
+            last_active_row_id: HashMap::new(),
+            row_id_counter: 1,  // TEAM_039: Start at 1 since we used ID 1 for initial row
             interactive_move: None,
             dnd: None,
             clock,
@@ -738,8 +748,9 @@ impl<W: LayoutElement> Layout<W> {
         Layout {
             monitor_set: MonitorSet::NoOutputs { canvas },
             is_active: true,
-            last_active_workspace_id: HashMap::new(),
-            workspace_id_counter: 1,  // TEAM_039: Start at 1 since we used ID 1 for initial row
+            // TEAM_055: Renamed from last_active_workspace_id to last_active_row_id
+            last_active_row_id: HashMap::new(),
+            row_id_counter: 1,  // TEAM_039: Start at 1 since we used ID 1 for initial row
             interactive_move: None,
             dnd: None,
             clock,
@@ -771,12 +782,12 @@ impl<W: LayoutElement> Layout<W> {
                 }
 
                 // If we stopped a workspace switch, then we might need to clean up workspaces.
-                // Also if empty_workspace_above_first is set and there are only 2 workspaces left,
+                // Also if empty_row_above_first is set and there are only 2 workspaces left,
                 // both will be empty and one of them needs to be removed. clean_up_workspaces
                 // takes care of this.
 
                 if stopped_primary_ws_switch
-                    || (primary.options.layout.empty_workspace_above_first
+                    || (primary.options.layout.empty_row_above_first
                         && primary.canvas.rows().count() == 2)
                 {
                     // TEAM_021: Use canvas-first cleanup if possible, fallback to workspace
@@ -791,7 +802,8 @@ impl<W: LayoutElement> Layout<W> {
                 workspaces.reverse();
 
                 // Create the new monitor with the output
-                let _ws_id_to_activate = self.last_active_workspace_id.remove(&output.name());
+                // TEAM_055: Renamed from last_active_workspace_id to last_active_row_id
+                let _row_id_to_activate = self.last_active_row_id.remove(&output.name());
 
                 // TEAM_035: Add type annotation to help compiler infer W
                 let monitor: Monitor<W> = Monitor::new(
@@ -799,7 +811,7 @@ impl<W: LayoutElement> Layout<W> {
                     self.clock.clone(),
                     self.options.clone(),
                     layout_config,
-                    self.next_workspace_id(),
+                    self.next_row_id(),
                 );
                 // DEPRECATED(overview): Removed overview state sync
                 monitors.push(monitor);
@@ -811,14 +823,15 @@ impl<W: LayoutElement> Layout<W> {
                 }
             }
             MonitorSet::NoOutputs { canvas } => {
-                let ws_id_to_activate = self.last_active_workspace_id.remove(&output.name());
+                // TEAM_055: Renamed from last_active_workspace_id to last_active_row_id
+                let row_id_to_activate = self.last_active_row_id.remove(&output.name());
 
                 let monitor = Monitor::new(
                     output,
                     self.clock.clone(),
                     self.options.clone(),
                     layout_config,
-                    self.next_workspace_id(),
+                    self.next_row_id(),
                 );
                 // DEPRECATED(overview): Removed overview state sync
 
@@ -844,14 +857,16 @@ impl<W: LayoutElement> Layout<W> {
                     .expect("trying to remove non-existing output");
                 let monitor = monitors.remove(idx);
 
-                // TEAM_033: Store active workspace ID before consuming monitor
+                // TEAM_033: Store active row ID before consuming monitor
+                // TEAM_055: Renamed from active_ws_id to active_row_id
                 let output_name = monitor.output_name().clone();
-                let active_ws_id = monitor.canvas.workspaces()
+                let active_row_id = monitor.canvas.workspaces()
                     .nth(monitor.active_workspace_idx())
                     .map(|(_, ws)| ws.id())
-                    .unwrap_or_else(|| crate::layout::workspace_types::WorkspaceId::specific(0));
+                    .unwrap_or_else(|| crate::layout::row_types::RowId::specific(0));
                 
-                self.last_active_workspace_id.insert(output_name, active_ws_id);
+                // TEAM_055: Renamed from last_active_workspace_id to last_active_row_id
+                self.last_active_row_id.insert(output_name, active_row_id);
 
                 if monitors.is_empty() {
                     // Removed the last monitor.
@@ -1195,9 +1210,9 @@ impl<W: LayoutElement> Layout<W> {
                             mon.canvas.active_row_idx -= 1;
                         }
 
-                        // Special case handling when empty_workspace_above_first is set and all
+                        // Special case handling when empty_row_above_first is set and all
                         // workspaces are empty.
-                        if mon.options.layout.empty_workspace_above_first
+                        if mon.options.layout.empty_row_above_first
                             && mon.canvas.workspaces().count() == 2
                             && !switch_in_progress
                         {
@@ -1332,14 +1347,15 @@ impl<W: LayoutElement> Layout<W> {
         None
     }
 
-    pub fn find_workspace_by_name(&self, workspace_name: &str) -> Option<(i32, &crate::layout::row::Row<W>)> {
+    // TEAM_055: Renamed from find_workspace_by_name to find_row_by_name
+    pub fn find_row_by_name(&self, row_name: &str) -> Option<(i32, &crate::layout::row::Row<W>)> {
         match &self.monitor_set {
             MonitorSet::Normal { ref monitors, .. } => {
                 for mon in monitors {
                     if let Some((row_idx, row)) =
                         mon.canvas.workspaces().find(|(_, w)| {
                             w.name()
-                                .is_some_and(|name| name.eq_ignore_ascii_case(workspace_name))
+                                .is_some_and(|name| name.eq_ignore_ascii_case(row_name))
                         })
                     {
                         return Some((row_idx, row));
@@ -1349,7 +1365,7 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::NoOutputs { canvas } => {
                 if let Some((row_idx, row)) = canvas.workspaces().find(|(_, w)| {
                     w.name()
-                        .is_some_and(|name| name.eq_ignore_ascii_case(workspace_name))
+                        .is_some_and(|name| name.eq_ignore_ascii_case(row_name))
                 }) {
                     return Some((row_idx, row));
                 }
@@ -2987,8 +3003,9 @@ impl<W: LayoutElement> Layout<W> {
         self.interactive_move = Some(InteractiveMoveState::Moving(move_));
     }
 
-    pub fn ensure_named_workspace(&mut self, ws_config: &WorkspaceConfig) {
-        if self.find_workspace_by_name(&ws_config.name.0).is_some() {
+    // TEAM_055: Renamed from ensure_named_workspace to ensure_named_row
+    pub fn ensure_named_row(&mut self, row_config: &WorkspaceConfig) {
+        if self.find_row_by_name(&row_config.name.0).is_some() {
             return;
         }
 
@@ -3001,7 +3018,7 @@ impl<W: LayoutElement> Layout<W> {
                 primary_idx,
                 active_monitor_idx,
             } => {
-                let mon_idx = ws_config
+                let mon_idx = row_config
                     .open_on_output
                     .as_deref()
                     .map(|name| {
@@ -3021,7 +3038,7 @@ impl<W: LayoutElement> Layout<W> {
                 }
                 
                 let row = mon.canvas.ensure_row(row_idx);
-                row.set_name(Some(ws_config.name.0.clone()));
+                row.set_name(Some(row_config.name.0.clone()));
             }
             MonitorSet::NoOutputs { canvas } => {
                 // TEAM_024: Create a named row in the canvas instead of a workspace
@@ -3032,7 +3049,7 @@ impl<W: LayoutElement> Layout<W> {
                 }
                 
                 let row = canvas.ensure_row(row_idx);
-                row.set_name(Some(ws_config.name.0.clone()));
+                row.set_name(Some(row_config.name.0.clone()));
             }
         }
     }
@@ -4423,7 +4440,7 @@ impl<W: LayoutElement> Layout<W> {
                         .position(|(_, ws)| ws.id() == ws_id)
                         .unwrap(),
                     InsertWorkspace::NewAt(ws_idx) => {
-                        if mon.options.layout.empty_workspace_above_first && ws_idx == 0 {
+                        if mon.options.layout.empty_row_above_first && ws_idx == 0 {
                             // Reuse the top empty workspace.
                             0
                         } else if mon.canvas.workspaces().count() - 1 <= ws_idx {
@@ -4513,7 +4530,7 @@ impl<W: LayoutElement> Layout<W> {
                     }
                 }
 
-                // needed because empty_workspace_above_first could have modified the idx
+                // needed because empty_row_above_first could have modified the idx
                 // TEAM_035: Use tiles_mut() to get mutable reference for animate_move_from
                 let (tile, tile_offset, ws_geo) = mon
                     .workspaces_with_render_geo_mut(false)

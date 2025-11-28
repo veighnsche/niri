@@ -18,7 +18,8 @@ use smithay::utils::{Logical, Rectangle, Size};
 use crate::animation::Clock;
 use crate::layout::canvas::Canvas2D;
 use crate::layout::insert_hint_element::InsertHintElement;
-use crate::layout::workspace_types::{WorkspaceId, compute_working_area};
+// TEAM_055: Renamed from workspace_types to row_types, WorkspaceId to RowId
+use crate::layout::row_types::{RowId as WorkspaceId, compute_working_area};
 use crate::layout::row::Row;
 use crate::layout::{LayoutElement, Options};
 use crate::niri_render_elements;
@@ -494,9 +495,10 @@ impl<W: LayoutElement> Monitor<W> {
         self.canvas.are_animations_ongoing()
     }
 
-    /// Remove name from a row/workspace by WorkspaceId.
-    /// TEAM_033: Updated to take WorkspaceId and return bool
-    pub fn unname_workspace(&mut self, id: crate::layout::workspace_types::WorkspaceId) -> bool {
+    /// Remove name from a row/workspace by RowId.
+    /// TEAM_033: Updated to take RowId and return bool
+    /// TEAM_055: Renamed from WorkspaceId to RowId
+    pub fn unname_workspace(&mut self, id: crate::layout::row_types::RowId) -> bool {
         // Find row with matching ID first (immutable)
         let found_idx = self.canvas.rows().find_map(|(idx, row)| {
             if row.id() == id {
