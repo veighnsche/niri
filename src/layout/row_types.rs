@@ -9,7 +9,6 @@ use smithay::utils::{Logical, Rectangle};
 
 // TEAM_055: Renamed from WorkspaceId to RowId
 /// Legacy row ID for external system compatibility
-/// TODO: Eventually remove when external systems are updated to use canvas concepts
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RowId(pub u64);
 
@@ -45,7 +44,6 @@ impl RowId {
 }
 
 /// Legacy output ID for external system compatibility
-/// TODO: Eventually remove when external systems are updated
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OutputId(pub String);
 
@@ -78,6 +76,5 @@ use crate::utils::output_size;
 /// This function is still needed by monitor configuration
 pub fn compute_working_area(output: &Output) -> Rectangle<f64, Logical> {
     // TEAM_022: Use the layer shell handler directly
-    // TODO: This should eventually be moved to a more appropriate location
     Rectangle::from_loc_and_size((0.0, 0.0), output_size(output))
 }

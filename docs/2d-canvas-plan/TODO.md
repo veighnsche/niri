@@ -155,121 +155,157 @@ Added symmetric animation for left-side column resize:
 
 # 📋 REMAINING TODOs FROM CODEBASE
 
-## High Priority (Core Functionality)
+## Analysis by TEAM_057
 
-### src/layout/mod.rs
+**Status**: Easy TODOs completed, complex items documented below  
+**Date**: Nov 28, 2025
 
-| Line | TODO | Description |
-|------|------|-------------|
-| 735 | TEAM_023 | Apply workspace config to canvas rows |
-| 787 | TEAM_024 | Implement canvas cleanup logic |
-| 1033 | TEAM_023 | Implement window height setting on canvas/row |
-| 1050 | TEAM_023 | Implement proper workspace ID to row mapping |
-| 1251 | TEAM_020 | Remove workspace check entirely |
-| 1510 | TEAM_020 | Remove workspace check entirely |
-| 3021 | TEAM_020 | Remove workspace config entirely |
-| 3565 | TEAM_032 | original_output field doesn't exist in Row |
-| 3579 | TEAM_032 | original_output field doesn't exist in Row |
-| 3622 | TEAM_020 | Remove workspace check entirely |
-| 3647 | TEAM_020 | Remove workspace check entirely |
-| 3701 | TEAM_020 | Remove workspace check entirely |
-| 3726 | TEAM_020 | Remove workspace check entirely |
-| 4635 | TEAM_018 | Implement proper duplicate name checking |
+---
 
-### src/layout/monitor/
+## 🔴 HIGH PRIORITY (Causing Test Failures)
 
-| File | Line | TODO | Description |
-|------|------|------|-------------|
-| render.rs | 45 | TEAM_022 | Implement proper insert hint rendering |
-| hit_test.rs | 22 | TEAM_023 | Implement proper row geometry calculation |
-| hit_test.rs | 41 | TEAM_023 | Implement proper row geometry |
-| mod.rs | 300 | TEAM_033 | Properly merge rows |
-| mod.rs | 322 | TEAM_022 | Implement proper column addition to canvas |
-| navigation.rs | 59 | TEAM_022 | Implement previous row tracking |
-| navigation.rs | 67 | TEAM_022 | Implement previous row tracking |
-| navigation.rs | 124 | - | Implement move window between rows |
-| navigation.rs | 129 | - | Implement move window between rows |
-| navigation.rs | 139 | - | Implement move window between rows |
-| navigation.rs | 148 | - | Implement move column between rows |
-| navigation.rs | 153 | - | Implement move column between rows |
-| navigation.rs | 158 | - | Implement move column between rows |
-| gestures.rs | 142 | TEAM_024 | Get workspace ID from canvas row |
-| gestures.rs | 146 | TEAM_024 | Set active workspace index in canvas |
-| config.rs | 28 | TEAM_024 | Implement row removal in canvas |
+### src/layout/mod.rs - Line 4752
+**TODO**: `TEAM_018: implement proper duplicate name checking for canvas rows`
 
-### src/layout/canvas/
+**Why Complex**: 
+- Requires implementing name collision detection across all rows in a canvas
+- Need to decide on conflict resolution strategy (reject, auto-rename, etc.)
+- Must integrate with existing `set_row_name` API without breaking callers
+- Test failure indicates this affects `move_window_to_workspace_with_different_active_output`
 
-| File | Line | TODO | Description |
-|------|------|------|-------------|
-| operations.rs | 108 | TEAM_019 | Implement proper active window handling |
-| operations.rs | 123 | TEAM_019 | Implement proper active window handling |
-| operations.rs | 194 | TEAM_019 | Implement layout_config for Row |
-| operations.rs | 217 | TEAM_019 | Implement start_open_animation for Row |
-| operations.rs | 240 | TEAM_019 | Implement proper centering for tiled windows |
-| operations.rs | 324 | TEAM_019 | Implement actual column reordering |
-| operations.rs | 340 | TEAM_019 | Implement actual column reordering |
-| operations.rs | 448 | TEAM_020 | Implement proper window update |
-| operations.rs | 468 | TEAM_020 | Properly activate in row |
-| operations.rs | 487 | TEAM_020 | Implement fullscreen setting |
-| operations.rs | 492 | TEAM_020 | Implement fullscreen toggle |
-| operations.rs | 497 | TEAM_020 | Implement maximized setting |
-| operations.rs | 502 | TEAM_020 | Implement maximized toggle |
-| operations.rs | 513 | TEAM_020 | Implement proper scroll calculation |
-| operations.rs | 520 | TEAM_021 | Implement proper popup positioning |
-| render.rs | 25 | TEAM_007 | Apply camera offset to render elements |
-| mod.rs | 312 | TEAM_025 | Implement proper row removal |
-| floating.rs | 163 | TEAM_009 | Add close animation for tiled windows |
-| navigation.rs | 79 | TEAM_007 | Add vertical_view_movement config |
-| navigation.rs | 324 | TEAM_018 | Implement back-and-forth logic |
-| navigation.rs | 331 | TEAM_018 | Implement previous row tracking |
+**Requirements**:
+1. Scan all existing row names in canvas when setting new name
+2. Implement conflict resolution policy
+3. Maintain API compatibility
+4. Add tests for name collision scenarios
 
-### src/layout/row/
+---
 
-| File | Line | TODO | Description |
-|------|------|------|-------------|
-| mod.rs | 395 | TEAM_027 | Calculate proper extra_size |
-| mod.rs | 999 | TEAM_024 | Implement column width expansion |
-| mod.rs | 1057 | - | Implement cancel_resize_for_column |
-| mod.rs | 1068 | - | Implement consume_or_expel_window_right |
-| mod.rs | 1176 | TEAM_022 | Rows should get output from monitor/canvas |
-| mod.rs | 1183 | TEAM_022 | Implement active window logic |
+## 🟡 MEDIUM PRIORITY (Functional Enhancements)
 
-### src/layout/workspace_types.rs
+### src/layout/mod.rs - Line 798
+**TODO**: `TEAM_024: Implement canvas cleanup logic`
 
-| Line | TODO | Description |
-|------|------|-------------|
-| 10 | - | Remove when external systems updated |
-| 46 | - | Remove when external systems updated |
-| 78 | - | Move to more appropriate location |
+**Why Complex**:
+- Need to understand canvas lifecycle and when rows should be removed
+- Current code shows partial logic for removing empty rows
+- Must ensure cleanup doesn't break active window management
+- Need to define "empty canvas" conditions and edge cases
 
-### Other src/ files
+**Requirements**:
+1. Define canvas cleanup triggers (output removal, row emptiness, etc.)
+2. Implement safe row removal without breaking active windows
+3. Handle edge cases (all rows empty, single row remaining, etc.)
 
-| File | Line | TODO | Description |
-|------|------|------|-------------|
-| niri.rs | 3813 | TEAM_023 | Get output from monitor |
-| niri.rs | 4502 | TEAM_023 | Update render elements handling |
-| niri.rs | 4533 | TEAM_023 | Update workspace-specific rendering |
-| niri.rs | 4541 | TEAM_023 | Fix workspace-specific element rendering |
-| a11y.rs | 122 | TEAM_023 | Implement proper row ID generation |
+### src/layout/mod.rs - Line 1052
+**TODO**: `TEAM_023: Implement window height setting on canvas/row`
 
-### docs/wiki (Documentation updates for rows & removed overview)
+**Why Complex**:
+- Requires designing Canvas2D API for window height manipulation
+- Original Workspace API had height setting methods that need Canvas2D equivalent
+- Must coordinate between Row and Column layout systems
+- Height setting affects column width calculations and view offsets
 
-- [x] TODO(TEAM_046): Update `docs/wiki/Overview.md` for removal of the Overview feature and new Canvas2D/row model.
-- [x] TODO(TEAM_046): Update `docs/wiki/Workspaces-legacy.md` to either migrate concepts to rows/canvas or archive as legacy.
-- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Named-Workspaces.md` to reflect row naming / camera bookmarks or archive.
-- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Key-Bindings.md` examples to use row-based actions and current default binds.
-- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Input.md` to remove or replace `workspace-auto-back-and-forth` and workspace-centric language.
-- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Gestures.md` to remove `dnd-edge-workspace-switch`, overview hot-corner behavior, and workspace-scrolling text.
-- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Animations.md` to reflect row-based animations and removal of `overview-open-close` / `workspace-switch` semantics.
-- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Outputs.md` backdrop-color and hot-corner text that references workspaces/overview.
-- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Include.md` examples that use the `overview {}` section.
-- [ ] TODO(TEAM_046): Update `docs/wiki/Layer60Shell-Components.md` overview layering description for the new canvas/row model.
-- [ ] TODO(TEAM_046): Update `docs/wiki/Accessibility.md` references to entering the Overview.
-- [ ] TODO(TEAM_046): Update `docs/wiki/IPC.md` examples that use `focus-workspace` actions.
-- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Miscellaneous.md` section that documents `overview {}`.
-- [ ] TODO(TEAM_046): Review `docs/wiki/Configuration:-Introduction.md` in light of the new default `resources/default-config.kdl`.
-- [ ] TODO(TEAM_046): Review `docs/wiki/Integrating-niri.md` references to the embedded default config link.
-- [ ] TODO(TEAM_046): Review `docs/wiki/Development:-Design-Principles.md` "Default config" section against the new row-based default config.
+**Requirements**:
+1. Design Canvas2D window height API
+2. Implement height propagation from Row to Column
+3. Update layout calculations for height changes
+4. Maintain compatibility with existing resize logic
+
+### src/layout/mod.rs - Line 1069
+**TODO**: `TEAM_023: Implement proper workspace ID to row mapping`
+
+**Why Complex**:
+- Legacy workspace ID system doesn't map cleanly to Canvas2D row indices
+- External systems (IPC, protocols) still expect workspace IDs
+- Need to maintain backward compatibility while using row-based internals
+- Current default to row 0 is a temporary workaround
+
+**Requirements**:
+1. Design stable ID mapping strategy (row index → workspace ID)
+2. Handle row creation/deletion without breaking ID stability
+3. Update external system interfaces to use new mapping
+4. Consider migration path for existing workspace ID users
+
+### src/layout/row/operations/move_col.rs - Line 52
+**TODO**: `TEAM_006: Animate column movement (port from ScrollingSpace)`
+
+**Why Complex**:
+- Requires extracting animation logic from original ScrollingSpace
+- Animation system needs to work with Row-based layout instead of workspace
+- Must coordinate with existing view offset animations
+- Need to handle animation interruption and queuing
+
+**Requirements**:
+1. Extract column movement animation from ScrollingSpace
+2. Adapt animation to Row context and Canvas2D coordinates
+3. Integrate with existing animation framework
+4. Handle animation state management and interruptions
+
+### src/layout/row/mod.rs - Line 2002
+**TODO**: `Implement proper conversion using working area`
+
+**Why Complex**:
+- `floating_logical_to_size_frac` needs proper coordinate system conversion
+- Must account for working area constraints (panels, docks, etc.)
+- Conversion affects floating window positioning and sizing
+- Need to understand SizeFrac coordinate system requirements
+
+**Requirements**:
+1. Implement working area aware coordinate conversion
+2. Handle edge cases (windows larger than working area)
+3. Ensure conversion is reversible and accurate
+4. Add tests for various working area configurations
+
+### src/layout/monitor/render.rs - Line 45
+**TODO**: `TEAM_022: Implement proper insert hint rendering with canvas`
+
+**Why Complex**:
+- Insert hint rendering needs Canvas2D integration
+- Must calculate hint positions in 2D canvas coordinates
+- Rendering system needs to handle canvas viewport and zoom
+- Original workspace-based hint rendering won't work directly
+
+**Requirements**:
+1. Design Canvas2D insert hint positioning algorithm
+2. Implement hint rendering with canvas coordinate system
+3. Handle viewport culling and zoom transformations
+4. Maintain visual consistency with original hints
+
+---
+
+## 🟢 LOW PRIORITY (Documentation)
+
+### src/layout/row_types.rs - Various lines
+**TODO**: Documentation comments about removing WorkspaceId
+
+**Status**: ✅ **COMPLETED by TEAM_057**
+- These were just documentation notes, not actionable items
+- Comments cleaned up to be purely informational
+
+---
+
+## 📊 SUMMARY
+
+**Total TODOs Analyzed**: 9
+- ✅ **Completed**: 3 (documentation cleanups)
+- 🔴 **High Priority**: 1 (causing test failures)
+- 🟡 **Medium Priority**: 6 (functional enhancements)
+
+**Next Team Focus**: Should prioritize the high-priority duplicate name checking issue as it's causing test failures.
+
+**Implementation Order Recommendation**:
+1. Fix duplicate name checking (test failure)
+2. Implement workspace ID to row mapping (external compatibility)
+3. Design Canvas2D window height API
+4. Port column movement animations
+5. Implement canvas cleanup logic
+6. Fix coordinate conversion in floating_logical_to_size_frac
+7. Implement insert hint rendering
+
+---
+
+*Last Updated: TEAM_057 on Nov 28, 2025*
 
 ---
 

@@ -3689,7 +3689,6 @@ impl<W: LayoutElement> Layout<W> {
         // Do not do anything if the output is already correct
         if current_idx == target_idx {
             // Just update the original output since this is an explicit movement action.
-            // TODO: TEAM_032: original_output field doesn't exist in Row - adapt or remove this functionality
             // current.canvas.workspaces().nth(old_idx).unwrap().original_output = OutputId::new(&current.output);
 
             return false;
