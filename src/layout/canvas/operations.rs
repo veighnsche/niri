@@ -567,12 +567,9 @@ impl<W: LayoutElement> Canvas2D<W> {
         if self.floating.has_window(id) {
             if is_fullscreen {
                 // Move from floating to tiled, then fullscreen
+                // Note: floating.remove_tile() already stores floating_window_size via expected_size()
                 let removed = self.floating.remove_tile(id);
                 let mut tile = removed.tile;
-                
-                // TEAM_059: Preserve the current floating size before moving to tiled
-                let current_size = tile.window().size();
-                tile.set_floating_window_size(Some(current_size));
                 
                 tile.animate_move_from(Point::from((0., 0.)));
                 
@@ -622,12 +619,9 @@ impl<W: LayoutElement> Canvas2D<W> {
         // Check if window is floating
         if self.floating.has_window(id) {
             // Move from floating to tiled, then fullscreen
+            // Note: floating.remove_tile() already stores floating_window_size via expected_size()
             let removed = self.floating.remove_tile(id);
             let mut tile = removed.tile;
-            
-            // TEAM_059: Preserve the current floating size before moving to tiled
-            let current_size = tile.window_size().to_i32_round();
-            tile.set_floating_window_size(Some(current_size));
             
             tile.animate_move_from(Point::from((0., 0.)));
             
@@ -676,12 +670,9 @@ impl<W: LayoutElement> Canvas2D<W> {
         if self.floating.has_window(id) {
             if maximize {
                 // Move from floating to tiled, then maximize
+                // Note: floating.remove_tile() already stores floating_window_size via expected_size()
                 let removed = self.floating.remove_tile(id);
                 let mut tile = removed.tile;
-                
-                // TEAM_059: Preserve the current floating size before moving to tiled
-                let current_size = tile.window().size();
-                tile.set_floating_window_size(Some(current_size));
                 
                 tile.animate_move_from(Point::from((0., 0.)));
                 
@@ -731,12 +722,9 @@ impl<W: LayoutElement> Canvas2D<W> {
         // Check if window is floating
         if self.floating.has_window(id) {
             // Move from floating to tiled, then maximize
+            // Note: floating.remove_tile() already stores floating_window_size via expected_size()
             let removed = self.floating.remove_tile(id);
             let mut tile = removed.tile;
-            
-            // TEAM_059: Preserve the current floating size before moving to tiled
-            let current_size = tile.window_size().to_i32_round();
-            tile.set_floating_window_size(Some(current_size));
             
             tile.animate_move_from(Point::from((0., 0.)));
             

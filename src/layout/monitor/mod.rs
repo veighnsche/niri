@@ -452,16 +452,24 @@ impl<W: LayoutElement> Monitor<W> {
         _animate: bool,
         width: crate::layout::types::ColumnWidth,
         is_full_width: bool,
-        _is_floating: bool,
+        is_floating: bool,
     ) {
-        let (row_idx, _col_idx) = self.resolve_add_window_target(&target);
-        self.canvas.add_tile_to_row(
-            row_idx,
-            tile,
-            activate == crate::layout::ActivateWindow::Yes,
-            width,
-            is_full_width,
-        );
+        // TEAM_059: Add to floating space if is_floating is true
+        if is_floating {
+            self.canvas.floating.add_tile(tile, activate == crate::layout::ActivateWindow::Yes);
+            if activate == crate::layout::ActivateWindow::Yes {
+                self.canvas.floating_is_active = true;
+            }
+        } else {
+            let (row_idx, _col_idx) = self.resolve_add_window_target(&target);
+            self.canvas.add_tile_to_row(
+                row_idx,
+                tile,
+                activate == crate::layout::ActivateWindow::Yes,
+                width,
+                is_full_width,
+            );
+        }
     }
 
     /// Previous workspace index (for workspace switching).

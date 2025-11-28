@@ -715,33 +715,43 @@ The test failure was caused by TWO separate issues:
 
 ---
 
-## � HIGH PRIORITY (Test Failures)
+## ✅ RESOLVED - Floating Window State Preservation
 
 ### src/layout/row/operations/fullscreen.rs & src/layout/floating/operations.rs
 **TODO**: `TEAM_059: Fix floating window state preservation during fullscreen/maximize operations`
 
-**Status**: 🔄 **IN PROGRESS**
+**Status**: ✅ **COMPLETED - All 28 floating tests passing**
 
-**Issue**: 6 tests failing due to floating windows incorrectly appearing in tiled space after fullscreen/maximize operations, and size preservation issues during interactive move.
+**Root Cause Analysis**:
+1. **floating.rs `remove_tile_by_idx`**: Was using `window().size()` instead of `expected_size()`, causing incorrect floating size storage
+2. **canvas/operations.rs**: Redundant manual `set_floating_window_size` calls were overwriting the correct value
+3. **mod.rs `with_windows_mut`**: Wasn't including floating windows in the iterator
+4. **mod.rs `interactive_move_begin/update`**: Didn't check floating space, only rows
+5. **mod.rs `remove_window`**: Didn't check floating space before rows
 
-**Failing Tests**:
-- `restore_to_floating_persists_across_fullscreen_maximize`
-- `unmaximize_during_fullscreen_does_not_float`
-- `interactive_move_unfullscreen_to_floating_restores_size`
-- `interactive_move_unmaximize_to_floating_restores_size`
-- `resize_during_interactive_move_propagates_to_floating`
-- `interactive_move_restores_floating_size_when_set_to_floating`
+**Fixes Implemented**:
+1. **floating.rs**: Restored main branch behavior - use `expected_size()` conditionally
+2. **canvas/operations.rs**: Removed redundant `set_floating_window_size` calls in set_fullscreen, toggle_fullscreen, set_maximized, toggle_maximized
+3. **mod.rs `with_windows_mut`**: Added floating window iteration for both MonitorSet variants
+4. **mod.rs `interactive_move_begin`**: Added floating space check with proper borrow checker handling
+5. **mod.rs `interactive_move_update`**: Added floating space support for Starting → Moving transition
+6. **mod.rs `remove_window`**: Added floating space check before row checks
 
-**Root Cause Analysis Needed**:
-1. Floating window state tracking during fullscreen transitions
-2. Size preservation logic in interactive move operations
-3. Configure event handling for floating windows
-4. Canvas2D vs FloatingSpace state synchronization
+**All Tests Now Passing**:
+- ✅ All 28 `tests::floating::*` tests
+- ✅ `unfullscreen_to_floating_doesnt_send_extra_configure`
+- ✅ `unmaximize_to_floating_doesnt_send_extra_configure`
+- ✅ `unfullscreen_to_same_size_windowed_fullscreen_floating`
+- ✅ `unmaximize_to_same_size_windowed_fullscreen_floating`
+- ✅ `resize_during_interactive_move_propagates_to_floating`
 
-**Next Steps**:
-1. Investigate floating window state machine in fullscreen/maximize operations
-2. Fix size preservation during interactive move
-3. Ensure proper configure event sequencing
+**Implemented Features**:
+- ✅ `restore_to_floating` flag on Tile for state tracking
+- ✅ `floating_window_size` field on Tile for size preservation
+- ✅ Row methods return boolean indicating restore-to-floating intent
+- ✅ Canvas2D methods handle restore-to-floating flag
+- ✅ Interactive move logic preserves and restores floating sizes
+- ✅ Monitor::add_tile properly routes to floating space when is_floating=true
 
 ---
 
