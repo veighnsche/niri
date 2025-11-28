@@ -387,14 +387,13 @@ impl<W: LayoutElement> Monitor<W> {
 
         // Debug logging: record where the new window landed relative to the camera.
         let camera = self.canvas.camera_position();
-        // DBG[BUG_alacritty_invisible_CHASE_001]: TRACE[1] - row placement vs camera for newly added window
+        // TEAM_048: Debug logging for window placement (kept for future debugging)
         if let Some(row) = self.canvas.row(row_idx) {
             let row_y = row.y_offset();
             let row_h = row.row_height();
             let view_h = self.view_size.h;
             let row_visible = row_y + row_h > camera.y && row_y < camera.y + view_h;
 
-            // DBG[BUG_alacritty_invisible_CHASE_001]: CLEARED - row visibility confirmed via logging (row 0 is in view during Alacritty spawn)
             info!(
                 output = %self.output_name,
                 row_idx,
@@ -408,7 +407,6 @@ impl<W: LayoutElement> Monitor<W> {
         }
 
         // Debug logging: record this specific window's render-space position after camera offset.
-        // DBG[BUG_alacritty_invisible_CHASE_001]: TRACE[2] - tile render position for new window
         let mut logged_tile = false;
         for (tile, pos, is_active) in self.canvas.tiles_with_render_positions() {
             if tile.window().id() == &window_id {

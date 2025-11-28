@@ -4530,40 +4530,34 @@ impl Niri {
                     .map(OutputRenderElements::from),
             );
 
-            // TODO: TEAM_023: Update workspace-specific rendering for Canvas2D
-            // The old workspace-based iteration needs to be adapted
-            for _element in &monitor_elements {
-                // Collect all other layer-shell elements.
-                let mut layer_elems = SplitElements::default();
-                extend_from_layer(&mut layer_elems, Layer::Bottom, false);
-                extend_from_layer(&mut layer_elems, Layer::Background, false);
+            // TEAM_048: Fixed Canvas2D rendering - monitor_elements must be added to output
+            // Collect layer-shell elements that go below windows
+            let mut layer_elems = SplitElements::default();
+            extend_from_layer(&mut layer_elems, Layer::Bottom, false);
+            extend_from_layer(&mut layer_elems, Layer::Background, false);
 
-                // TODO: TEAM_023: Fix workspace-specific element rendering
-                // These need to be adapted for Canvas2D layout
-                /*
-                elements.extend(
-                    layer_elems
-                        .popups
-                        .into_iter()
-                        .filter_map(|elem| scale_relocate_crop(elem, output_scale, zoom, ws_geo))
-                        .map(OutputRenderElements::from),
-                );
+            // Add layer popups first (they go on top of windows)
+            elements.extend(
+                layer_elems
+                    .popups
+                    .into_iter()
+                    .map(OutputRenderElements::from),
+            );
 
-                elements.extend(ws_elements.into_iter().map(OutputRenderElements::from));
+            // Add the monitor/canvas elements (contains window tiles)
+            elements.extend(
+                monitor_elements
+                    .into_iter()
+                    .map(OutputRenderElements::from),
+            );
 
-                elements.extend(
-                    layer_elems
-                        .normal
-                        .into_iter()
-                        .filter_map(|elem| scale_relocate_crop(elem, output_scale, zoom, ws_geo))
-                        .map(OutputRenderElements::from),
-                );
-
-                elements.push(OutputRenderElements::from(ws_background));
-                */
-            }
-
-        // workspace_shadow_elements removed - no longer exist
+            // Add normal layer-shell elements (background layers)
+            elements.extend(
+                layer_elems
+                    .normal
+                    .into_iter()
+                    .map(OutputRenderElements::from),
+            );
         }
 
         // Then the backdrop.
