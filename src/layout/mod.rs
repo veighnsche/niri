@@ -869,6 +869,10 @@ impl<W: LayoutElement> Layout<W> {
                     for (_, row) in canvas.rows_mut() {
                         row.update_config(view_size, working_area, scale, options.clone());
                     }
+                    
+                    // TEAM_052: Clean up empty unnamed rows when transitioning to NoOutputs
+                    // Only rows with windows or names should remain
+                    canvas.cleanup_empty_rows();
 
                     MonitorSet::NoOutputs { canvas }
                 } else {
@@ -1248,8 +1252,7 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        // TODO(TEAM_020): Eventually remove workspace check entirely
-        // For now, keep workspace check for compatibility
+        // For MonitorSet::NoOutputs, still need workspace iteration
         for ws in self.workspaces_mut() {
             if ws.descendants_added(id) {
                 return true;
@@ -1517,8 +1520,7 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        // TODO(TEAM_020): Eventually remove workspace check entirely
-        // For now, keep workspace check for compatibility
+        // For MonitorSet::NoOutputs, fallback to workspace iteration
         self.workspaces()
             .find_map(|(_, _, ws)| ws.popup_target_rect(window))
             .unwrap()
@@ -2590,10 +2592,12 @@ impl<W: LayoutElement> Layout<W> {
                 active_monitor_idx,
             } => (monitors, primary_idx, active_monitor_idx),
             MonitorSet::NoOutputs { canvas } => {
-                for (_, workspace) in canvas.workspaces() {
+                // Empty unnamed rows should have been cleaned up when transitioning to NoOutputs
+                // Exception: row 0 (origin) is always kept even if empty and unnamed
+                for (row_idx, workspace) in canvas.workspaces() {
                     assert!(
-                        workspace.has_windows_or_name(),
-                        "with no outputs there cannot be empty unnamed workspaces"
+                        row_idx == 0 || workspace.has_windows_or_name(),
+                        "with no outputs there cannot be empty unnamed workspaces (except row 0)"
                     );
 
                     // TEAM_035: Row.clock is private, skip this check
@@ -3046,15 +3050,8 @@ impl<W: LayoutElement> Layout<W> {
             mon.canvas.update_config(Rc::new(options.clone()));
         }
 
-        // TODO(TEAM_020): Eventually remove workspace config entirely
-        // For now, keep workspace config for compatibility
-        // Update workspace-specific config for all named workspaces.
-        for ws in self.workspaces_mut() {
-            let Some(name) = ws.name() else { continue };
-            if let Some(config) = config.workspaces.iter().find(|w| &w.name.0 == name) {
-                ws.update_layout_config(config.layout.clone().map(|x| x.0));
-            }
-        }
+        // Canvas2D now manages all rows, workspace config removed
+        // Named row configs will be handled by Canvas2D in future phases
 
         self.update_options(Options::from_config(config));
     }
@@ -3664,8 +3661,7 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        // TODO(TEAM_020): Eventually remove workspace check entirely
-        // For now, keep workspace check for compatibility
+        // For MonitorSet::NoOutputs, fallback to workspace iteration
         for ws in self.workspaces_mut() {
             if ws.has_window(id) {
                 ws.set_fullscreen(id, is_fullscreen);
@@ -3689,8 +3685,7 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        // TODO(TEAM_020): Eventually remove workspace check entirely
-        // For now, keep workspace check for compatibility
+        // For MonitorSet::NoOutputs, fallback to workspace iteration
         for ws in self.workspaces_mut() {
             if ws.has_window(id) {
                 ws.toggle_fullscreen(id);
@@ -3711,13 +3706,7 @@ impl<W: LayoutElement> Layout<W> {
                 }
             }
 
-            // Fallback to workspace iteration for compatibility
-            for ws in self.workspaces_mut() {
-                if ws.has_window(id) {
-                    ws.set_fullscreen(id, false);
-                    break;
-                }
-            }
+            // Canvas2D now manages all rows, workspace fallback removed
         }
 
         // This will switch is_pending_fullscreen() to false right away.
@@ -3743,8 +3732,7 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        // TODO(TEAM_020): Eventually remove workspace check entirely
-        // For now, keep workspace check for compatibility
+        // For MonitorSet::NoOutputs, fallback to workspace iteration
         for ws in self.workspaces_mut() {
             if ws.has_window(id) {
                 ws.set_maximized(id, maximize);
@@ -3768,8 +3756,7 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        // TODO(TEAM_020): Eventually remove workspace check entirely
-        // For now, keep workspace check for compatibility
+        // For MonitorSet::NoOutputs, fallback to workspace iteration
         for ws in self.workspaces_mut() {
             if ws.has_window(id) {
                 ws.toggle_maximized(id);

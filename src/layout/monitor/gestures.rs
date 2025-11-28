@@ -139,12 +139,12 @@ impl<W: LayoutElement> Monitor<W> {
         velocity *= rubber_band.clamp_derivative(min, max, gesture.start_idx + current_pos);
 
         if current_active_idx != new_idx {
-            // TODO: TEAM_024: Get workspace ID from canvas row
-            // self.previous_workspace_id = Some(self.canvas.workspaces()[self.active_workspace_idx()].id());
+            // Canvas2D.focus_row() already tracks previous_row_idx internally
+            // No need to manually track previous_workspace_id
         }
 
-        // TODO: TEAM_024: Set active workspace index in canvas
-        // self.active_workspace_idx = new_idx;
+        // Set active row in canvas - this handles camera animation and tracking
+        self.canvas.focus_row(new_idx as i32);
         self.workspace_switch = Some(WorkspaceSwitch::Animation(Animation::new(
             self.clock.clone(),
             gesture.current_idx,

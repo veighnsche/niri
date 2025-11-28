@@ -25,8 +25,12 @@ impl<W: LayoutElement> Monitor<W> {
             if options.layout.empty_workspace_above_first {
                 self.add_workspace_top();
             } else if self.workspace_switch.is_none() && self.active_workspace_idx() != 0 {
-                // TODO: TEAM_024: Implement row removal in canvas
-                // self.canvas.remove_row(0);
+                // Remove row 0 only if it's empty and unnamed
+                if let Some(row) = self.canvas.row(0) {
+                    if row.is_empty() && row.name().is_none() {
+                        self.canvas.remove_row(0);
+                    }
+                }
             }
         }
 
