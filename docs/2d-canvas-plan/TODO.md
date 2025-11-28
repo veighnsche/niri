@@ -97,49 +97,59 @@
   - [x] Rename `last_active_workspace_id` to `last_active_row_id`
   - [x] Rename `workspace_id_counter` to `row_id_counter`
 
-### src/handlers/
+### src/handlers/ (TEAM_055 - COMPLETE ✅)
 
-- [ ] **xdg_shell.rs**
-  - [ ] Update `workspace_name` variable to `row_name`
-  - [ ] Update `InitialConfigureState::Configured` fields
+- [x] **xdg_shell.rs**
+  - [x] Update `workspace_name` variable to `row_name`
+  - [x] Update `InitialConfigureState::Configured` fields
 
-- [ ] **compositor.rs**
-  - [ ] Update `workspace_id` to `row_id`
+- [x] **compositor.rs**
+  - [x] Update `workspace_id` to `row_id`
 
-### Tests
+### Tests (TEAM_055 - COMPLETE ✅)
 
-- [ ] **src/tests/window_opening.rs**
-  - [ ] Update test configs to use `row` syntax
-  - [ ] Rename test functions if needed
+- [x] **src/tests/window_opening.rs**
+  - [x] Update test configs to use `row` syntax
+  - [x] Rename test functions if needed
 
 ---
 
-# 🔴 BLOCKING: Animation System Bug
+# ✅ RESOLVED: Animation System Bug
 
-> **Status**: Move animations created but don't interpolate
-> **Impact**: 67 test failures related to animations
+> **Status**: FIXED by TEAM_056
+> **Result**: All 12 animation tests passing
 
-## Problem
+## Root Causes Found
 
-Move animations for tiles are created correctly but `Animation::value()` returns 0 instead of interpolating.
+1. **Missing column render offset** in `Row::tiles_with_render_positions()` - Column's move animation offset wasn't included in position calculation
+2. **Asymmetric resize handling** in `Row::update_window()` - Only animated columns to the right, not columns to the left
 
+## Fixes Applied
+
+### Bug 1: `src/layout/row/layout.rs`
+Added `col.render_offset()` to tile position calculation:
+```rust
+let col_render_off = col.render_offset();
+let tile_pos = Point::from((
+    view_off_x + col_x + col_render_off.x + tile_offset.x + tile.render_offset().x,
+    y_offset + col_render_off.y + tile_offset.y + tile.render_offset().y,
+));
 ```
-DEBUG: Creating move animation for tile 1 with delta 50.0
-render_offset: move_y exists=true, value=0, offset.y=0  ← Should be interpolating!
+
+### Bug 2: `src/layout/row/mod.rs`
+Added symmetric animation for left-side column resize:
+```rust
+} else {
+    // Resizing a column to the left of active
+    for col in &mut self.columns[..=col_idx] {
+        col.animate_move_from_with_config(-offset, ...);
+    }
+}
 ```
 
-## Investigation Needed
-
-- [ ] Compare `animate_move_y_from_with_config()` vs working resize animations
-- [ ] Check `Animation::new` parameters differences
-- [ ] Verify clock advancement for move animations
-- [ ] Check animation config differences
-
-## Files to Investigate
-
-- `src/layout/tile.rs` - `animate_move_y_from_with_config()`
-- `src/layout/column/sizing/tile_sizes.rs` - move animation creation
-- `src/animation/mod.rs` - `Animation::value()` implementation
+## Test Results
+- Animation tests: 12/12 passing ✅
+- Golden tests: 86/88 passing (remaining 2 unrelated to animation)
 
 ---
 

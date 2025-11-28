@@ -1495,12 +1495,23 @@ impl<W: LayoutElement> Row<W> {
 
         let offset = prev_width - self.data[col_idx].width;
 
-        // Move other columns in tandem with resizing
+        // TEAM_056: Move columns in tandem with resizing
+        // When a column to the LEFT of active is resized, animate columns to the left
+        // When a column at/after active is resized, animate columns to the right
         if offset != 0. {
             if self.active_column_idx <= col_idx {
                 for col in &mut self.columns[col_idx + 1..] {
                     col.animate_move_from_with_config(
                         offset,
+                        self.options.animations.window_resize.anim,
+                    );
+                }
+            } else {
+                // Resizing a column to the left of active - animate columns to the left
+                // including the resized column itself
+                for col in &mut self.columns[..=col_idx] {
+                    col.animate_move_from_with_config(
+                        -offset,
                         self.options.animations.window_resize.anim,
                     );
                 }

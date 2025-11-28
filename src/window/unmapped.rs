@@ -65,8 +65,9 @@ pub enum InitialConfigureState {
         ///   should fetch the parent's current output again upon mapping.
         output: Option<Output>,
 
-        /// Workspace to open this window on.
-        workspace_name: Option<String>,
+        // TEAM_055: Renamed from workspace_name to row_name
+        /// Row to open this window on.
+        row_name: Option<String>,
 
         /// Whether the window should be maximized.
         ///

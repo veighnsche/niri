@@ -102,13 +102,14 @@ impl CompositorHandler for State {
                         "mapped new toplevel window",
                     );
 
+                    // TEAM_055: Renamed workspace_id to row_id, workspace_name to row_name
                     let (
                         rules,
                         width,
                         height,
                         is_full_width,
                         output,
-                        workspace_id,
+                        row_id,
                         is_pending_maximized,
                     ) = if let InitialConfigureState::Configured {
                         rules,
@@ -118,7 +119,7 @@ impl CompositorHandler for State {
                         floating_height: _,
                         is_full_width,
                         output,
-                        workspace_name,
+                        row_name,
                         is_pending_maximized,
                     } = state
                     {
@@ -126,10 +127,10 @@ impl CompositorHandler for State {
                         let output =
                             output.filter(|o| self.niri.layout.monitor_for_output(o).is_some());
 
-                        // Check that the workspace still exists.
-                        let workspace_id = workspace_name
+                        // Check that the row still exists.
+                        let row_id = row_name
                             .as_deref()
-                            .and_then(|n| self.niri.layout.find_workspace_by_name(n))
+                            .and_then(|n| self.niri.layout.find_row_by_name(n))
                             .map(|(_, ws)| ws.id());
 
                         (
@@ -138,7 +139,7 @@ impl CompositorHandler for State {
                             height,
                             is_full_width,
                             output,
-                            workspace_id,
+                            row_id,
                             is_pending_maximized,
                         )
                     } else {
@@ -212,7 +213,8 @@ impl CompositorHandler for State {
                     let target = if let Some(p) = &parent {
                         // Open dialogs next to their parent window.
                         AddWindowTarget::NextTo(p)
-                    } else if let Some(id) = workspace_id {
+                    // TEAM_055: Renamed from workspace_id to row_id
+                    } else if let Some(id) = row_id {
                         AddWindowTarget::Workspace(id)
                     } else if let Some(output) = &output {
                         AddWindowTarget::Output(output)

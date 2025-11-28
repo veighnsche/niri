@@ -522,12 +522,13 @@ impl XdgShellHandler for State {
                     floating_height,
                     is_full_width,
                     output,
-                    workspace_name,
+                    // TEAM_055: Renamed from workspace_name to row_name
+                    row_name,
                     is_pending_maximized,
                 } => {
                     // Figure out the monitor following a similar logic to initial configure.
                     // FIXME: deduplicate.
-                    let mon = workspace_name
+                    let mon = row_name
                         .as_deref()
                         .and_then(|name| self.niri.layout.monitor_for_workspace(name))
                         .map(|mon| (mon, false));
@@ -562,7 +563,7 @@ impl XdgShellHandler for State {
                         .map(|(mon, _)| mon.output().clone());
                     let mon = mon.map(|(mon, _)| mon);
 
-                    let ws = workspace_name
+                    let ws = row_name
                         .as_deref()
                         .and_then(|name| mon.map(|mon| mon.find_named_workspace(name)))
                         .unwrap_or_else(|| {
@@ -725,6 +726,7 @@ impl XdgShellHandler for State {
 
                     // The required configure will be the initial configure.
                 }
+                // TEAM_055: Renamed from workspace_name to row_name
                 InitialConfigureState::Configured {
                     rules,
                     width,
@@ -733,12 +735,12 @@ impl XdgShellHandler for State {
                     floating_height,
                     is_full_width,
                     output,
-                    workspace_name,
+                    row_name,
                     is_pending_maximized,
                 } => {
                     // Figure out the monitor following a similar logic to initial configure.
                     // FIXME: deduplicate.
-                    let mon = workspace_name
+                    let mon = row_name
                         .as_deref()
                         .and_then(|name| self.niri.layout.monitor_for_workspace(name))
                         .map(|mon| (mon, false));
@@ -773,7 +775,7 @@ impl XdgShellHandler for State {
                         .map(|(mon, _)| mon.output().clone());
                     let mon = mon.map(|(mon, _)| mon);
 
-                    let ws = workspace_name
+                    let ws = row_name
                         .as_deref()
                         .and_then(|name| mon.map(|mon| mon.find_named_workspace(name)))
                         .unwrap_or_else(|| {
@@ -1166,6 +1168,7 @@ impl State {
         update_tiled_state(toplevel, config.prefer_no_csd, rules.tiled_state);
 
         // Set the configured settings.
+        // TEAM_055: Renamed from workspace_name to row_name
         *state = InitialConfigureState::Configured {
             rules,
             width,
@@ -1174,7 +1177,7 @@ impl State {
             floating_height,
             is_full_width,
             output,
-            workspace_name: ws.and_then(|w| w.name().map(|s| s.to_string())),
+            row_name: ws.and_then(|w| w.name().map(|s| s.to_string())),
             is_pending_maximized,
         };
 

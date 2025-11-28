@@ -84,3 +84,21 @@ Successfully migrated all workspace-related config terminology to row-based term
 - src/input/spatial_movement_grab.rs
 - src/ipc/server.rs
 - src/handlers/mod.rs
+
+### src/handlers/ Changes (Phase 3)
+1. **xdg_shell.rs**: Updated `InitialConfigureState::Configured` field
+   - `workspace_name` → `row_name` in all pattern matches
+2. **compositor.rs**: Updated variable names
+   - `workspace_id` → `row_id`
+   - `workspace_name` → `row_name`
+   - Updated `find_workspace_by_name` call to `find_row_by_name`
+3. **window/unmapped.rs**: Updated struct field
+   - `workspace_name` → `row_name` in `InitialConfigureState::Configured`
+
+### Tests Changes (Phase 4)
+1. **src/tests/window_opening.rs**: Updated test configs and functions
+   - `workspace "ws-1" {}` → `row "ws-1" {}` in test config
+   - `workspace "ws-2" {}` → `row "ws-2" {}` in test config
+   - `target_output_and_workspaces()` → `target_output_and_rows()`
+   - `check_target_output_and_workspace()` → `check_target_output_and_row()`
+   - `final workspace:` → `final row:` in snapshot output

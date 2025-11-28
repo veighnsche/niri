@@ -676,7 +676,7 @@ impl<W: LayoutElement> Layout<W> {
     /// TEAM_055: Renamed from next_workspace_id to next_row_id
     pub fn next_row_id(&mut self) -> WorkspaceId {
         self.row_id_counter += 1;
-        WorkspaceId(self.row_id_counter)
+        RowId(self.row_id_counter)
     }
 
     pub fn with_options(clock: Clock, options: Options) -> Self {
@@ -690,7 +690,7 @@ impl<W: LayoutElement> Layout<W> {
         let scale = 1.0;
 
         // Generate unique workspace ID for the initial row
-        let initial_workspace_id = WorkspaceId(1);
+        let initial_workspace_id = RowId(1);
         
         let canvas = crate::layout::canvas::Canvas2D::new(
             None,
@@ -729,7 +729,7 @@ impl<W: LayoutElement> Layout<W> {
         let scale = 1.0;
 
         // Generate unique workspace ID for the initial row
-        let initial_workspace_id = WorkspaceId(1);
+        let initial_workspace_id = RowId(1);
         
         let canvas = crate::layout::canvas::Canvas2D::new(
             None,
@@ -1345,6 +1345,11 @@ impl<W: LayoutElement> Layout<W> {
         }
 
         None
+    }
+
+    // TEAM_056: Backwards compatibility alias for find_row_by_name
+    pub fn find_workspace_by_name(&self, name: &str) -> Option<(i32, &crate::layout::row::Row<W>)> {
+        self.find_row_by_name(name)
     }
 
     // TEAM_055: Renamed from find_workspace_by_name to find_row_by_name
@@ -5149,7 +5154,7 @@ impl<W: LayoutElement> Default for MonitorSet<W> {
             1.0,
             clock,
             options,
-            WorkspaceId(1),
+            RowId(1),
         );
         
         Self::NoOutputs { canvas }

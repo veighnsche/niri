@@ -162,7 +162,8 @@ impl fmt::Display for DefaultSize {
 }
 
 #[test]
-fn target_output_and_workspaces() {
+// TEAM_055: Renamed from target_output_and_workspaces to target_output_and_rows
+fn target_output_and_rows() {
     store_and_increase_nofile_rlimit();
 
     // Here we test a massive powerset of settings that can affect where a window opens:
@@ -212,11 +213,12 @@ fn target_output_and_workspaces() {
     }
 
     powerset.into_par_iter().for_each(|(ws, out, fs, wfs, sp)| {
-        check_target_output_and_workspace(ws, out, fs, wfs, sp);
+        check_target_output_and_row(ws, out, fs, wfs, sp);
     });
 }
 
-fn check_target_output_and_workspace(
+// TEAM_055: Renamed from check_target_output_and_workspace to check_target_output_and_row
+fn check_target_output_and_row(
     // TEAM_055: Renamed from open_on_workspace to open_on_row
     open_on_row: Option<&str>,
     open_on_output: Option<&str>,
@@ -237,11 +239,12 @@ output "headless-2" {
     }
 }
 
-workspace "ws-1" {
+// TEAM_055: Renamed from workspace to row
+row "ws-1" {
     open-on-output "headless-1"
 }
 
-workspace "ws-2" {
+row "ws-2" {
     open-on-output "headless-2"
 
     layout {
@@ -420,10 +423,11 @@ window-rule {{
         );
     }
 
+    // TEAM_055: Renamed from workspace to row in snapshot output
     let snapshot = format!(
         "\
 final monitor: {mon}
-final workspace: {ws_idx} ({ws})
+final row: {ws_idx} ({ws})
 
 initial configure:
 {initial}
