@@ -51,10 +51,10 @@
 | `move_to_workspace()` | `move_to_row()` | ✅ Done |
 | `move_to_workspace_up()` | `move_to_row_up()` | ✅ Done |
 | `move_to_workspace_down()` | `move_to_row_down()` | ✅ Done |
-| `move_column_to_workspace()` | `move_column_to_row()` | ⏳ Pending |
-| `focus_workspace()` | `focus_row()` | ⏳ Pending |
-| `focus_workspace_up()` | `focus_row_up()` | ⏳ Pending |
-| `focus_workspace_down()` | `focus_row_down()` | ⏳ Pending |
+| `move_column_to_workspace()` | `move_column_to_row()` | ✅ Done |
+| `focus_workspace()` | `focus_row()` | ✅ Done |
+| `focus_workspace_up()` | `focus_row_up()` | ✅ Done |
+| `focus_workspace_down()` | `focus_row_down()` | ✅ Done |
 | `active_workspace()` | `active_row()` | ✅ Done |
 | `active_workspace_idx()` | `active_row_idx()` | ✅ Done |
 | `find_workspace_by_name()` | `find_row_by_name()` | ✅ Done |
@@ -109,9 +109,37 @@
 
 | Old Command | New Command | Status |
 |-------------|-------------|--------|
-| `focus-workspace` | `focus-row` OR `camera-goto` | ⏳ Pending |
-| `move-window-to-workspace` | `move-window-to-row` | ⏳ Pending |
-| `move-column-to-workspace` | `move-column-to-row` | ⏳ Pending |
+| `focus-workspace` | `focus-row` | ✅ Done (already migrated) |
+| `move-window-to-workspace` | `move-window-to-row` | ✅ Done (already migrated) |
+| `move-column-to-workspace` | `move-column-to-row` | ✅ Done (already migrated) |
+
+**⚠️ ADDITIONAL FINDINGS from IPC Audit:**
+
+#### IPC Events (NEEDS MIGRATION):
+- `WorkspacesChanged` → `RowsChanged` ⏳ Pending
+- `WorkspaceUrgencyChanged` → `RowUrgencyChanged` ⏳ Pending  
+- `WorkspaceActivated` → `RowActivated` ⏳ Pending
+- `WorkspaceActiveWindowChanged` → `RowActiveWindowChanged` ⏳ Pending
+
+#### IPC State Structures (NEEDS MIGRATION):
+- `Workspace` struct → `Row` struct ⏳ Pending
+- `WorkspacesState` → `RowsState` ⏳ Pending
+- `Request::Workspaces` → `Request::Rows` ⏳ Pending
+
+#### Protocol Implementation (🛑 DEFERRED - See Critical Analysis):
+- ✅ **Protocol Specification**: `ext_row_v1.xml` - designed for TARGET Canvas2D
+- ✅ **Core Trait Definitions**: `ExtRowHandler` trait and core types
+- ✅ **Manager Implementation**: Basic protocol state management
+- 🛑 **DEFERRED**: Full implementation blocked until zoom/bookmarks exist
+
+**Why Deferred?**: The ext-row protocol is designed for Canvas2D with zoom and bookmarks.
+Current Canvas2D behaves like workspaces (one row visible at a time). The protocol should
+wait until the compositor actually supports what the protocol exposes.
+
+**Current Plan**: Keep ext-workspace protocol (rows ≈ workspaces) until Phase 3-4 complete.
+
+**See**: `.teams/TEAM_060_ext_row_protocol_design.md` for complete design
+**See**: Critical Analysis section above for rationale
 
 ### 9. Config Options (niri-config/)
 
@@ -133,6 +161,307 @@
 | `camera-bookmark-goto` IPC | Jump to bookmark | ⏳ Pending |
 | `Mod+1/2/3` bindings | Jump to bookmark | ⏳ Pending |
 | `Mod+Shift+1/2/3` bindings | Save bookmark | ⏳ Pending |
+
+---
+
+# 🔍 CRITICAL ANALYSIS: Canvas2D vs Workspaces (TEAM_060)
+
+> **Key Insight**: Canvas2D is NOT a renamed workspace system!
+> It's a fundamentally different architecture.
+
+## 🏗️ Architectural Difference (THE CORE INSIGHT)
+
+```
+WORKSPACES (Old Architecture)
+============================
+┌──────────────────────────────────────────────────────────────┐
+│                        OUTPUT                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐           │
+│  │ WORKSPACE 1 │  │ WORKSPACE 2 │  │ WORKSPACE 3 │   ...     │
+│  │             │  │             │  │             │           │
+│  │ [isolated]  │  │ [isolated]  │  │ [isolated]  │           │
+│  │ [separate]  │  │ [separate]  │  │ [separate]  │           │
+│  │ [container] │  │ [container] │  │ [container] │           │
+│  └─────────────┘  └─────────────┘  └─────────────┘           │
+│        ↑                                                      │
+│    VISIBLE                                                    │
+│  (only ONE at a time)                                         │
+│                                                               │
+│  User "switches" between workspaces: Mod+1, Mod+2, Mod+3      │
+└──────────────────────────────────────────────────────────────┘
+
+CANVAS2D (New Architecture)  
+===========================
+┌──────────────────────────────────────────────────────────────┐
+│                        OUTPUT                                 │
+│  ┌──────────────────────────────────────────────────────────┐│
+│  │                    ONE INFINITE CANVAS                    ││
+│  │                                                           ││
+│  │  ROW 0 ─────────────────────────────────────────────────  ││
+│  │  │ Col A │ Col B │ Col C │ ...     (ScrollingSpace)       ││
+│  │  ─────────────────────────────────────────────────────────││
+│  │  ROW 1 ─────────────────────────────────────────────────  ││
+│  │  │ Col D │ Col E │ ... │           (ScrollingSpace)       ││
+│  │  ─────────────────────────────────────────────────────────││
+│  │  ROW 2 ─────────────────────────────────────────────────  ││
+│  │  │ Col F │ ... │                   (ScrollingSpace)       ││
+│  │  ─────────────────────────────────────────────────────────││
+│  │           ↑                                               ││
+│  │      CAMERA VIEWPORT                                      ││
+│  │      (can see MULTIPLE rows at once via zoom)             ││
+│  │                                                           ││
+│  └──────────────────────────────────────────────────────────┘│
+│                                                               │
+│  User PANS and ZOOMS the camera: no "switching"               │
+│  Mod+1/2/3 = Jump to saved camera BOOKMARK (x, y, zoom)       │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## 📐 What Each Component Actually Is
+
+| Component | Definition | Equivalent |
+|-----------|------------|------------|
+| **Row** | A horizontal ScrollingSpace with columns | `Row = ScrollingSpace` |
+| **Canvas2D** | Multiple stacked Rows on one surface | `Canvas2D = Stack of Rows` |
+| **Camera** | Viewport with (x, y, zoom) into Canvas | New concept |
+| **Bookmark** | Saved camera position (x, y, zoom) | Replaces workspace numbers |
+
+### The Key Equation
+
+```
+Canvas2D = Row₀ + Row₁ + Row₂ + ... + Rowₙ   (stacked vertically)
+
+Where:
+  Row = ScrollingSpace (horizontal layout of columns)
+  Camera = (x, y, zoom) viewport into the canvas
+  
+User Experience:
+  - Zoom OUT → see multiple rows simultaneously
+  - Zoom IN → see one row (like current behavior)
+  - Pan → move camera across the infinite canvas
+  - Bookmark → save (x, y, zoom) for quick jumps
+```
+
+## ✅ What's Already Implemented
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **Row struct** | ✅ Done | Equivalent to ScrollingSpace |
+| **Canvas2D with multiple rows** | ✅ Done | BTreeMap<i32, Row> storage |
+| **Row navigation** | ✅ Done | focus_up/down between rows |
+| **Camera X, Y** | ✅ Done | AnimatedValue for position |
+| **Terminology** | ✅ Done | workspace → row renames |
+
+## ❌ What's NOT Yet Implemented (CRITICAL!)
+
+### 1. Camera Zoom (Phase 4) - **THE DIFFERENTIATOR**
+
+Without zoom, Canvas2D is functionally identical to workspaces!
+
+```rust
+// Currently in Canvas2D:
+pub struct Canvas2D<W> {
+    camera_x: AnimatedValue,  // ✅ Exists
+    camera_y: AnimatedValue,  // ✅ Exists
+    // camera_zoom: AnimatedValue,  // ❌ MISSING!
+}
+
+// Required:
+pub struct Canvas2D<W> {
+    camera: Camera,  // x, y, AND zoom
+}
+
+pub struct Camera {
+    x: AnimatedValue,
+    y: AnimatedValue,
+    zoom: AnimatedValue,  // 1.0 = normal, 0.5 = see 2 rows
+}
+```
+
+**Why zoom matters**: 
+- At zoom 1.0: See 1 row (like workspaces)
+- At zoom 0.5: See 2 rows at once
+- At zoom 0.25: See 4 rows at once
+- This is the FUNDAMENTAL difference from workspaces!
+
+### 2. Zoom-Based Visibility
+
+```rust
+impl Canvas2D {
+    /// Which rows are currently visible in the viewport?
+    fn visible_rows(&self) -> Vec<i32> {
+        let viewport_height = self.view_size.h / self.camera.zoom();
+        // Calculate which rows intersect the viewport...
+    }
+    
+    /// What area of the canvas is visible?
+    fn visible_area(&self) -> Rectangle {
+        let w = self.view_size.w / self.camera.zoom();
+        let h = self.view_size.h / self.camera.zoom();
+        Rectangle::from_loc_and_size(
+            (self.camera.x() - w/2, self.camera.y() - h/2),
+            (w, h)
+        )
+    }
+}
+```
+
+### 3. Zoom Controls (Phase 4)
+
+| Shortcut | Action |
+|----------|--------|
+| `Mod+Scroll` | Zoom in/out |
+| `Mod+0` | Reset zoom to 100% |
+| `Mod+=` | Zoom to fit focused window |
+| `Mod+Shift+=` | Zoom to fit all windows |
+
+### 4. Camera Bookmarks (Phase 5)
+
+```rust
+pub struct CameraBookmark {
+    x: f64,           // Camera X position
+    y: f64,           // Camera Y position  
+    zoom: f64,        // Zoom level
+    row_name: Option<String>,  // Optional row reference
+    name: Option<String>,      // User label
+}
+
+// User actions:
+// Mod+Shift+1 → save_bookmark(1) - save current (x, y, zoom)
+// Mod+1 → goto_bookmark(1) - animate camera to saved position
+```
+
+### 5. Row Spanning (Phase 3)
+
+```rust
+pub struct Tile<W> {
+    row_span: u8,  // 1 = normal, 2+ = spans multiple rows
+}
+
+// A window can span multiple rows vertically:
+// ┌─────────────────────────────────────┐
+// │ ROW 0:  [App A] [App B] [ BIG APP ] │
+// │ ROW 1:  [App C] [App D] [   ↑↑↑   ] │  ← BIG APP spans 2 rows
+// │ ROW 2:  [App E] ...                 │
+// └─────────────────────────────────────┘
+```
+
+### 6. Zoom-Based Rendering
+
+```rust
+impl Canvas2D {
+    fn render_elements(&self) -> Vec<RenderElement> {
+        let zoom = self.camera.zoom();
+        let visible = self.visible_area();
+        
+        // Only render rows that are visible
+        for row in self.rows_in_area(visible) {
+            // Scale all elements by zoom factor
+            let elements = row.render_elements()
+                .map(|e| e.scaled(zoom));
+            // Transform positions relative to camera
+            // ...
+        }
+    }
+}
+```
+
+## 📋 Complete Canvas2D Requirements Checklist
+
+### Phase 3: Row Spanning
+- [ ] Add `row_span: u8` to Tile
+- [ ] Compute tile height as `row_span * row_height`
+- [ ] Handle occupied positions across rows
+- [ ] Navigation respects spanning tiles
+- [ ] Actions: `increase-row-span`, `decrease-row-span`, `set-row-span N`
+
+### Phase 4: Camera System  
+- [ ] Add `camera_zoom: AnimatedValue` to Camera
+- [ ] Implement `visible_rows()` based on zoom
+- [ ] Implement `visible_area()` based on zoom
+- [ ] Zoom rendering: scale all elements by zoom factor
+- [ ] Input transform: convert screen coords to canvas coords at any zoom
+- [ ] Actions: `zoom-in`, `zoom-out`, `zoom-reset`, `zoom-to-fit`
+- [ ] Keybinds: `Mod+Scroll`, `Mod+0`, `Mod+=`
+- [ ] Auto-zoom: focus spanning tile → zoom to fit its span
+- [ ] Config: `camera-movement` and `camera-zoom` animation settings
+
+### Phase 5: Camera Bookmarks
+- [ ] Add `CameraBookmark` struct with (x, y, zoom, row_name?, name?)
+- [ ] Add `bookmarks: Vec<CameraBookmark>` to Canvas2D (10 slots)
+- [ ] Implement `save_bookmark(slot)` - save current camera state
+- [ ] Implement `goto_bookmark(slot)` - animate camera to saved position
+- [ ] Actions: `save-bookmark N`, `jump-to-bookmark N`, `delete-bookmark N`
+- [ ] Keybinds: `Mod+1/2/3...` = jump, `Mod+Shift+1/2/3...` = save
+- [ ] IPC: `niri msg bookmarks`, `niri msg jump-to-bookmark N`
+- [ ] Optional: persist bookmarks to state file
+
+### Phase 6: Protocol (AFTER above phases)
+- [ ] Update ext-workspace to expose camera state
+- [ ] Add camera movement events
+- [ ] Add bookmark events
+- [ ] Eventually: full ext-row protocol migration
+
+---
+
+## Current Implementation Status
+
+**What's Done**: Terminology, Row struct, basic navigation
+**What's Missing**: Zoom, bookmarks, row spanning - the features that MAKE Canvas2D different!
+
+---
+
+# 🎯 UPDATED PRIORITY ORDER (TEAM_060)
+
+## Phase 1: Terminology Cleanup ✅ MOSTLY COMPLETE
+- ✅ Internal type renames
+- ✅ Internal method renames  
+- 🔄 Remaining cleanup (see sections above)
+
+## Phase 2: Camera System (CRITICAL PATH)
+> **This is what makes Canvas2D actually different from workspaces!**
+
+| Task | Status | Priority |
+|------|--------|----------|
+| Add `camera_zoom: AnimatedValue` to Canvas2D | ⏳ Pending | 🔴 HIGH |
+| Implement `visible_rows()` based on zoom | ⏳ Pending | 🔴 HIGH |
+| Add zoom rendering (scale all elements) | ⏳ Pending | 🔴 HIGH |
+| Add `Mod+Scroll` zoom gesture | ⏳ Pending | 🟡 MEDIUM |
+| Add `Mod+0` reset zoom | ⏳ Pending | 🟡 MEDIUM |
+| Add `Mod+=` zoom to fit focused | ⏳ Pending | 🟡 MEDIUM |
+
+## Phase 3: Camera Bookmarks
+> **This replaces workspace switching entirely!**
+
+| Task | Status | Priority |
+|------|--------|----------|
+| Create `CameraBookmark` struct | ⏳ Pending | 🔴 HIGH |
+| Add bookmark storage to Canvas2D | ⏳ Pending | 🔴 HIGH |
+| Implement `save_bookmark(slot)` | ⏳ Pending | 🔴 HIGH |
+| Implement `goto_bookmark(slot)` | ⏳ Pending | 🔴 HIGH |
+| Add `Mod+1/2/3` goto bindings | ⏳ Pending | 🔴 HIGH |
+| Add `Mod+Shift+1/2/3` save bindings | ⏳ Pending | 🔴 HIGH |
+| IPC: `camera-bookmark-save` | ⏳ Pending | 🟡 MEDIUM |
+| IPC: `camera-bookmark-goto` | ⏳ Pending | 🟡 MEDIUM |
+
+## Phase 4: Protocol Migration  
+> **Only AFTER zoom and bookmarks work!**
+
+| Task | Status | Priority |
+|------|--------|----------|
+| Update ext-workspace to expose zoom | ⏳ Pending | 🟡 MEDIUM |
+| Add camera movement events | ⏳ Pending | 🟡 MEDIUM |
+| Add bookmark events | ⏳ Pending | 🟡 MEDIUM |
+| Full ext-row protocol migration | ⏳ Pending | 🟢 LOW |
+
+## Phase 5: Row Spanning (FUTURE)
+> **Advanced feature, can wait**
+
+| Task | Status | Priority |
+|------|--------|----------|
+| Add `row_span` to Tile | ⏳ Pending | 🟢 LOW |
+| Cross-row rendering | ⏳ Pending | 🟢 LOW |
+| Row span commands | ⏳ Pending | 🟢 LOW |
 
 ---
 

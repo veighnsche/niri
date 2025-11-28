@@ -1,0 +1,403 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="ext_row_v1">
+  <copyright>
+    Copyright © 2024 niri Contributors
+    
+    SPDX-License-Identifier: GPL-3.0-only
+    
+    This protocol is an alternative to ext-workspace-v1 designed for
+    Canvas2D-based compositors where rows are horizontal layout strips
+    within an infinite canvas, rather than discrete workspace containers.
+  </copyright>
+
+  <interface name="ext_row_manager_v1" version="1">
+    <description summary="manage rows and camera in a canvas">
+      The ext_row_manager interface allows clients to enumerate rows,
+      monitor camera state, and control navigation within a Canvas2D
+      layout system.
+      
+      Rows are horizontal layout strips within an infinite canvas.
+      The camera represents the current viewport with position and zoom.
+      
+      This interface is a complete redesign of ext_workspace_manager_v1
+      for Canvas2D architecture.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the row manager">
+        Destroy the row manager object. The manager becomes inert and
+        should be considered destroyed from the client's perspective.
+      </description>
+    </request>
+
+    <request name="commit">
+      <description summary="apply pending changes">
+        Apply pending row and camera changes. This request should be
+        sent after making multiple row or camera changes to apply them
+        atomically.
+      </description>
+    </request>
+
+    <request name="stop">
+      <description summary="stop receiving events">
+        Stop receiving events from the row manager. The manager will
+        not send any more events until commit is called again.
+      </description>
+    </request>
+
+    <!-- Row operations -->
+    <request name="focus_row">
+      <description summary="focus a specific row">
+        Focus the row with the given ID. If the row is not currently
+        visible in the camera viewport, the camera will pan to show it.
+      </description>
+      <arg name="row_id" type="uint" summary="row identifier"/>
+    </request>
+
+    <request name="focus_row_at">
+      <description summary="focus row at canvas coordinates">
+        Focus the row at the given canvas coordinates. If no row exists
+        at those coordinates, this request has no effect.
+      </description>
+      <arg name="x" type="fixed" summary="canvas X coordinate"/>
+      <arg name="y" type="fixed" summary="canvas Y coordinate"/>
+    </request>
+
+    <request name="set_row_name">
+      <description summary="set a row's name">
+        Set or change the name of a row. Row names are optional and
+        provide a stable identifier independent of row index.
+      </description>
+      <arg name="row_id" type="uint" summary="row identifier"/>
+      <arg name="name" type="string" allow-null="true" summary="new row name or null to unset"/>
+    </request>
+
+    <!-- Camera operations -->
+    <request name="set_camera_position">
+      <description summary="set camera position and zoom">
+        Set the camera to the exact position and zoom level.
+        The camera represents the current viewport into the canvas.
+      </description>
+      <arg name="x" type="fixed" summary="camera X position"/>
+      <arg name="y" type="fixed" summary="camera Y position"/>
+      <arg name="zoom" type="fixed" summary="camera zoom level"/>
+    </request>
+
+    <request name="move_camera_by">
+      <description summary="move camera relative to current position">
+        Move the camera by the given delta amounts relative to its
+        current position and zoom level.
+      </description>
+      <arg name="delta_x" type="fixed" summary="X movement delta"/>
+      <arg name="delta_y" type="fixed" summary="Y movement delta"/>
+      <arg name="delta_zoom" type="fixed" summary="zoom change delta"/>
+    </request>
+
+    <request name="center_camera_on_row">
+      <description summary="center camera on a row">
+        Move the camera to center the specified row in the viewport.
+        The current zoom level is preserved.
+      </description>
+      <arg name="row_id" type="uint" summary="row identifier"/>
+    </request>
+
+    <!-- Bookmark operations -->
+    <request name="create_bookmark">
+      <description summary="create a camera bookmark">
+        Create a bookmark at the current camera position with the
+        specified name. Bookmarks provide quick navigation to saved
+        camera positions.
+      </description>
+      <arg name="name" type="string" allow-null="true" summary="bookmark name or null for unnamed"/>
+      <arg name="x" type="fixed" summary="bookmark X position"/>
+      <arg name="y" type="fixed" summary="bookmark Y position"/>
+      <arg name="zoom" type="fixed" summary="bookmark zoom level"/>
+    </request>
+
+    <request name="remove_bookmark">
+      <description summary="remove a camera bookmark">
+        Remove the bookmark with the given ID.
+      </description>
+      <arg name="bookmark_id" type="uint" summary="bookmark identifier"/>
+    </request>
+
+    <request name="goto_bookmark">
+      <description summary="jump to a bookmark">
+        Move the camera to the position and zoom level of the
+        specified bookmark.
+      </description>
+      <arg name="bookmark_id" type="uint" summary="bookmark identifier"/>
+    </request>
+
+    <!-- High-level navigation -->
+    <request name="focus_row_up">
+      <description summary="focus the row above">
+        Focus the row above the currently focused row, if any.
+        The camera will pan as needed to show the focused row.
+      </description>
+    </request>
+
+    <request name="focus_row_down">
+      <description summary="focus the row below">
+        Focus the row below the currently focused row, if any.
+        The camera will pan as needed to show the focused row.
+      </description>
+    </request>
+
+    <!-- Events -->
+    <event name="row_created">
+      <description summary="a new row was created">
+        This event is sent when a new row is created in the canvas.
+      </description>
+      <arg name="row" type="new_id" interface="ext_row_handle_v1" summary="the new row"/>
+    </event>
+
+    <event name="row_activated">
+      <description summary="a row was activated">
+        This event is sent when a row becomes active on its output.
+        A row is active when it's the designated row for that output,
+        but may not be the globally focused row.
+      </description>
+      <arg name="row_id" type="uint" summary="row identifier"/>
+      <arg name="focused" type="bool" summary="whether this row is also globally focused"/>
+    </event>
+
+    <event name="row_urgency_changed">
+      <description summary="row urgency changed">
+        This event is sent when a row's urgency state changes due to
+        an urgent window appearing or disappearing on the row.
+      </description>
+      <arg name="row_id" type="uint" summary="row identifier"/>
+      <arg name="urgent" type="bool" summary="new urgency state"/>
+    </event>
+
+    <event name="row_active_window_changed">
+      <description summary="active window changed on a row">
+        This event is sent when the active window changes on a row.
+      </description>
+      <arg name="row_id" type="uint" summary="row identifier"/>
+      <arg name="window_id" type="object" summary="new active window ID or null"/>
+    </event>
+
+    <event name="camera_moved">
+      <description summary="camera position changed">
+        This event is sent when the camera position or zoom changes.
+        This may be due to user navigation, programmatic changes,
+        or automatic panning to follow focused content.
+      </description>
+      <arg name="x" type="fixed" summary="new camera X position"/>
+      <arg name="y" type="fixed" summary="new camera Y position"/>
+      <arg name="zoom" type="fixed" summary="new camera zoom level"/>
+    </event>
+
+    <event name="bookmark_created">
+      <description summary="a bookmark was created">
+        This event is sent when a new camera bookmark is created.
+      </description>
+      <arg name="bookmark_id" type="uint" summary="bookmark identifier"/>
+      <arg name="name" type="string" allow-null="true" summary="bookmark name"/>
+      <arg name="x" type="fixed" summary="bookmark X position"/>
+      <arg name="y" type="fixed" summary="bookmark Y position"/>
+      <arg name="zoom" type="fixed" summary="bookmark zoom level"/>
+    </event>
+
+    <event name="bookmark_removed">
+      <description summary="a bookmark was removed">
+        This event is sent when a camera bookmark is removed.
+      </description>
+      <arg name="bookmark_id" type="uint" summary="removed bookmark identifier"/>
+    </event>
+
+    <event name="canvas_layout_changed">
+      <description summary="canvas layout changed">
+        This event is sent when the overall canvas layout changes,
+        such as rows being reordered or major geometry changes.
+        Clients should refresh their understanding of the canvas.
+      </description>
+    </event>
+  </interface>
+
+  <interface name="ext_row_handle_v1" version="1">
+    <description summary="represents a row in the canvas">
+      A row handle represents a horizontal layout strip within the
+      Canvas2D. Rows contain windows and can be focused, but they
+      are not discrete containers like workspaces.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the row handle">
+        Destroy the row handle object. The handle becomes inert.
+      </description>
+    </request>
+
+    <!-- Row properties (sent once at creation) -->
+    <event name="id">
+      <description summary="row identifier">
+        The unique identifier for this row. This ID remains constant
+        for the lifetime of the row, even as the row moves within
+        the canvas.
+      </description>
+      <arg name="id" type="uint" summary="row identifier"/>
+    </event>
+
+    <event name="name">
+      <description summary="row name">
+        The optional name of this row. Named rows provide a stable
+        identifier independent of the row's index or position.
+      </description>
+      <arg name="name" type="string" allow-null="true" summary="row name or null if unnamed"/>
+    </event>
+
+    <event name="geometry">
+      <description summary="row geometry in canvas coordinates">
+        The geometry of this row relative to the canvas origin.
+        This represents the row's position and size within the
+        infinite canvas.
+      </description>
+      <arg name="x" type="fixed" summary="row X position in canvas"/>
+      <arg name="y" type="fixed" summary="row Y position in canvas"/>
+      <arg name="width" type="fixed" summary="row width"/>
+      <arg name="height" type="fixed" summary="row height"/>
+    </event>
+
+    <event name="state">
+      <description summary="row state">
+        The current state of this row, including focus, urgency,
+        and activation status.
+      </description>
+      <arg name="state" type="uint" summary="bitmask of row state flags"/>
+    </event>
+
+    <event name="window_count">
+      <description summary="number of windows in row">
+        The current number of windows in this row.
+      </description>
+      <arg name="count" type="uint" summary="window count"/>
+    </event>
+
+    <event name="active_window">
+      <description summary="active window on row">
+        The currently active window on this row, if any.
+      </description>
+      <arg name="window_id" type="object" allow-null="true" summary="active window ID or null"/>
+    </event>
+
+    <!-- State change events -->
+    <event name="geometry_changed">
+      <description summary="row geometry changed">
+        This event is sent when the row's geometry changes due to
+        canvas layout updates, window changes, or other factors.
+      </description>
+      <arg name="x" type="fixed" summary="new row X position"/>
+      <arg name="y" type="fixed" summary="new row Y position"/>
+      <arg name="width" type="fixed" summary="new row width"/>
+      <arg name="height" type="fixed" summary="new row height"/>
+    </event>
+
+    <event name="state_changed">
+      <description summary="row state changed">
+        This event is sent when the row's state changes.
+      </description>
+      <arg name="state" type="uint" summary="new row state bitmask"/>
+    </event>
+
+    <event name="window_count_changed">
+      <description summary="window count changed">
+        This event is sent when windows are added to or removed from
+        this row.
+      </description>
+      <arg name="count" type="uint" summary="new window count"/>
+    </event>
+
+    <event name="active_window_changed">
+      <description summary="active window changed">
+        This event is sent when the active window changes on this row.
+      </description>
+      <arg name="window_id" type="object" allow-null="true" summary="new active window ID or null"/>
+    </event>
+  </interface>
+
+  <interface name="ext_row_group_v1" version="1">
+    <description summary="represents an output's view of the canvas">
+      A row group represents an output's view into the Canvas2D.
+      Each output has its own camera position and zoom level, showing
+      a different viewport into the shared canvas.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy the row group">
+        Destroy the row group object. The group becomes inert.
+      </description>
+    </request>
+
+    <!-- Group properties -->
+    <event name="output">
+      <description summary="associated output">
+        The output associated with this row group.
+      </description>
+      <arg name="output" type="object" summary="output object"/>
+    </event>
+
+    <event name="camera">
+      <description summary="camera state">
+        The current camera state for this output's view of the canvas.
+      </description>
+      <arg name="x" type="fixed" summary="camera X position"/>
+      <arg name="y" type="fixed" summary="camera Y position"/>
+      <arg name="zoom" type="fixed" summary="camera zoom level"/>
+    </event>
+
+    <event name="visible_rows">
+      <description summary="rows visible in this viewport">
+        The rows that are currently visible in this output's viewport.
+        This list is dynamically updated as the camera moves.
+      </description>
+      <arg name="rows" type="array" summary="array of visible row handles"/>
+    </event>
+
+    <event name="camera_changed">
+      <description summary="camera state changed">
+        This event is sent when the camera for this output changes.
+      </description>
+      <arg name="x" type="fixed" summary="new camera X position"/>
+      <arg name="y" type="fixed" summary="new camera Y position"/>
+      <arg name="zoom" type="fixed" summary="new camera zoom level"/>
+    </event>
+
+    <event name="visible_rows_changed">
+      <description summary="visible rows changed">
+        This event is sent when the set of visible rows changes due
+        to camera movement or row geometry changes.
+      </description>
+      <arg name="rows" type="array" summary="new array of visible row handles"/>
+    </event>
+  </interface>
+
+  <!-- State flags for ext_row_handle_v1.state -->
+  <enum name="row_state">
+    <description summary="row state flags">
+      Bitmask of flags describing the current state of a row.
+    </description>
+    <entry name="active" value="0x1" summary="row is active on its output"/>
+    <entry name="focused" value="0x2" summary="row is globally focused"/>
+    <entry name="urgent" value="0x4" summary="row contains an urgent window"/>
+  </enum>
+
+  <!-- Capabilities for ext_row_handle_v1 -->
+  <enum name="row_capabilities">
+    <description summary="row capabilities">
+      Bitmask of capabilities for a row.
+    </description>
+    <entry name="focus" value="0x1" summary="row can be focused"/>
+    <entry name="name" value="0x2" summary="row supports naming"/>
+  </enum>
+
+  <!-- Capabilities for ext_row_group_v1 -->
+  <enum name="group_capabilities">
+    <description summary="group capabilities">
+      Bitmask of capabilities for a row group (output).
+    </description>
+    <entry name="camera_control" value="0x1" summary="camera can be controlled"/>
+    <entry name="bookmarks" value="0x2" summary="supports camera bookmarks"/>
+  </enum>
+</protocol>

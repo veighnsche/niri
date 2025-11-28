@@ -35,6 +35,14 @@
    - ✅ `src/layout/monitor/mod.rs`: `active_workspace_idx()` → `active_row_idx()`
    - ✅ `src/layout/canvas/operations.rs`: `workspaces()` → `rows()` (removed redundant wrapper)
    - ✅ `src/layout/canvas/operations.rs`: `workspaces_mut()` → `rows_mut()` (removed redundant wrapper)
+   - ✅ `src/layout/monitor/navigation.rs`: `move_column_to_workspace()` → `move_column_to_row()`
+   - ✅ `src/layout/monitor/navigation.rs`: `move_column_to_workspace_up()` → `move_column_to_row_up()`
+   - ✅ `src/layout/monitor/navigation.rs`: `move_column_to_workspace_down()` → `move_column_to_row_down()`
+   - ✅ `src/layout/monitor/navigation.rs`: `switch_workspace_up()` → `switch_row_up()`
+   - ✅ `src/layout/monitor/navigation.rs`: `switch_workspace_down()` → `switch_row_down()`
+   - ✅ `src/layout/monitor/navigation.rs`: `switch_workspace()` → `switch_row()`
+   - ✅ `src/layout/monitor/navigation.rs`: `switch_workspace_auto_back_and_forth()` → `switch_row_auto_back_and_forth()`
+   - ✅ `src/layout/monitor/navigation.rs`: `switch_workspace_previous()` → `switch_row_previous()`
 
 3. **Updated All Method Calls**
    - ✅ Replaced all `.active_workspace()` calls with `.active_row()`
@@ -42,6 +50,12 @@
    - ✅ Replaced all `.active_workspace_idx()` calls with `.active_row_idx()`
    - ✅ Replaced all `.workspaces()` calls with `.rows()`
    - ✅ Replaced all `.workspaces_mut()` calls with `.rows_mut()`
+   - ✅ Replaced all `.switch_workspace()` calls with `.switch_row()`
+   - ✅ Replaced all `.switch_workspace_up()` calls with `.switch_row_up()`
+   - ✅ Replaced all `.switch_workspace_down()` calls with `.switch_row_down()`
+   - ✅ Replaced all `.switch_workspace_auto_back_and_forth()` calls with `.switch_row_auto_back_and_forth()`
+   - ✅ Replaced all `.switch_workspace_previous()` calls with `.switch_row_previous()`
+   - ✅ Replaced all `.move_column_to_workspace()` calls with `.move_column_to_row()`
 
 ## Technical Details
 
@@ -79,3 +93,64 @@
 
 ## Impact
 This completes the major internal terminology migration from "workspace" to "row" in the Canvas2D refactor. The codebase now consistently uses row-based terminology throughout the internal layout system, paving the way for the remaining user-facing changes.
+
+---
+
+# 🔍 CRITICAL DISCOVERY: Canvas2D vs Workspaces Analysis
+
+## Key Finding
+
+**Canvas2D is NOT a renamed workspace system - it's a fundamentally different architecture!**
+
+### The Core Architectural Difference
+
+```
+WORKSPACES: Discrete isolated containers, user "switches" between them
+CANVAS2D:   ONE infinite surface with stacked rows, user pans/zooms a camera
+
+Row = ScrollingSpace (horizontal layout strip)
+Canvas2D = Multiple Rows stacked vertically on ONE surface
+Camera = Viewport (x, y, zoom) into the canvas
+Bookmark = Saved camera position (replaces workspace numbers)
+```
+
+### Why Current Canvas2D Behaves Like Workspaces
+
+Without **camera zoom**, Canvas2D can only show ONE row at a time, making it functionally identical to workspaces. The zoom capability is THE fundamental differentiator:
+
+- Zoom 1.0 = see 1 row (like workspaces)
+- Zoom 0.5 = see 2 rows simultaneously
+- Zoom 0.25 = see 4 rows simultaneously
+
+### What's Already Implemented
+
+| Feature | Status |
+|---------|--------|
+| Row struct (= ScrollingSpace) | ✅ Done |
+| Canvas2D with BTreeMap<i32, Row> | ✅ Done |
+| Camera X, Y animation | ✅ Done |
+| Terminology migration | ✅ Done |
+
+### What's NOT Implemented (CRITICAL!)
+
+| Feature | Status | Why Critical |
+|---------|--------|--------------|
+| **Camera Zoom** | ❌ Missing | THE differentiator - see multiple rows |
+| **Camera Bookmarks** | ❌ Missing | Replaces workspace switching paradigm |
+| **Row Spanning** | ❌ Missing | Windows across multiple rows |
+| **Zoom Rendering** | ❌ Missing | Scale elements by zoom factor |
+
+### Updated Priority
+
+1. ✅ Terminology cleanup (current work - DONE)
+2. 🔴 **Camera zoom system** (THE key feature!)
+3. 🔴 **Camera bookmarks** (replaces workspaces)
+4. 🟡 Protocol migration (after above)
+5. 🟢 Row spanning (advanced, can wait)
+
+## Deliverables
+
+1. **TODO.md**: Added comprehensive Canvas2D architecture explanation with ASCII diagrams
+2. **Requirements Checklist**: Complete list of what must be built for TRUE Canvas2D
+3. **Protocol Status**: Deferred ext-row protocol until zoom/bookmarks exist
+4. **Team Documentation**: This comprehensive analysis for future teams

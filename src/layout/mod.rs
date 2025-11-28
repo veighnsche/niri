@@ -1659,7 +1659,7 @@ impl<W: LayoutElement> Layout<W> {
                             Some(WorkspaceSwitch::Gesture(gesture))
                                 if gesture.current_idx.floor() == workspace_idx as f64
                                     || gesture.current_idx.ceil() == workspace_idx as f64 => {}
-                            _ => mon.switch_workspace(workspace_idx),
+                            _ => mon.switch_row(workspace_idx),
                         }
 
                         return;
@@ -1706,7 +1706,7 @@ impl<W: LayoutElement> Layout<W> {
                     Some(WorkspaceSwitch::Gesture(gesture))
                         if gesture.current_idx.floor() == workspace_idx as f64
                             || gesture.current_idx.ceil() == workspace_idx as f64 => {}
-                    _ => mon.switch_workspace(workspace_idx),
+                    _ => mon.switch_row(workspace_idx),
                 }
 
                 return;
@@ -2337,10 +2337,10 @@ impl<W: LayoutElement> Layout<W> {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
-        monitor.move_column_to_workspace(idx, activate);
+        monitor.move_column_to_row(idx, activate);
     }
 
-    // TEAM_012: Renamed from switch_workspace_up
+    // TEAM_012: Renamed from switch_row_up
     // TEAM_018: Now calls canvas instead of workspace code
     pub fn focus_row_up(&mut self) {
         let Some(monitor) = self.active_monitor() else {
@@ -2349,7 +2349,7 @@ impl<W: LayoutElement> Layout<W> {
         monitor.canvas_mut().focus_row_up();
     }
 
-    // TEAM_012: Renamed from switch_workspace_down
+    // TEAM_012: Renamed from switch_row_down
     // TEAM_018: Now calls canvas instead of workspace code
     pub fn focus_row_down(&mut self) {
         let Some(monitor) = self.active_monitor() else {
@@ -2358,28 +2358,28 @@ impl<W: LayoutElement> Layout<W> {
         monitor.canvas_mut().focus_row_down();
     }
 
-    // TEAM_012: Renamed from switch_workspace
+    // TEAM_012: Renamed from switch_row
     pub fn focus_row(&mut self, idx: usize) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
-        monitor.switch_workspace(idx);
+        monitor.switch_row(idx);
     }
 
-    // TEAM_012: Renamed from switch_workspace_auto_back_and_forth
+    // TEAM_012: Renamed from switch_row_auto_back_and_forth
     pub fn focus_row_auto_back_and_forth(&mut self, idx: usize) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
-        monitor.switch_workspace_auto_back_and_forth(idx);
+        monitor.switch_row_auto_back_and_forth(idx);
     }
 
-    // TEAM_012: Renamed from switch_workspace_previous
+    // TEAM_012: Renamed from switch_row_previous
     pub fn focus_previous_position(&mut self) {
         let Some(monitor) = self.active_monitor() else {
             return;
         };
-        monitor.switch_workspace_previous();
+        monitor.switch_row_previous();
     }
 
     pub fn consume_into_column(&mut self) {

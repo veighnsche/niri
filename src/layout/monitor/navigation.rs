@@ -19,7 +19,7 @@ impl<W: LayoutElement> Monitor<W> {
         self.canvas.rows().count().max(1)
     }
 
-    pub fn switch_workspace_up(&mut self) {
+    pub fn switch_row_up(&mut self) {
         let current_idx = self.canvas.active_row_idx();
         let new_idx = match &self.workspace_switch {
             Some(WorkspaceSwitch::Gesture(gesture)) if gesture.dnd_last_event_time.is_some() => {
@@ -33,7 +33,7 @@ impl<W: LayoutElement> Monitor<W> {
         self.activate_row(new_idx);
     }
 
-    pub fn switch_workspace_down(&mut self) {
+    pub fn switch_row_down(&mut self) {
         let current_idx = self.canvas.active_row_idx();
         let new_idx = match &self.workspace_switch {
             Some(WorkspaceSwitch::Gesture(gesture)) if gesture.dnd_last_event_time.is_some() => {
@@ -47,11 +47,11 @@ impl<W: LayoutElement> Monitor<W> {
         self.activate_row(new_idx);
     }
 
-    pub fn switch_workspace(&mut self, idx: usize) {
+    pub fn switch_row(&mut self, idx: usize) {
         self.activate_row(min(idx, self.row_count() - 1) as i32);
     }
 
-    pub fn switch_workspace_auto_back_and_forth(&mut self, idx: usize) {
+    pub fn switch_row_auto_back_and_forth(&mut self, idx: usize) {
         let idx = min(idx, self.row_count() - 1);
         let current = self.canvas.active_row_idx() as usize;
 
@@ -60,11 +60,11 @@ impl<W: LayoutElement> Monitor<W> {
             // If switching to same row, use back-and-forth logic
             self.canvas.switch_to_row_auto_back_and_forth(idx as i32);
         } else {
-            self.switch_workspace(idx);
+            self.switch_row(idx);
         }
     }
 
-    pub fn switch_workspace_previous(&mut self) {
+    pub fn switch_row_previous(&mut self) {
         // TEAM_022: Implement previous row tracking - delegate to Canvas2D
         self.canvas.switch_to_previous_row();
     }
@@ -83,7 +83,7 @@ impl<W: LayoutElement> Monitor<W> {
         if let Some(row) = self.canvas.active_row_mut() {
             if !row.move_down() {
                 // Can't move down in column, try next row
-                self.switch_workspace_down();
+                self.switch_row_down();
             }
         }
     }
@@ -93,7 +93,7 @@ impl<W: LayoutElement> Monitor<W> {
         if let Some(row) = self.canvas.active_row_mut() {
             if !row.move_up() {
                 // Can't move up in column, try previous row
-                self.switch_workspace_up();
+                self.switch_row_up();
             }
         }
     }
@@ -102,7 +102,7 @@ impl<W: LayoutElement> Monitor<W> {
         // TEAM_022: Try to focus down within column, else switch to next row
         if let Some(row) = self.canvas.active_row_mut() {
             if !row.focus_down() {
-                self.switch_workspace_down();
+                self.switch_row_down();
             }
         }
     }
@@ -111,7 +111,7 @@ impl<W: LayoutElement> Monitor<W> {
         // TEAM_022: Try to focus up within column, else switch to previous row
         if let Some(row) = self.canvas.active_row_mut() {
             if !row.focus_up() {
-                self.switch_workspace_up();
+                self.switch_row_up();
             }
         }
     }
@@ -147,17 +147,17 @@ impl<W: LayoutElement> Monitor<W> {
     // Move column to row (was workspace)
     // =========================================================================
 
-    pub fn move_column_to_workspace_up(&mut self, _activate: bool) {
+    pub fn move_column_to_row_up(&mut self, _activate: bool) {
         // TEAM_022: Move column to row above - delegate to Canvas2D
         self.canvas.move_column_to_row_up(_activate);
     }
 
-    pub fn move_column_to_workspace_down(&mut self, _activate: bool) {
+    pub fn move_column_to_row_down(&mut self, _activate: bool) {
         // TEAM_022: Move column to row below - delegate to Canvas2D
         self.canvas.move_column_to_row_down(_activate);
     }
 
-    pub fn move_column_to_workspace(&mut self, _idx: usize, _activate: bool) {
+    pub fn move_column_to_row(&mut self, _idx: usize, _activate: bool) {
         // TEAM_022: Move column to specific row - delegate to Canvas2D
         // Convert usize to i32 for Canvas2D API
         self.canvas.move_active_column_to_row(_idx as i32, _activate);

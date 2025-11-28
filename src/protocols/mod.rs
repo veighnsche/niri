@@ -1,4 +1,5 @@
 pub mod ext_workspace;
+pub mod ext_row;
 pub mod foreign_toplevel;
 pub mod gamma_control;
 pub mod mutter_x11_interop;
