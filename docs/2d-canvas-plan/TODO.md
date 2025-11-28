@@ -3,7 +3,7 @@
 > **Check this file first** before starting work.
 > This is the single source of truth for what needs to be done.
 
-**Last updated**: TEAM_044
+**Last updated**: TEAM_045
 
 ---
 
@@ -13,7 +13,7 @@
 |--------|-------|
 | **Build** | ✅ Compiles |
 | **Tests** | 213 passed, 55 failed (79.5%) |
-| **Golden Tests** | ✅ 87/88 pass (1 failing) |
+| **Golden Tests** | ✅ 88/88 pass (0 failing) |
 | **TODOs in codebase** | 84 total |
 
 ---
@@ -38,16 +38,13 @@
 8. ✅ **Fixed floating window toggle position** - Now sets floating position based on render position like original Workspace
 9. ✅ **Fixed floating focus state management** - Added focus_tiling(), focus_floating(), switch_focus_floating_tiling() to Canvas2D
 
-## Known Issues (TEAM_044)
+## Known Issues (TEAM_044 → TEAM_045)
 
-### 🚨 Floating Animation Regression
-- **Test**: `golden_u4_toggle_floating_back_to_tiled` fails
-- **Issue**: Missing animations when toggling window from floating back to tiled
-- **Root Cause**: Animation system not fully ported for Canvas2D floating operations
-- **Expected**: Original Workspace animates tile movement when returning from floating to tiled
-- **Current**: Canvas2D returns tile without animation
-- **Impact**: Minor - 1/88 golden tests fail, functional behavior is correct
-- **Priority**: Medium - Should be fixed before final merge
+### ✅ Floating Animation Regression (Resolved by TEAM_045)
+- **Test**: `golden_u4_toggle_floating_back_to_tiled`
+- **Previous Issue**: Missing animations when toggling window from floating back to tiled (animations list empty in snapshot).
+- **Fix (TEAM_045)**: Start a tile move animation when re-inserting a window from floating back to tiled in `Canvas2D::toggle_floating_window_by_id`, so `Row::snapshot()` records tile edge animations that match the golden baseline.
+- **Status**: **Resolved – all golden tests now pass (88/88)**.
 
 ## Remaining Test Categories
 
@@ -193,7 +190,6 @@ render_offset: move_y exists=true, value=0, offset.y=0  ← Should be interpolat
 
 | File | Line | TODO | Description |
 |------|------|------|-------------|
-| floating.rs | - | TEAM_044 | Fix floating-to-tiled animation in toggle_floating_window_by_id |
 | operations.rs | 108 | TEAM_019 | Implement proper active window handling |
 | operations.rs | 123 | TEAM_019 | Implement proper active window handling |
 | operations.rs | 194 | TEAM_019 | Implement layout_config for Row |

@@ -33,7 +33,11 @@ impl<W: LayoutElement> Canvas2D<W> {
             if self.floating.has_window(id) {
                 // Move from floating to tiled
                 let removed = self.floating.remove_tile(id);
-                let tile = removed.tile;
+                let mut tile = removed.tile;
+                // TEAM_045: Start move animation when returning from floating to tiled
+                // so golden snapshots capture tile edge animations like the original
+                // Workspace-based implementation.
+                tile.animate_move_from(Point::from((0., 0.)));
                 let width = removed.width;
                 let is_full_width = removed.is_full_width;
                 self.add_tile(tile, true, width, is_full_width);
@@ -68,7 +72,11 @@ impl<W: LayoutElement> Canvas2D<W> {
         if self.floating_is_active {
             // Move window from floating to tiled
             if let Some(removed) = self.floating.remove_active_tile() {
-                let tile = removed.tile;
+                let mut tile = removed.tile;
+                // TEAM_045: Start move animation when returning from floating to tiled
+                // so golden snapshots capture tile edge animations like the original
+                // Workspace-based implementation.
+                tile.animate_move_from(Point::from((0., 0.)));
                 let width = removed.width;
                 let is_full_width = removed.is_full_width;
                 self.add_tile(tile, true, width, is_full_width);

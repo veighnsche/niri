@@ -523,10 +523,12 @@ impl<W: LayoutElement> FloatingSpace<W> {
             }
         }
 
-        // Store the floating size if we have one.
-        if let Some(size) = tile.window().expected_size() {
-            tile.floating_window_size = Some(size);
-        }
+        // Store the floating size based on the current committed window size.
+        // This ensures that when a client resizes itself while floating (e.g.
+        // beyond max-width), we remember that last committed size and re-apply
+        // min/max constraints the next time we go floating.
+        let size = tile.window().size();
+        tile.floating_window_size = Some(size);
         // Store the floating position.
         tile.floating_pos = Some(data.pos);
 
