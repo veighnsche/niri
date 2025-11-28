@@ -88,8 +88,9 @@ impl<W: LayoutElement> Monitor<W> {
         };
 
         // Check first.
+        // TEAM_050: Use actual workspace ID, not synthetic ID from index
         if contains(geo) {
-            return (InsertWorkspace::Existing(crate::layout::workspace_types::WorkspaceId::specific(idx as u64)), geo);
+            return (InsertWorkspace::Existing(ws.id()), geo);
         }
 
         let mut last_geo = geo;

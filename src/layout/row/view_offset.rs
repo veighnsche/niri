@@ -110,11 +110,13 @@ impl<W: LayoutElement> Row<W> {
         idx: usize,
     ) -> f64 {
         let col = &self.columns[idx];
+        // TEAM_050: Use pending_sizing_mode() to calculate offset for the state we're
+        // transitioning to, not the current state
         self.compute_new_view_offset_fit(
             target_x,
             self.column_x(idx),
             col.width(),
-            col.sizing_mode(),
+            col.pending_sizing_mode(),
         )
     }
 
@@ -124,11 +126,13 @@ impl<W: LayoutElement> Row<W> {
         idx: usize,
     ) -> f64 {
         let col = &self.columns[idx];
+        // TEAM_050: Use pending_sizing_mode() to calculate offset for the state we're
+        // transitioning to, not the current state
         self.compute_new_view_offset_centered(
             target_x,
             self.column_x(idx),
             col.width(),
-            col.sizing_mode(),
+            col.pending_sizing_mode(),
         )
     }
 

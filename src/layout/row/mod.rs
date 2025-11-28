@@ -1041,7 +1041,7 @@ impl<W: LayoutElement> Row<W> {
     
     pub fn set_fullscreen(&mut self, id: &W::Id, is_fullscreen: bool) {
         // Find the column containing this window
-        let mut col_idx = self
+        let col_idx = self
             .columns
             .iter()
             .position(|col| col.contains(id));
@@ -1055,7 +1055,7 @@ impl<W: LayoutElement> Row<W> {
             return;
         }
 
-        let mut col = &mut self.columns[col_idx];
+        let col = &mut self.columns[col_idx];
         let is_tabbed = col.display_mode == ColumnDisplay::Tabbed;
 
         // Cancel any ongoing resize for this column
@@ -1078,6 +1078,10 @@ impl<W: LayoutElement> Row<W> {
 
         // Update column data
         self.data[col_idx].update(col);
+        
+        // TEAM_050: View offset animation is handled in update_window() after the window
+        // acknowledges the fullscreen state. This ensures view_offset_to_restore is saved
+        // with the correct (pre-fullscreen) offset before any animation starts.
     }
     
     pub fn toggle_fullscreen(&mut self, id: &W::Id) {
@@ -1346,6 +1350,7 @@ impl<W: LayoutElement> Row<W> {
     /// Update window state and layout.
     /// TEAM_022: Implemented based on ScrollingSpace::update_window
     /// TEAM_044: Added serial parameter for on_commit handling
+    /// TEAM_050: Added view_offset_to_restore logic for fullscreen transitions
     pub fn update_window(&mut self, window: &W::Id, serial: Option<Serial>) {
         let (col_idx, column) = self
             .columns
@@ -1367,6 +1372,8 @@ impl<W: LayoutElement> Row<W> {
         }
         
         let prev_width = self.data[col_idx].width;
+        // TEAM_050: Track sizing mode before update for view offset save/restore
+        let was_normal = column.sizing_mode().is_normal();
 
         column.update_window(window);
         self.data[col_idx].update(column);
@@ -1380,10 +1387,42 @@ impl<W: LayoutElement> Row<W> {
                 for col in &mut self.columns[col_idx + 1..] {
                     col.animate_move_from_with_config(
                         offset,
-                        // TODO: Get animation config from row options
                         self.options.animations.window_resize.anim,
                     );
                 }
+            }
+        }
+
+        // TEAM_050: View offset save/restore for fullscreen transitions
+        if col_idx == self.active_column_idx {
+            let is_normal = self.columns[col_idx].sizing_mode().is_normal();
+            
+            // When the active column goes fullscreen, store the view offset to restore later.
+            if was_normal && !is_normal {
+                self.view_offset_to_restore = Some(self.view_offset_x.stationary());
+            }
+
+            // Upon unfullscreening, restore the view offset.
+            let unfullscreen_offset = if !was_normal && is_normal {
+                self.view_offset_to_restore.take()
+            } else {
+                None
+            };
+
+            // We might need to move the view to ensure the resized window is still visible.
+            // Only do it when the view isn't frozen by an interactive resize or a view gesture.
+            if self.interactive_resize.is_none() && !self.view_offset_x.is_gesture() {
+                // Restore the view offset upon unfullscreening if needed.
+                if let Some(prev_offset) = unfullscreen_offset {
+                    self.animate_view_offset_with_config(
+                        col_idx,
+                        prev_offset,
+                        self.options.animations.horizontal_view_movement.0,
+                    );
+                }
+
+                // Animate to ensure the column is visible
+                self.animate_view_offset_to_column(None, col_idx, None);
             }
         }
     }

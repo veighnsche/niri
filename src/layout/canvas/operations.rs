@@ -468,23 +468,51 @@ impl<W: LayoutElement> Canvas2D<W> {
     }
 
     /// Workspace equivalent: set fullscreen for window
+    /// TEAM_050: Implemented - delegate to row containing the window
     pub fn set_fullscreen(&mut self, id: &W::Id, is_fullscreen: bool) {
-        // TODO(TEAM_020): Implement fullscreen setting
+        // Find the row containing this window and delegate
+        for row in self.rows.values_mut() {
+            if row.has_window(id) {
+                row.set_fullscreen(id, is_fullscreen);
+                return;
+            }
+        }
     }
 
     /// Workspace equivalent: toggle fullscreen for window
+    /// TEAM_050: Implemented - delegate to row containing the window
     pub fn toggle_fullscreen(&mut self, id: &W::Id) {
-        // TODO(TEAM_020): Implement fullscreen toggle
+        // Find the row containing this window and delegate
+        for row in self.rows.values_mut() {
+            if row.has_window(id) {
+                row.toggle_fullscreen(id);
+                return;
+            }
+        }
     }
 
     /// Workspace equivalent: set maximized for window
+    /// TEAM_050: Implemented - delegate to row containing the window
     pub fn set_maximized(&mut self, id: &W::Id, maximize: bool) {
-        // TODO(TEAM_020): Implement maximized setting
+        // Find the row containing this window and delegate
+        for row in self.rows.values_mut() {
+            if row.has_window(id) {
+                row.set_maximized(id, maximize);
+                return;
+            }
+        }
     }
 
     /// Workspace equivalent: toggle maximized for window
+    /// TEAM_050: Implemented - delegate to row containing the window
     pub fn toggle_maximized(&mut self, id: &W::Id) {
-        // TODO(TEAM_020): Implement maximized toggle
+        // Find the row containing this window and delegate
+        for row in self.rows.values_mut() {
+            if row.has_window(id) {
+                row.toggle_maximized(id);
+                return;
+            }
+        }
     }
 
     /// Workspace equivalent: check if any window is urgent
