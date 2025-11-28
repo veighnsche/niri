@@ -243,7 +243,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     watcher::setup(&mut state, &config_path, config_includes);
 
     // Spawn commands from cli and auto-start.
-    spawn(cli.command, None);
+    if !cli.command.is_empty() {
+        spawn(cli.command, None);
+    }
 
     for elem in spawn_at_startup {
         spawn(elem.command, None);

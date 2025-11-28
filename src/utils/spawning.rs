@@ -67,7 +67,7 @@ pub fn spawn<T: AsRef<OsStr> + Send + 'static>(command: Vec<T>, token: Option<Xd
     let _span = tracy_client::span!();
 
     if command.is_empty() {
-        warn!("spawn: command is empty, returning early");
+        debug!("spawn: called with empty command; ignoring");
         return;
     }
 

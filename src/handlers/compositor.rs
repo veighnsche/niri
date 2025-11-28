@@ -23,7 +23,7 @@ use crate::handlers::XDG_ACTIVATION_TOKEN_TIMEOUT;
 use crate::layout::{ActivateWindow, AddWindowTarget, LayoutElement as _};
 use crate::niri::{CastTarget, ClientState, LockState, State};
 use crate::utils::transaction::Transaction;
-use crate::utils::{is_mapped, send_scale_transform};
+use crate::utils::{is_mapped, send_scale_transform, with_toplevel_role};
 use crate::window::{InitialConfigureState, Mapped, ResolvedWindowRules, Unmapped};
 
 impl CompositorHandler for State {
@@ -90,6 +90,17 @@ impl CompositorHandler for State {
                     window.on_commit();
 
                     let toplevel = window.toplevel().expect("no X11 support");
+
+                    // Log basic identity of every newly mapped toplevel so we can
+                    // correlate spawns with actual Wayland windows (e.g. Alacritty).
+                    let (app_id, title) = with_toplevel_role(toplevel, |role| {
+                        (role.app_id.clone(), role.title.clone())
+                    });
+                    info!(
+                        app_id = app_id.as_deref().unwrap_or("<none>"),
+                        title = title.as_deref().unwrap_or("<none>"),
+                        "mapped new toplevel window",
+                    );
 
                     let (
                         rules,

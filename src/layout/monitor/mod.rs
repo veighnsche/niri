@@ -381,6 +381,27 @@ impl<W: LayoutElement> Monitor<W> {
             width,
             is_full_width,
         );
+
+        // Debug logging: record where the new window landed relative to the camera.
+        let camera = self.canvas.camera_position();
+        if let Some(row) = self.canvas.row(row_idx) {
+            let row_y = row.y_offset();
+            let row_h = row.row_height();
+            let view_h = self.view_size.h;
+            let row_visible = row_y + row_h > camera.y && row_y < camera.y + view_h;
+
+            info!(
+                output = %self.output_name,
+                row_idx,
+                row_y,
+                row_h,
+                camera_y = camera.y,
+                view_h,
+                row_visible,
+                "monitor: added window to canvas row",
+            );
+        }
+
         Some(())
     }
 
