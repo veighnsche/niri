@@ -4,7 +4,7 @@
 
 use std::iter::zip;
 
-use smithay::utils::{Point, Rectangle, Scale};
+use smithay::utils::{Logical, Point, Rectangle, Scale};
 
 use super::Row;
 use crate::layout::closing_window::ClosingWindowRenderElement;

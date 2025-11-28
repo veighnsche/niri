@@ -360,6 +360,11 @@ impl<W: LayoutElement> Row<W> {
             col.advance_animations();
         }
 
+        // TEAM_049: Update cached column data with animated widths
+        for (col_idx, column) in self.columns.iter().enumerate() {
+            self.data[col_idx].update(column);
+        }
+
         // Advance closing window animations
         for win in &mut self.closing_windows {
             win.advance_animations();
