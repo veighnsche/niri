@@ -3,7 +3,157 @@
 > **Check this file first** before starting work.
 > This is the single source of truth for what needs to be done.
 
-**Last updated**: TEAM_058
+**Last updated**: TEAM_059
+
+---
+
+# 🚨 WORKSPACE → CANVAS2D TERMINOLOGY MIGRATION
+
+> **CRITICAL**: Workspaces are **COMPLETELY REMOVED** from Canvas2D.  
+> Rows are NOT workspaces. See `README.md` for full explanation.
+
+## Migration Status Overview
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **Internal Layout Code** | 🔄 In Progress | ~60% migrated |
+| **Config (niri-config)** | ✅ Complete | TEAM_055 |
+| **Test Operations (Op::)** | ✅ Complete | TEAM_014 |
+| **Test Function Names** | ⏳ Pending | Still use "workspace" |
+| **IPC Commands** | ⏳ Pending | Will be redesigned |
+| **User Documentation** | ⏳ Pending | After code migration |
+
+---
+
+## 📋 TERMINOLOGY MIGRATION CHECKLIST
+
+### Legend
+- ✅ = Complete
+- 🔄 = In Progress  
+- ⏳ = Pending
+- ❌ = Blocked
+
+---
+
+### 1. Type/Struct Renames
+
+| Old Name | New Name | File | Status |
+|----------|----------|------|--------|
+| `WorkspaceId` | `RowId` | `src/layout/row_types.rs` | ⏳ Pending |
+| `WorkspaceAddWindowTarget` | `RowAddWindowTarget` | `src/layout/row_types.rs` | ✅ Done |
+| `Workspace` (config) | `RowConfig` | `niri-config/src/` | ✅ Done |
+| `WorkspaceName` | `RowName` | `niri-config/src/` | ✅ Done |
+
+### 2. Method Renames (src/layout/mod.rs)
+
+| Old Name | New Name | Status |
+|----------|----------|--------|
+| `move_to_workspace()` | `move_to_row()` | ⏳ Pending |
+| `move_to_workspace_up()` | `move_to_row_up()` | ⏳ Pending |
+| `move_to_workspace_down()` | `move_to_row_down()` | ⏳ Pending |
+| `move_column_to_workspace()` | `move_column_to_row()` | ⏳ Pending |
+| `focus_workspace()` | `focus_row()` | ⏳ Pending |
+| `focus_workspace_up()` | `focus_row_up()` | ⏳ Pending |
+| `focus_workspace_down()` | `focus_row_down()` | ⏳ Pending |
+| `active_workspace()` | `active_row()` | ⏳ Pending |
+| `active_workspace_idx()` | `active_row_idx()` | ⏳ Pending |
+| `find_workspace_by_name()` | `find_row_by_name()` | ✅ Done |
+| `ensure_named_workspace()` | `ensure_named_row()` | ✅ Done |
+
+### 3. Method Renames (src/layout/monitor/)
+
+| Old Name | New Name | File | Status |
+|----------|----------|------|--------|
+| `active_workspace_idx()` | `active_row_idx()` | `mod.rs` | ⏳ Pending |
+| `workspaces()` | `rows()` | `mod.rs` | ⏳ Pending |
+| `workspaces_mut()` | `rows_mut()` | `mod.rs` | ⏳ Pending |
+
+### 4. Method Renames (src/layout/canvas/)
+
+| Old Name | New Name | File | Status |
+|----------|----------|------|--------|
+| `workspaces()` | `rows()` | `operations.rs` | ⏳ Pending |
+| `workspaces_mut()` | `rows_mut()` | `operations.rs` | ⏳ Pending |
+
+### 5. Field Renames
+
+| Old Name | New Name | File | Status |
+|----------|----------|------|--------|
+| `last_active_workspace_id` | `last_active_row_id` | `src/layout/mod.rs` | ✅ Done |
+| `workspace_id_counter` | `row_id_counter` | `src/layout/mod.rs` | ✅ Done |
+| `workspace_id` | `row_id` | Various | ⏳ Pending |
+
+### 6. Test Operation Renames (src/layout/tests.rs)
+
+| Old Name | New Name | Status |
+|----------|----------|--------|
+| `Op::MoveWindowToWorkspace*` | `Op::MoveWindowToRow*` | ✅ Done |
+| `Op::MoveColumnToWorkspace*` | `Op::MoveColumnToRow*` | ✅ Done |
+| `Op::FocusWorkspace*` | `Op::FocusRow*` | ✅ Done |
+| `Op::MoveWorkspace*` | `Op::MoveRow*` | ✅ Done |
+| `Op::SetWorkspaceName` | `Op::SetRowName` | ✅ Done |
+
+### 7. Test Function Renames (src/layout/tests.rs)
+
+> **Note**: These test user-facing behavior, so "workspace" in names may be intentional.
+> Decide: Keep for user-facing semantics OR rename to "row"?
+
+| Current Name | Proposed Name | Status |
+|--------------|---------------|--------|
+| `move_to_workspace_by_idx_*` | `move_to_row_by_idx_*` | ⏳ Pending |
+| `move_workspace_to_output` | `move_row_to_output` | ⏳ Pending |
+| `removing_all_outputs_preserves_empty_named_workspaces` | `..._named_rows` | ⏳ Pending |
+| `removing_output_must_keep_empty_focus_on_primary` | Keep? | ⏳ Decide |
+
+### 8. IPC Commands (src/niri.rs, niri-ipc/)
+
+| Old Command | New Command | Status |
+|-------------|-------------|--------|
+| `focus-workspace` | `focus-row` OR `camera-goto` | ⏳ Pending |
+| `move-window-to-workspace` | `move-window-to-row` | ⏳ Pending |
+| `move-column-to-workspace` | `move-column-to-row` | ⏳ Pending |
+
+### 9. Config Options (niri-config/)
+
+| Old Option | New Option | Status |
+|------------|------------|--------|
+| `workspace { }` | `row { }` | ✅ Done |
+| `open-on-workspace` | `open-on-row` | ✅ Done |
+| `workspace-switch` animation | `row-switch` animation | ✅ Done |
+| `empty-workspace-above-first` | `empty-row-above-first` | ✅ Done |
+
+### 10. NEW: Camera Bookmark System
+
+> **These are NEW features**, not renames
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| `CameraBookmark` struct | Stores `(x, y, zoom)` | ⏳ Pending |
+| `camera-bookmark-save` IPC | Save current position | ⏳ Pending |
+| `camera-bookmark-goto` IPC | Jump to bookmark | ⏳ Pending |
+| `Mod+1/2/3` bindings | Jump to bookmark | ⏳ Pending |
+| `Mod+Shift+1/2/3` bindings | Save bookmark | ⏳ Pending |
+
+---
+
+## 🎯 MIGRATION PRIORITY ORDER
+
+1. **Phase A**: Internal type renames (`WorkspaceId` → `RowId`)
+2. **Phase B**: Internal method renames (all `*workspace*` → `*row*`)
+3. **Phase C**: Test function renames (if decided)
+4. **Phase D**: IPC command redesign
+5. **Phase E**: Camera bookmark implementation
+6. **Phase F**: User documentation update
+
+---
+
+## ⚠️ MIGRATION RULES
+
+1. **Never use "workspace" in new code** - use "row" or "canvas"
+2. **Rows are NOT workspaces** - they're horizontal layout strips
+3. **Camera bookmarks replace workspace switching** - different concept entirely
+4. **One Canvas2D per output** - no discrete containers
+5. **Update imports** when renaming files/types
 
 ---
 
@@ -12,79 +162,38 @@
 | Metric | Value |
 |--------|-------|
 | **Build** | ✅ Compiles |
-| **Tests** | 265 passed, 7 failed (97.4%) |
-| **Golden Tests** | ❌ 2440 snapshot regressions detected |
+| **Tests** | 256 passed, 16 failed (94.1%) |
+| **Golden Tests** | ❌ Snapshot regressions detected |
 | **TODOs in codebase** | 84 total |
 
 ---
 
-# 🚨 GOLDEN TEST FAILURES (TEAM_058)
+# 🚨 TEST FAILURES (TEAM_059)
 
-> **Status**: CRITICAL - 2440 snapshot regressions detected  
+> **Status**: IN PROGRESS  
 > **Date**: Nov 28, 2025  
-> **Command**: `cargo insta test`
 
-## Test Failures Summary
+## Recently Fixed (TEAM_059)
 
-**7 Failed Tests**:
-1. `move_window_to_workspace_maximize_and_fullscreen` - Window sizing mode incorrect (Normal vs Maximized)
-2. `move_to_workspace_by_idx_does_not_leave_empty_workspaces` - Empty workspace assertion failed
-3. `move_workspace_to_output` - Workspace count mismatch (0 vs 1)
-4. `removing_all_outputs_preserves_empty_named_workspaces` - Workspace count mismatch (3 vs 2)
-5. `removing_output_must_keep_empty_focus_on_primary` - Active workspace index wrong (0 vs 1)
-6. `restore_to_floating_persists_across_fullscreen_maximize` - Tiles found when none expected
-7. `unmaximize_during_fullscreen_does_not_float` - Tiles found when none expected
+1. ✅ `move_window_to_workspace_maximize_and_fullscreen` - Fixed maximize state preservation
+2. ✅ `move_to_workspace_by_idx_does_not_leave_empty_workspaces` - Fixed row cleanup/renumbering
 
-## Root Cause Analysis
+## Remaining Failures
 
-### Pattern 1: Window State Management Issues
-**Tests**: `move_window_to_workspace_maximize_and_fullscreen`, `restore_to_floating_persists_across_fullscreen_maximize`, `unmaximize_during_fullscreen_does_not_float`
-
-**Issue**: Window sizing mode and floating state not preserved correctly across workspace moves and fullscreen/maximize operations.
-
-**Related Files**:
-- `src/layout/mod.rs` - `move_window_to_workspace()` implementation
-- `src/layout/canvas/operations.rs` - Window movement logic
-- `src/layout/row/mod.rs` - Maximize/fullscreen state handling
-
-### Pattern 2: Workspace Count and Index Issues  
-**Tests**: `move_to_workspace_by_idx_does_not_leave_empty_workspaces`, `move_workspace_to_output`, `removing_all_outputs_preserves_empty_named_workspaces`, `removing_output_must_keep_empty_focus_on_primary`
-
-**Issue**: Workspace creation, deletion, and index tracking not working correctly in Canvas2D system.
-
-**Related Files**:
-- `src/layout/mod.rs` - Workspace management functions
-- `src/layout/canvas/navigation.rs` - Active workspace index tracking
-- `src/layout/canvas/operations.rs` - Workspace creation/deletion
-
-### Pattern 3: Floating Window State Issues
+### Pattern 1: Floating Window State Issues
 **Tests**: `restore_to_floating_persists_across_fullscreen_maximize`, `unmaximize_during_fullscreen_does_not_float`
 
 **Issue**: Floating windows incorrectly appearing in tiled space after fullscreen/maximize operations.
 
-**Related Files**:
-- `src/layout/mod.rs` - Floating state management
-- `src/layout/floating.rs` - Floating space operations
-- `src/layout/row/mod.rs` - Tile enumeration
+### Pattern 2: Output/Row Management Issues  
+**Tests**: `move_workspace_to_output`, `removing_all_outputs_preserves_empty_named_workspaces`, `removing_output_must_keep_empty_focus_on_primary`
 
-## Immediate Action Required
+**Issue**: Row creation, deletion, and index tracking not working correctly when outputs change.
 
-1. **Fix workspace indexing**: Active workspace index calculation is incorrect
-2. **Fix window state preservation**: Maximize/fullscreen/floating states lost during moves
-3. **Fix workspace cleanup**: Empty workspaces not being removed properly
-4. **Fix floating tile enumeration**: Floating windows appearing in tile iterators
+### Pattern 3: Golden Snapshot Regressions
+**Tests**: Various floating/animation tests
 
-## Investigation Commands
-
-```bash
-# Review specific snapshot differences
-cargo insta review
-
-# Run individual failing tests
-cargo test move_window_to_workspace_maximize_and_fullscreen
-cargo test move_to_workspace_by_idx_does_not_leave_empty_workspaces
-cargo test move_workspace_to_output
-```
+**Issue**: Floating window size preservation and animation capture issues.
 
 ---
 

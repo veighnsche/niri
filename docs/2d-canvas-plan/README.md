@@ -4,6 +4,72 @@
 
 ---
 
+## 🚨 **CRITICAL: WORKSPACE CONCEPT IS COMPLETELY REMOVED**
+
+### The Old Model (Being Removed)
+In traditional niri and most tiling WMs, a **workspace** was:
+- A discrete, numbered container for windows
+- Users switch between workspaces (Mod+1, Mod+2, etc.)
+- Each workspace is independent and isolated
+- Windows "belong to" a workspace
+
+### The New Model (Canvas2D)
+In Canvas2D, there are **NO WORKSPACES**. Instead:
+
+| Old Concept | New Concept | Description |
+|-------------|-------------|-------------|
+| Workspace | **REMOVED** | Does not exist in Canvas2D |
+| Workspace switching | **Camera Bookmarks** | Save/restore camera positions on the infinite canvas |
+| Workspace index | **Row index** | Rows are horizontal strips, not discrete containers |
+| `move_to_workspace()` | `move_to_row()` | Move window to a different row on the canvas |
+| `WorkspaceId` | `RowId` | Unique identifier for a row |
+
+### Key Differences
+
+1. **One Infinite Canvas Per Output**
+   - No discrete workspaces
+   - All windows exist on a single 2D surface
+   - Camera pans and zooms to show different areas
+
+2. **Rows Are NOT Workspaces**
+   - Rows are horizontal layout strips
+   - Windows can span multiple rows
+   - Rows are visible simultaneously (with zoom)
+   - No "switching" between rows - just camera movement
+
+3. **Camera Bookmarks Replace Workspace Switching**
+   - `Mod+1/2/3...` → Jump to saved camera position (not workspace)
+   - `Mod+Shift+1/2/3...` → Save current camera position
+   - Bookmarks store: `(x, y, zoom)` coordinates
+
+### Terminology Migration
+
+**DO NOT** use these terms internally:
+- ❌ `workspace` (except for legacy compatibility layers)
+- ❌ `workspace_idx` / `workspace_index`
+- ❌ `move_to_workspace`
+- ❌ `active_workspace`
+
+**USE** these terms instead:
+- ✅ `row` - horizontal strip of columns
+- ✅ `row_idx` / `row_index`
+- ✅ `move_to_row`
+- ✅ `active_row`
+- ✅ `camera_bookmark` - saved camera position
+- ✅ `canvas` - the 2D surface containing all rows
+
+### Code Migration Status
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Internal layout code | 🔄 In Progress | Row/Canvas2D terminology |
+| Test operations | 🔄 In Progress | `Op::MoveWindowToRow*` done |
+| Test function names | ⏳ Pending | Still use "workspace" for now |
+| User-facing config | ⏳ Pending | Will use camera bookmarks |
+| IPC commands | ⏳ Pending | Will be redesigned |
+
+---
+
 ## ⚠️ **CRITICAL: GOLDEN TEST RULES**
 
 **LEARNED FROM TEAM_018's MISTAKES - READ BEFORE STARTING**
@@ -136,11 +202,15 @@ ROW 1   |             | Column B' |                                 |
 
 | Concept | Definition |
 |---------|------------|
-| **Row** | Horizontal strip of columns (modular, owns its columns) |
+| **Canvas2D** | Infinite 2D surface containing all rows (ONE per output) |
+| **Row** | Horizontal strip of columns (NOT a workspace - multiple rows visible at once) |
 | **Row Span** | Window spans 1, 2, or more rows vertically |
-| **Camera** | Position `(x, y)` + `zoom` factor (modular, owns its state) |
+| **Camera** | Position `(x, y)` + `zoom` factor - what the user sees |
+| **Camera Bookmark** | Saved camera position - REPLACES workspace switching |
 | **Origin** | Fixed (0,0) determines leading/trailing edge behavior |
 | **Navigation** | Geometric — finds nearest window in direction (crosses rows) |
+
+> **Remember**: Rows are layout primitives, NOT workspaces. Users don't "switch rows" - they move the camera.
 
 ---
 
@@ -167,11 +237,11 @@ ROW 1   |             | Column B' |                                 |
 | `Mod+=` | Zoom to fit focused window |
 | `Mod+Shift+=` | Zoom to fit all visible |
 
-### Camera Bookmarks (replaces workspaces)
+### Camera Bookmarks (REPLACES WORKSPACES ENTIRELY)
 | Shortcut | Action |
 |----------|--------|
-| `Mod+1/2/3...` | Jump to saved camera position |
-| `Mod+Shift+1/2/3...` | Save current camera position |
+| `Mod+1/2/3...` | Jump to saved camera position (NOT workspace!) |
+| `Mod+Shift+1/2/3...` | Save current camera position as bookmark |
 
 ### Preserved from 1D
 | Shortcut | Action |
@@ -183,7 +253,9 @@ ROW 1   |             | Column B' |                                 |
 | `Mod+C` | Center column |
 | `Mod+[/]` | Consume/expel window |
 
-> **Note**: Workspaces are **removed**. One infinite canvas per output. Camera bookmarks replace workspace switching.
+> **⚠️ WORKSPACES DO NOT EXIST IN CANVAS2D**  
+> There is ONE infinite canvas per output. Camera bookmarks save/restore `(x, y, zoom)` positions on this canvas.  
+> See the "WORKSPACE CONCEPT IS COMPLETELY REMOVED" section at the top of this document.
 
 ---
 
