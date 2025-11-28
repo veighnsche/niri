@@ -3,7 +3,7 @@
 > **Check this file first** before starting work.
 > This is the single source of truth for what needs to be done.
 
-**Last updated**: TEAM_060
+**Last updated**: TEAM_062
 
 ---
 
@@ -486,6 +486,461 @@ impl Canvas2D {
 
 ---
 
+# 🏗️ COMPREHENSIVE MODULE ARCHITECTURE REFACTOR (TEAM_062)
+
+> **Goal**: Restructure the entire `src/layout/` module for proper hierarchy and single responsibility
+> **Principle**: Hierarchy should match: `Layout → Monitor → Canvas2D → Row → Column → Tile`
+
+## Current Problems
+
+### 1. Monolithic Files
+| File | LOC | Problem |
+|------|-----|---------|
+| `src/layout/mod.rs` | 5353 | Layout struct + MonitorSet + ALL 229 methods |
+| `src/layout/row/mod.rs` | 2161 | Row struct + methods despite having submodules |
+| `src/layout/tile.rs` | 1469 | Flat file, should be module |
+| `src/layout/floating.rs` | 1449 | Confusingly separate from canvas/ |
+
+### 2. Misplaced Files
+| File | LOC | Problem |
+|------|-----|---------|
+| `closing_window.rs` | 275 | Render element scattered at root |
+| `opening_window.rs` | 143 | Render element scattered at root |
+| `focus_ring.rs` | 280 | Render element scattered at root |
+| `shadow.rs` | 184 | Render element scattered at root |
+| `tab_indicator.rs` | 412 | Render element scattered at root |
+| `insert_hint_element.rs` | 65 | Render element scattered at root |
+
+### 3. Conceptual Confusion
+- `floating.rs` (1449 LOC) is SIBLING to `canvas/` but FloatingSpace is PART OF Canvas2D
+- `canvas/floating.rs` (292 LOC) exists separately — delegation layer adds confusion
+- No clear hierarchy visible in file structure
+
+### 4. Dead Code
+| File | LOC | Status |
+|------|-----|--------|
+| `scrolling.rs` | 3990 | Being replaced by Row |
+| `workspace.rs` | 0 | Empty placeholder |
+
+---
+
+## Target Architecture
+
+```
+src/layout/  (~50 focused files instead of ~20 bloated ones)
+│
+├── mod.rs (~400 LOC)
+│   - Layout struct definition (fields only)
+│   - MonitorSet enum
+│   - LayoutElement trait
+│   - pub mod declarations
+│   - Re-exports
+│
+├── types.rs (~150 LOC)
+│   - ColumnWidth, SizingMode, ConfigureIntent
+│   - HitType, ActivateWindow, AddWindowTarget
+│   - All shared type definitions
+│
+├── options.rs (~100 LOC)  ← NEW
+│   - Options struct
+│   - Default implementations
+│
+├── layout_impl/  ← NEW (extract 229 methods from mod.rs)
+│   ├── mod.rs — Re-exports
+│   ├── window_ops.rs (~600 LOC)
+│   │   - add_window, remove_window, update_window
+│   │   - find_window_*, find_wl_surface_*
+│   │   - descendants_added
+│   ├── output_ops.rs (~400 LOC)
+│   │   - add_output, remove_output
+│   │   - update_output_size
+│   ├── focus.rs (~500 LOC)
+│   │   - activate_window, activate_window_without_raising
+│   │   - active_output, active_row, active_monitor
+│   ├── navigation.rs (~800 LOC)
+│   │   - move_*, focus_* direction methods
+│   │   - move_to_row_*, focus_row_*
+│   ├── resize.rs (~500 LOC)
+│   │   - set_window_width/height
+│   │   - interactive_resize_*
+│   ├── fullscreen.rs (~400 LOC)
+│   │   - set_fullscreen, toggle_fullscreen
+│   │   - set_maximized, toggle_maximized
+│   ├── row_management.rs (~500 LOC)
+│   │   - find_row_*, ensure_named_row
+│   │   - unname_*, row lifecycle
+│   ├── queries.rs (~400 LOC)
+│   │   - is_*, has_*, should_*
+│   │   - All state inspection methods
+│   ├── interactive_move.rs (~400 LOC)
+│   │   - interactive_move_*
+│   │   - DnD handling, InteractiveMoveData
+│   └── render.rs (~500 LOC)
+│       - render_*, refresh
+│       - Render element generation
+│
+├── elements/  ← NEW (group ALL render elements)
+│   ├── mod.rs — Re-exports
+│   ├── closing_window.rs ← from ../closing_window.rs
+│   ├── opening_window.rs ← from ../opening_window.rs
+│   ├── focus_ring.rs ← from ../focus_ring.rs
+│   ├── shadow.rs ← from ../shadow.rs
+│   ├── tab_indicator.rs ← from ../tab_indicator.rs
+│   └── insert_hint.rs ← from ../insert_hint_element.rs
+│
+├── monitor/  — KEEP (already well-structured)
+│   ├── mod.rs (~400 LOC)
+│   ├── types.rs — InsertHint, WorkspaceSwitch
+│   ├── navigation.rs
+│   ├── render.rs
+│   ├── hit_test.rs
+│   ├── config.rs
+│   └── gestures.rs
+│
+├── canvas/  — ENHANCED (absorb floating)
+│   ├── mod.rs (~400 LOC) — Canvas2D struct
+│   ├── floating/  ← NEW (move from ../floating.rs)
+│   │   ├── mod.rs (~400 LOC) — FloatingSpace struct
+│   │   ├── operations.rs — add/remove tile
+│   │   ├── render.rs — FloatingSpaceRenderElement
+│   │   └── resize.rs — resize handling
+│   ├── navigation.rs (520 LOC)
+│   ├── operations/  ← SPLIT from operations.rs (869 LOC)
+│   │   ├── mod.rs — Re-exports
+│   │   ├── window.rs — add/remove window
+│   │   ├── tile.rs — tile manipulation
+│   │   ├── row.rs — row creation/deletion
+│   │   └── state.rs — state updates
+│   └── render.rs
+│
+├── row/  — ENHANCED (split mod.rs further)
+│   ├── mod.rs (~400 LOC) — Row struct, exports
+│   ├── core.rs ← NEW — ColumnData struct
+│   ├── tile_ops.rs ← NEW — add_tile, remove_tile
+│   ├── columns.rs ← NEW — Column iteration
+│   ├── state.rs ← NEW — is_*, has_*, count_* queries
+│   ├── gesture.rs (445 LOC)
+│   ├── layout.rs (100 LOC)
+│   ├── navigation.rs (213 LOC)
+│   ├── render.rs (199 LOC)
+│   ├── resize.rs (151 LOC)
+│   ├── view_offset.rs (321 LOC)
+│   └── operations/
+│       ├── mod.rs
+│       ├── add.rs
+│       ├── remove.rs
+│       ├── move_col.rs
+│       └── consume.rs
+│
+├── tile/  ← NEW (split from tile.rs)
+│   ├── mod.rs (~400 LOC) — Tile struct, core
+│   ├── state.rs — State flags, getters
+│   ├── resize.rs — Interactive resize
+│   └── render.rs — TileRenderElement
+│
+├── column/  — KEEP (already well-structured)
+│   ├── mod.rs, core.rs, layout.rs, operations.rs, render.rs
+│   ├── tests.rs, tile_data.rs
+│   └── sizing/
+│
+├── animated_value/  — KEEP
+│   ├── mod.rs
+│   └── gesture.rs
+│
+├── row_types.rs — KEEP
+├── snapshot.rs — KEEP (testing infrastructure)
+│
+├── tests/  — KEEP
+│   ├── mod.rs, tests.rs
+│   ├── animations.rs, fullscreen.rs, golden.rs
+│   └── snapshots/
+│
+└── DELETE:
+    ✗ scrolling.rs (deprecated, replaced by Row)
+    ✗ workspace.rs (empty placeholder)
+    ✗ floating.rs (moved to canvas/floating/)
+    ✗ closing_window.rs (moved to elements/)
+    ✗ opening_window.rs (moved to elements/)
+    ✗ focus_ring.rs (moved to elements/)
+    ✗ shadow.rs (moved to elements/)
+    ✗ tab_indicator.rs (moved to elements/)
+    ✗ insert_hint_element.rs (moved to elements/)
+```
+
+---
+
+## Execution Phases
+
+### Phase 0: Cleanup (1 hour, NO RISK)
+**Delete dead code:**
+- [ ] Delete `workspace.rs` (empty file)
+- [ ] Move `scrolling.rs` to `deprecated/scrolling.rs` (keep for reference)
+
+**Verification:**
+```bash
+cargo check
+cargo test layout::
+```
+
+---
+
+### Phase 1: Create `elements/` Module (2 hours, LOW RISK)
+
+**Why first**: Just file moves + import updates. No method changes.
+
+**Steps:**
+1. [ ] Create `src/layout/elements/mod.rs`
+2. [ ] Move files:
+   - [ ] `closing_window.rs` → `elements/closing_window.rs`
+   - [ ] `opening_window.rs` → `elements/opening_window.rs`
+   - [ ] `focus_ring.rs` → `elements/focus_ring.rs`
+   - [ ] `shadow.rs` → `elements/shadow.rs`
+   - [ ] `tab_indicator.rs` → `elements/tab_indicator.rs`
+   - [ ] `insert_hint_element.rs` → `elements/insert_hint.rs`
+3. [ ] Update `mod.rs` to declare `pub mod elements;`
+4. [ ] Add re-exports in `elements/mod.rs`:
+   ```rust
+   pub mod closing_window;
+   pub mod opening_window;
+   pub mod focus_ring;
+   pub mod shadow;
+   pub mod tab_indicator;
+   pub mod insert_hint;
+   
+   pub use closing_window::ClosingWindow;
+   pub use focus_ring::FocusRing;
+   // etc.
+   ```
+5. [ ] Update all imports across codebase
+
+**Verification:**
+```bash
+cargo check
+cargo test
+```
+
+---
+
+### Phase 2: Consolidate FloatingSpace into `canvas/` (4 hours, MEDIUM RISK)
+
+**Why**: FloatingSpace is PART OF Canvas2D. Current structure is confusing.
+
+**Current:**
+- `src/layout/floating.rs` (1449 LOC) — FloatingSpace struct + impl
+- `src/layout/canvas/floating.rs` (292 LOC) — Canvas2D floating methods
+
+**Target:**
+```
+canvas/floating/
+├── mod.rs (~400 LOC) — FloatingSpace struct, core impl
+├── operations.rs (~400 LOC) — add/remove tile
+├── render.rs (~300 LOC) — FloatingSpaceRenderElement
+└── resize.rs (~300 LOC) — resize handling
+```
+
+**Steps:**
+1. [ ] Create `canvas/floating/` directory
+2. [ ] Split `floating.rs` into:
+   - [ ] `canvas/floating/mod.rs` — Struct, basic methods
+   - [ ] `canvas/floating/operations.rs` — add_tile, remove_tile
+   - [ ] `canvas/floating/render.rs` — render elements
+   - [ ] `canvas/floating/resize.rs` — resize handling
+3. [ ] Merge `canvas/floating.rs` methods into appropriate files
+4. [ ] Delete old `floating.rs`
+5. [ ] Update imports
+
+**Verification:**
+```bash
+cargo check
+cargo test tests::floating
+cargo test layout::
+```
+
+---
+
+### Phase 3: Split `tile.rs` into `tile/` Module (3 hours, MEDIUM RISK)
+
+**Current:** 1469 LOC flat file
+
+**Target:**
+```
+tile/
+├── mod.rs (~400 LOC) — Tile struct, core impl
+├── state.rs (~300 LOC) — State flags, is_*, has_*
+├── resize.rs (~400 LOC) — Interactive resize, resize_edges_under
+└── render.rs (~400 LOC) — TileRenderElement, rendering
+```
+
+**Steps:**
+1. [ ] Create `tile/` directory
+2. [ ] Move `tile.rs` → `tile/mod.rs`
+3. [ ] Extract into submodules:
+   - [ ] `tile/state.rs` — State getters/setters
+   - [ ] `tile/resize.rs` — Resize methods
+   - [ ] `tile/render.rs` — Render element
+4. [ ] Update imports
+
+**Verification:**
+```bash
+cargo check
+cargo test
+```
+
+---
+
+### Phase 4: Split `row/mod.rs` Further (4 hours, MEDIUM RISK)
+
+**Current:** 2161 LOC despite existing submodules
+
+**Target additions:**
+```
+row/
+├── core.rs ← NEW — ColumnData struct, internal state
+├── tile_ops.rs ← NEW — add_tile, remove_tile
+├── columns.rs ← NEW — Column iteration, management
+└── state.rs ← NEW — is_*, has_*, count_* queries
+```
+
+**Steps:**
+1. [ ] Extract `ColumnData` struct → `row/core.rs`
+2. [ ] Extract tile operations → `row/tile_ops.rs`
+3. [ ] Extract column iteration → `row/columns.rs`
+4. [ ] Extract state queries → `row/state.rs`
+5. [ ] Update `row/mod.rs` to use submodules
+
+**Verification:**
+```bash
+cargo check
+cargo test layout::
+./scripts/verify-golden.sh
+```
+
+---
+
+### Phase 5: Create `layout_impl/` Module (8 hours, HIGH RISK)
+
+**The Big One**: Extract 229 methods from `mod.rs` (5353 LOC → ~400 LOC)
+
+**Target:**
+```
+layout_impl/
+├── mod.rs
+├── window_ops.rs (~600 LOC)
+├── output_ops.rs (~400 LOC)
+├── focus.rs (~500 LOC)
+├── navigation.rs (~800 LOC)
+├── resize.rs (~500 LOC)
+├── fullscreen.rs (~400 LOC)
+├── row_management.rs (~500 LOC)
+├── queries.rs (~400 LOC)
+├── interactive_move.rs (~400 LOC)
+└── render.rs (~500 LOC)
+```
+
+**Method Distribution:**
+
+| File | Methods |
+|------|---------|
+| `window_ops.rs` | add_window, remove_window, update_window, find_window_*, find_wl_surface_*, descendants_added |
+| `output_ops.rs` | add_output, remove_output, update_output_size, add_column_by_idx |
+| `focus.rs` | activate_window*, active_output, active_row*, active_monitor*, windows_for_output* |
+| `navigation.rs` | move_*, focus_*, scroll_*, all direction-based methods |
+| `resize.rs` | set_*_width, set_*_height, interactive_resize_*, reset_* |
+| `fullscreen.rs` | set_fullscreen, toggle_fullscreen, set_maximized, toggle_maximized |
+| `row_management.rs` | find_row_by_*, ensure_named_row, unname_*, find_workspace_by_* |
+| `queries.rs` | is_*, has_*, should_*, popup_target_rect, scroll_amount_to_activate |
+| `interactive_move.rs` | interactive_move_*, DnD methods |
+| `render.rs` | render_*, refresh, with_windows* |
+
+**Steps:**
+1. [ ] Create `layout_impl/mod.rs` with re-exports
+2. [ ] Extract one category at a time:
+   - [ ] Start with `queries.rs` (safest, just getters)
+   - [ ] Then `fullscreen.rs` (self-contained)
+   - [ ] Then `resize.rs`
+   - [ ] Then `row_management.rs`
+   - [ ] Then `focus.rs`
+   - [ ] Then `output_ops.rs`
+   - [ ] Then `window_ops.rs`
+   - [ ] Then `navigation.rs` (largest)
+   - [ ] Then `interactive_move.rs`
+   - [ ] Finally `render.rs`
+3. [ ] Use `impl Layout<W>` blocks in each file
+
+**Pattern:**
+```rust
+// src/layout/layout_impl/queries.rs
+use super::*;
+
+impl<W: LayoutElement> Layout<W> {
+    pub fn is_empty(&self) -> bool { ... }
+    pub fn has_window(&self, window: &W::Id) -> bool { ... }
+    // etc.
+}
+```
+
+```rust
+// src/layout/mod.rs
+mod layout_impl;  // Just add this line - impl blocks auto-merge
+```
+
+**Verification after EACH file:**
+```bash
+cargo check
+cargo test layout::
+./scripts/verify-golden.sh
+```
+
+---
+
+### Phase 6: Split `canvas/operations.rs` (3 hours, MEDIUM RISK)
+
+**Current:** 869 LOC
+
+**Target:**
+```
+canvas/operations/
+├── mod.rs — Re-exports
+├── window.rs — add/remove window
+├── tile.rs — tile manipulation
+├── row.rs — row creation/deletion, ensure_row
+└── state.rs — state updates
+```
+
+**Verification:**
+```bash
+cargo check
+cargo test
+```
+
+---
+
+## Summary Table
+
+| Phase | Effort | Risk | Files Changed | LOC Moved |
+|-------|--------|------|---------------|-----------|
+| 0. Cleanup | 1h | None | Delete 2 | -4000 |
+| 1. Create elements/ | 2h | Low | Move 6 | ~1300 |
+| 2. Consolidate floating | 4h | Medium | Split 1, delete 1 | ~1450 |
+| 3. Split tile | 3h | Medium | Split 1 | ~1470 |
+| 4. Split row/mod.rs | 4h | Medium | Extract 4 | ~1200 |
+| 5. Create layout_impl/ | 8h | High | Extract 10 | ~5000 |
+| 6. Split canvas/ops | 3h | Medium | Split 1 | ~870 |
+| **Total** | **~25h** | | **~50 files** | |
+
+## Success Metrics
+
+After all phases:
+- [ ] No file > 500 LOC (except tests.rs)
+- [ ] Each module has ONE responsibility
+- [ ] Hierarchy matches: Layout → Monitor → Canvas → Row → Column → Tile
+- [ ] All render elements in `elements/`
+- [ ] All Layout methods in `layout_impl/`
+- [ ] All tests passing
+- [ ] Golden tests passing
+
+---
+
 # 📊 CURRENT STATUS
 
 | Metric | Value |
@@ -847,7 +1302,7 @@ The test failure was caused by TWO separate issues:
 
 ---
 
-*Last Updated: TEAM_057 on Nov 28, 2025*
+*Last Updated: TEAM_062 on Nov 29, 2025*
 
 ---
 
@@ -953,3 +1408,78 @@ The test failure was caused by TWO separate issues:
 *Check `phases/` for detailed phase documentation.*
 *Check `.questions/` for architecture decisions.*
 *Check `.teams/` for team handoff notes.*
+*Check `.teams/TEAM_062_monolithic_refactor_plan.md` for detailed refactoring plan.*
+
+---
+
+# 🚀 RECOMMENDED NEXT STEPS (TEAM_062)
+
+## START HERE: Phase 0 - Cleanup
+
+**Immediate action (1 hour, NO RISK):**
+
+```bash
+# Delete dead files
+rm src/layout/workspace.rs                    # Empty placeholder
+mkdir -p src/layout/deprecated
+mv src/layout/scrolling.rs src/layout/deprecated/  # Keep for reference
+
+# Verify
+cargo check
+cargo test layout::
+```
+
+---
+
+## Then: Phase 1 - Create `elements/` Module
+
+**Low risk (2 hours):** Group all render elements together.
+
+```bash
+# Create elements module
+mkdir -p src/layout/elements
+
+# Move files
+mv src/layout/closing_window.rs src/layout/elements/
+mv src/layout/opening_window.rs src/layout/elements/
+mv src/layout/focus_ring.rs src/layout/elements/
+mv src/layout/shadow.rs src/layout/elements/
+mv src/layout/tab_indicator.rs src/layout/elements/
+mv src/layout/insert_hint_element.rs src/layout/elements/insert_hint.rs
+
+# Then create src/layout/elements/mod.rs with re-exports
+# Then update all imports across codebase
+```
+
+---
+
+## Full Refactoring Roadmap
+
+See the **COMPREHENSIVE MODULE ARCHITECTURE REFACTOR** section above for:
+- Complete target architecture diagram
+- 6 execution phases with detailed steps
+- Verification commands for each phase
+- Method distribution tables
+
+| Phase | Effort | Risk | Result |
+|-------|--------|------|--------|
+| 0. Cleanup | 1h | None | Delete dead code |
+| 1. Create elements/ | 2h | Low | Group render elements |
+| 2. Consolidate floating | 4h | Medium | Fix conceptual model |
+| 3. Split tile | 3h | Medium | tile.rs → tile/ |
+| 4. Split row/mod.rs | 4h | Medium | Better organization |
+| 5. Create layout_impl/ | 8h | High | mod.rs: 5353 → ~400 LOC |
+| 6. Split canvas/ops | 3h | Medium | Better organization |
+
+**Total: ~25 hours of focused work**
+
+---
+
+## Success Criteria
+
+After all phases:
+- [ ] No file > 500 LOC (except tests.rs)
+- [ ] Hierarchy matches: Layout → Monitor → Canvas → Row → Column → Tile
+- [ ] All render elements in `elements/`
+- [ ] All Layout methods in `layout_impl/`
+- [ ] All tests passing

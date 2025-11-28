@@ -1,24 +1,26 @@
 # TEAM_038 — Monolithic File Analysis & Refactoring Plan
 
+> **⚠️ UPDATED by TEAM_062 on Nov 29, 2025**
+
 ## Mission
 Analyze all Rust files exceeding 500 LOC and create a comprehensive refactoring roadmap to break them into smaller, focused modules.
 
 ## Current Status
-- **Date**: 2025-11-27
-- **Tool Used**: `scc` (v3.5.0) for LOC counting
-- **Threshold**: 500 LOC maximum per file (per user rules)
-- **Violating Files**: 32 files exceed the threshold
+- **Date**: 2025-11-29 (updated from 2025-11-27)
+- **Tool Used**: `wc -l` for LOC counting
+- **Threshold**: 1000 LOC target, 500 LOC ideal
+- **Violating Files**: 8 critical files (>2000 LOC)
 
 ---
 
-## Summary Statistics
+## Summary Statistics (UPDATED Nov 29, 2025)
 
-| Category | Count | Total LOC |
-|----------|-------|-----------|
-| Critical (>2000 LOC) | 7 | 25,494 |
-| Severe (1000-2000 LOC) | 10 | 11,133 |
-| Moderate (500-1000 LOC) | 15 | 10,539 |
-| **Total Violations** | **32** | **47,166** |
+| Category | Count | Total LOC | Notes |
+|----------|-------|-----------|-------|
+| Critical (>2000 LOC) | 8 | 34,505 | PRIORITY |
+| Severe (1000-2000 LOC) | 9 | ~12,000 | Can wait |
+| Moderate (500-1000 LOC) | ~15 | ~10,000 | Lower priority |
+| **Files to Skip** | 4 | ~10,000 | Deprecated/tests |
 
 ---
 
@@ -26,7 +28,7 @@ Analyze all Rust files exceeding 500 LOC and create a comprehensive refactoring 
 
 These are the highest priority for refactoring.
 
-### 1. `src/niri.rs` — 5141 LOC
+### 1. `src/niri.rs` — 6603 LOC (was 5141)
 **Description**: Main application state and event handling
 **Suggested Split**:
 - `src/niri/mod.rs` — Core Niri struct and state
@@ -38,7 +40,7 @@ These are the highest priority for refactoring.
 - `src/niri/cursor.rs` — Cursor handling
 - `src/niri/screenshot.rs` — Screenshot functionality
 
-### 2. `src/input/mod.rs` — 4302 LOC
+### 2. `src/input/mod.rs` — 5109 LOC (was 4302)
 **Description**: Input handling (keyboard, mouse, touch, gestures)
 **Suggested Split**:
 - `src/input/mod.rs` — Core input state
@@ -50,7 +52,7 @@ These are the highest priority for refactoring.
 - `src/input/bindings.rs` — Keybinding resolution
 - `src/input/focus.rs` — Focus management
 
-### 3. `src/layout/mod.rs` — 3861 LOC
+### 3. `src/layout/mod.rs` — 5353 LOC (was 3861) — CRITICAL!
 **Description**: Layout management and window arrangement
 **Suggested Split**:
 - `src/layout/mod.rs` — Core Layout struct
@@ -72,17 +74,12 @@ These are the highest priority for refactoring.
 - `src/layout/tests/resize.rs` — Resize tests
 - `src/layout/tests/navigation.rs` — Navigation tests
 
-### 5. `src/layout/scrolling.rs` — 3000 LOC
+### 5. `src/layout/scrolling.rs` — 3990 LOC (was 3000)
 **Description**: Scrolling space implementation (legacy, being replaced by Row)
-**Status**: Part of 2D Canvas refactor — may be removed/replaced
-**Suggested Split** (if kept):
-- `src/layout/scrolling/mod.rs` — Core ScrollingSpace
-- `src/layout/scrolling/columns.rs` — Column management
-- `src/layout/scrolling/navigation.rs` — Navigation logic
-- `src/layout/scrolling/resize.rs` — Resize operations
-- `src/layout/scrolling/render.rs` — Rendering
+**Status**: ⚫ **SKIP** — Being deprecated in 2D Canvas refactor
+**Action**: Do NOT refactor. Will be removed when Row is complete.
 
-### 6. `src/backend/tty.rs` — 2804 LOC
+### 6. `src/backend/tty.rs` — 3465 LOC (was 2804)
 **Description**: TTY/DRM backend for native display
 **Suggested Split**:
 - `src/backend/tty/mod.rs` — Core TTY backend
@@ -92,7 +89,7 @@ These are the highest priority for refactoring.
 - `src/backend/tty/session.rs` — Session management
 - `src/backend/tty/render.rs` — Rendering pipeline
 
-### 7. `niri-config/src/lib.rs` — 2163 LOC
+### 7. `niri-config/src/lib.rs` — 2327 LOC (was 2163)
 **Description**: Configuration parsing and validation
 **Suggested Split**:
 - `niri-config/src/lib.rs` — Core Config struct and parsing
@@ -103,9 +100,18 @@ These are the highest priority for refactoring.
 
 ---
 
+### 8. `src/layout/row/mod.rs` — 2161 LOC — NEW CRITICAL!
+**Description**: Row implementation (core of Canvas2D)
+**Status**: 🔴 **CRITICAL** — Actively being developed
+**Suggested Split**:
+- Already has: gesture.rs, layout.rs, navigation.rs, render.rs, resize.rs, view_offset.rs, operations/
+- Need to add: `core.rs` (ColumnData), `tile_ops.rs`, `columns.rs`, `state.rs`
+
+---
+
 ## Severe Files (1000-2000 LOC)
 
-### 8. `src/ui/mru.rs` — 1513 LOC
+### 9. `src/ui/mru.rs` — 1940 LOC (was 1513)
 **Description**: Most Recently Used window switcher UI
 **Suggested Split**:
 - `src/ui/mru/mod.rs` — Core MRU state
@@ -113,7 +119,7 @@ These are the highest priority for refactoring.
 - `src/ui/mru/input.rs` — Input handling
 - `src/ui/mru/layout.rs` — Layout calculations
 
-### 9. `src/handlers/xdg_shell.rs` — 1228 LOC
+### 10. `src/handlers/xdg_shell.rs` — 1554 LOC (was 1228)
 **Description**: XDG shell protocol handlers
 **Suggested Split**:
 - `src/handlers/xdg_shell/mod.rs` — Core handlers
@@ -121,7 +127,7 @@ These are the highest priority for refactoring.
 - `src/handlers/xdg_shell/popup.rs` — Popup handling
 - `src/handlers/xdg_shell/positioner.rs` — Positioner logic
 
-### 10. `src/layout/floating.rs` — 1113 LOC
+### 11. `src/layout/floating.rs` — 1449 LOC (was 1113)
 **Description**: Floating window layout
 **Suggested Split**:
 - `src/layout/floating/mod.rs` — Core FloatingSpace
@@ -129,7 +135,7 @@ These are the highest priority for refactoring.
 - `src/layout/floating/render.rs` — Rendering
 - `src/layout/floating/resize.rs` — Resize handling
 
-### 11. `niri-ipc/src/lib.rs` — 1106 LOC
+### 12. `niri-ipc/src/lib.rs` — 1877 LOC (was 1106)
 **Description**: IPC message types and serialization
 **Suggested Split**:
 - `niri-ipc/src/lib.rs` — Core types
@@ -137,7 +143,7 @@ These are the highest priority for refactoring.
 - `niri-ipc/src/response.rs` — Response types
 - `niri-ipc/src/event.rs` — Event types
 
-### 12. `src/layout/tile.rs` — 1096 LOC
+### 13. `src/layout/tile.rs` — 1469 LOC (was 1096)
 **Description**: Tile (window container) implementation
 **Suggested Split**:
 - `src/layout/tile/mod.rs` — Core Tile struct
@@ -145,7 +151,7 @@ These are the highest priority for refactoring.
 - `src/layout/tile/resize.rs` — Resize logic
 - `src/layout/tile/state.rs` — State management
 
-### 13. `src/pw_utils.rs` — 1057 LOC
+### 14. `src/pw_utils.rs` — 1280 LOC (was 1057)
 **Description**: PipeWire utilities for screen capture
 **Suggested Split**:
 - `src/pw_utils/mod.rs` — Core PipeWire state
@@ -153,7 +159,7 @@ These are the highest priority for refactoring.
 - `src/pw_utils/cast.rs` — Screen cast logic
 - `src/pw_utils/buffer.rs` — Buffer handling
 
-### 14. `niri-config/src/appearance.rs` — 1047 LOC
+### 15. `niri-config/src/appearance.rs` — 1189 LOC (was 1047)
 **Description**: Appearance configuration (colors, borders, etc.)
 **Suggested Split**:
 - `niri-config/src/appearance/mod.rs` — Core types
@@ -161,7 +167,7 @@ These are the highest priority for refactoring.
 - `niri-config/src/appearance/borders.rs` — Border config
 - `niri-config/src/appearance/focus_ring.rs` — Focus ring config
 
-### 15. `src/ui/screenshot_ui.rs` — 1002 LOC
+### 16. `src/ui/screenshot_ui.rs` — 1209 LOC (was 1002)
 **Description**: Screenshot UI overlay
 **Suggested Split**:
 - `src/ui/screenshot_ui/mod.rs` — Core state
@@ -169,16 +175,7 @@ These are the highest priority for refactoring.
 - `src/ui/screenshot_ui/selection.rs` — Selection handling
 - `src/ui/screenshot_ui/input.rs` — Input handling
 
-### 16. `src/layout/row/mod.rs` — 963 LOC
-**Description**: Row implementation (new 2D canvas system)
-**Status**: Actively being developed in 2D Canvas refactor
-**Suggested Split**:
-- Already has submodules (gesture.rs, navigation.rs, etc.)
-- Move more logic to existing submodules
-- Consider `row/state.rs` for state queries
-- Consider `row/window_ops.rs` for window operations
-
-### 17. `src/window/mapped.rs` — 961 LOC
+### 17. `src/window/mapped.rs` — 1367 LOC (was 961)
 **Description**: Mapped window state and operations
 **Suggested Split**:
 - `src/window/mapped/mod.rs` — Core MappedWindow
