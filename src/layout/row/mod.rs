@@ -1102,7 +1102,8 @@ impl<W: LayoutElement> Row<W> {
         self.focus_tiling()
     }
     
-    pub fn set_fullscreen(&mut self, id: &W::Id, is_fullscreen: bool) {
+    /// TEAM_059: Updated to return bool indicating if window should restore to floating
+    pub fn set_fullscreen(&mut self, id: &W::Id, is_fullscreen: bool) -> bool {
         // Find the column containing this window
         let col_idx = self
             .columns
@@ -1110,12 +1111,12 @@ impl<W: LayoutElement> Row<W> {
             .position(|col| col.contains(id));
         
         let Some(mut idx) = col_idx else {
-            return;
+            return false;
         };
 
         // Check if state is already the same
         if is_fullscreen == self.columns[idx].is_pending_fullscreen {
-            return;
+            return false;
         }
 
         let is_tabbed = self.columns[idx].display_mode == ColumnDisplay::Tabbed;
@@ -1138,6 +1139,16 @@ impl<W: LayoutElement> Row<W> {
         // Check if we need to restore maximize state BEFORE setting fullscreen to false
         let should_restore_maximized = !is_fullscreen && self.columns[idx].is_pending_maximized;
 
+        // TEAM_059: Check if we should restore to floating when unmaximizing (not unfullscreening)
+        let mut should_restore_to_floating = false;
+        if !is_fullscreen && !self.columns[idx].is_pending_maximized {
+            // Only restore to floating if we're unfullscreening AND the window is not maximized
+            // Check if the active tile in this column should restore to floating
+            if let Some(tile) = self.columns[idx].tiles_iter().nth(self.columns[idx].active_tile_idx) {
+                should_restore_to_floating = tile.should_restore_to_floating();
+            }
+        }
+
         self.columns[idx].set_fullscreen(is_fullscreen);
 
         // Update column data
@@ -1148,14 +1159,18 @@ impl<W: LayoutElement> Row<W> {
             // Store the window ID before calling set_maximized since it might move the column
             let window_id = id.clone();
             self.set_maximized(&window_id, true);
+            // Ignore the return value since we're restoring maximize, not going to floating
         }
         
         // TEAM_050: View offset animation is handled in update_window() after the window
         // acknowledges the fullscreen state. This ensures view_offset_to_restore is saved
         // with the correct (pre-fullscreen) offset before any animation starts.
+        
+        should_restore_to_floating
     }
     
-    pub fn toggle_fullscreen(&mut self, id: &W::Id) {
+    /// TEAM_059: Updated to return bool indicating if window should restore to floating
+    pub fn toggle_fullscreen(&mut self, id: &W::Id) -> bool {
         // Find the column containing this window
         let col_idx = self
             .columns
@@ -1163,14 +1178,15 @@ impl<W: LayoutElement> Row<W> {
             .position(|col| col.contains(id));
         
         let Some(col_idx) = col_idx else {
-            return;
+            return false;
         };
 
         let current_state = self.columns[col_idx].is_pending_fullscreen;
-        self.set_fullscreen(id, !current_state);
+        self.set_fullscreen(id, !current_state)
     }
     
-    pub fn set_maximized(&mut self, id: &W::Id, maximize: bool) {
+    /// TEAM_059: Updated to return bool indicating if window should restore to floating
+    pub fn set_maximized(&mut self, id: &W::Id, maximize: bool) -> bool {
         // Find the column containing this window
         let col_idx = self
             .columns
@@ -1178,11 +1194,13 @@ impl<W: LayoutElement> Row<W> {
             .position(|col| col.contains(id));
         
         let Some(mut idx) = col_idx else {
-            return;
+            return false;
         };
 
-        // Removed early return check to allow setting maximize state even when window is fullscreen
-        // This ensures the maximize state is preserved across workspace moves and restored on unfullscreen
+        // Check if state is already the same
+        if maximize == self.columns[idx].is_pending_maximized {
+            return false;
+        }
 
         let is_tabbed = self.columns[idx].display_mode == ColumnDisplay::Tabbed;
         let has_multiple_tiles = self.columns[idx].tiles.len() > 1;
@@ -1194,20 +1212,33 @@ impl<W: LayoutElement> Row<W> {
             }
         }
 
-        // TEAM_054: If setting maximized and column has multiple tiles, extract the window
+        // If setting maximize and column has multiple tiles, extract the window
         if maximize && has_multiple_tiles && !is_tabbed {
             // This wasn't the only window in its column; extract it into a separate column.
             self.consume_or_expel_window_right(Some(id));
             idx += 1;
         }
 
+        // TEAM_059: Check if we should restore to floating when unmaximizing
+        let mut should_restore_to_floating = false;
+        if !maximize && !self.columns[idx].is_pending_fullscreen {
+            // Only restore to floating if we're unmaximizing AND the window is not fullscreen
+            // Check if the active tile in this column should restore to floating
+            if let Some(tile) = self.columns[idx].tiles_iter().nth(self.columns[idx].active_tile_idx) {
+                should_restore_to_floating = tile.should_restore_to_floating();
+            }
+        }
+
         self.columns[idx].set_maximized(maximize);
 
         // Update column data
         self.data[idx].update(&self.columns[idx]);
+        
+        should_restore_to_floating
     }
     
-    pub fn toggle_maximized(&mut self, id: &W::Id) {
+    /// TEAM_059: Updated to return bool indicating if window should restore to floating
+    pub fn toggle_maximized(&mut self, id: &W::Id) -> bool {
         // Find the column containing this window
         let col_idx = self
             .columns
@@ -1215,11 +1246,11 @@ impl<W: LayoutElement> Row<W> {
             .position(|col| col.contains(id));
         
         let Some(col_idx) = col_idx else {
-            return;
+            return false;
         };
 
         let current_state = self.columns[col_idx].is_pending_maximized;
-        self.set_maximized(id, !current_state);
+        self.set_maximized(id, !current_state)
     }
     
     pub fn active_window(&self) -> Option<&W> {

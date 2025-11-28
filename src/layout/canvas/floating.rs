@@ -57,6 +57,10 @@ impl<W: LayoutElement> Canvas2D<W> {
                     let mut removed = row.remove_tile(id, Transaction::new());
                     removed.tile.stop_move_animations();
                     
+                    // TEAM_059: Store the current window size as the floating size
+                    let current_size = removed.tile.window().size();
+                    removed.tile.set_floating_window_size(Some(current_size));
+                    
                     // TEAM_044: Set floating position based on render position (like original Workspace)
                     self.set_floating_position_from_render_pos(&mut removed.tile, render_pos);
                     
@@ -93,6 +97,10 @@ impl<W: LayoutElement> Canvas2D<W> {
                 let render_pos = row.active_tile_render_location();
                 if let Some(mut removed) = row.remove_active_tile(Transaction::new()) {
                     removed.tile.stop_move_animations();
+                    
+                    // TEAM_059: Store the current window size as the floating size
+                    let current_size = removed.tile.window().size();
+                    removed.tile.set_floating_window_size(Some(current_size));
                     
                     // TEAM_044: Set floating position based on render position (like original Workspace)
                     self.set_floating_position_from_render_pos(&mut removed.tile, render_pos);

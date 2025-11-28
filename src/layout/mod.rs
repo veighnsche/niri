@@ -4166,8 +4166,9 @@ impl<W: LayoutElement> Layout<W> {
                     .workspaces_mut()
                     .find(|ws| ws.has_window(&window_id))
                     .unwrap();
-                ws.set_fullscreen(window, false);
-                ws.set_maximized(window, false);
+                
+                // TEAM_059: Check if window should restore to floating
+                let should_restore_to_floating = ws.set_fullscreen(window, false) || ws.set_maximized(window, false);
 
                 let RemovedTile {
                     mut tile,
@@ -4193,7 +4194,7 @@ impl<W: LayoutElement> Layout<W> {
                     .adjusted_for_scale(scale);
                 tile.update_config(view_size, scale, Rc::new(options));
 
-                if is_floating {
+                if is_floating || should_restore_to_floating {
                     // TEAM_021: Unlock view using canvas instead of workspace iteration
                     for mon in self.monitors_mut() {
                         mon.canvas_mut().dnd_scroll_gesture_end();

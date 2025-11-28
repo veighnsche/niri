@@ -561,6 +561,7 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Workspace equivalent: set fullscreen for window
     /// TEAM_050: Implemented - delegate to row containing the window
     /// TEAM_054: Added floating window support - move to tiled first
+    /// TEAM_059: Added restore_to_floating support for proper state preservation
     pub fn set_fullscreen(&mut self, id: &W::Id, is_fullscreen: bool) {
         // Check if window is floating
         if self.floating.has_window(id) {
@@ -568,7 +569,16 @@ impl<W: LayoutElement> Canvas2D<W> {
                 // Move from floating to tiled, then fullscreen
                 let removed = self.floating.remove_tile(id);
                 let mut tile = removed.tile;
+                
+                // TEAM_059: Preserve the current floating size before moving to tiled
+                let current_size = tile.window().size();
+                tile.set_floating_window_size(Some(current_size));
+                
                 tile.animate_move_from(Point::from((0., 0.)));
+                
+                // TEAM_059: Mark this tile to restore to floating when unfullscreened
+                tile.set_restore_to_floating(true);
+                
                 let width = removed.width;
                 let is_full_width = removed.is_full_width;
                 self.add_tile(tile, true, width, is_full_width);
@@ -593,7 +603,12 @@ impl<W: LayoutElement> Canvas2D<W> {
         // Find the row containing this window and delegate
         for row in self.rows.values_mut() {
             if row.has_window(id) {
-                row.set_fullscreen(id, is_fullscreen);
+                let should_restore_to_floating = row.set_fullscreen(id, is_fullscreen);
+                
+                // TEAM_059: If the row indicates we should restore to floating, move the window back
+                if should_restore_to_floating {
+                    self.toggle_floating_window_by_id(Some(id));
+                }
                 return;
             }
         }
@@ -602,13 +617,23 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Workspace equivalent: toggle fullscreen for window
     /// TEAM_050: Implemented - delegate to row containing the window
     /// TEAM_054: Added floating window support
+    /// TEAM_059: Added restore_to_floating support
     pub fn toggle_fullscreen(&mut self, id: &W::Id) {
         // Check if window is floating
         if self.floating.has_window(id) {
             // Move from floating to tiled, then fullscreen
             let removed = self.floating.remove_tile(id);
             let mut tile = removed.tile;
+            
+            // TEAM_059: Preserve the current floating size before moving to tiled
+            let current_size = tile.window_size().to_i32_round();
+            tile.set_floating_window_size(Some(current_size));
+            
             tile.animate_move_from(Point::from((0., 0.)));
+            
+            // TEAM_059: Mark this tile to restore to floating when unfullscreened
+            tile.set_restore_to_floating(true);
+            
             let width = removed.width;
             let is_full_width = removed.is_full_width;
             self.add_tile(tile, true, width, is_full_width);
@@ -621,7 +646,7 @@ impl<W: LayoutElement> Canvas2D<W> {
             // Now fullscreen the window in its new tiled location
             for row in self.rows.values_mut() {
                 if row.has_window(id) {
-                    row.set_fullscreen(id, true);
+                    row.toggle_fullscreen(id);
                     return;
                 }
             }
@@ -631,7 +656,12 @@ impl<W: LayoutElement> Canvas2D<W> {
         // Find the row containing this window and delegate
         for row in self.rows.values_mut() {
             if row.has_window(id) {
-                row.toggle_fullscreen(id);
+                let should_restore_to_floating = row.toggle_fullscreen(id);
+                
+                // TEAM_059: If the row indicates we should restore to floating, move the window back
+                if should_restore_to_floating {
+                    self.toggle_floating_window_by_id(Some(id));
+                }
                 return;
             }
         }
@@ -640,6 +670,7 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Workspace equivalent: set maximized for window
     /// TEAM_050: Implemented - delegate to row containing the window
     /// TEAM_054: Added floating window support - move to tiled first
+    /// TEAM_059: Added restore_to_floating support for proper state preservation
     pub fn set_maximized(&mut self, id: &W::Id, maximize: bool) {
         // Check if window is floating
         if self.floating.has_window(id) {
@@ -647,7 +678,16 @@ impl<W: LayoutElement> Canvas2D<W> {
                 // Move from floating to tiled, then maximize
                 let removed = self.floating.remove_tile(id);
                 let mut tile = removed.tile;
+                
+                // TEAM_059: Preserve the current floating size before moving to tiled
+                let current_size = tile.window().size();
+                tile.set_floating_window_size(Some(current_size));
+                
                 tile.animate_move_from(Point::from((0., 0.)));
+                
+                // TEAM_059: Mark this tile to restore to floating when unmaximized
+                tile.set_restore_to_floating(true);
+                
                 let width = removed.width;
                 let is_full_width = removed.is_full_width;
                 self.add_tile(tile, true, width, is_full_width);
@@ -672,7 +712,12 @@ impl<W: LayoutElement> Canvas2D<W> {
         // Find the row containing this window and delegate
         for row in self.rows.values_mut() {
             if row.has_window(id) {
-                row.set_maximized(id, maximize);
+                let should_restore_to_floating = row.set_maximized(id, maximize);
+                
+                // TEAM_059: If the row indicates we should restore to floating, move the window back
+                if should_restore_to_floating {
+                    self.toggle_floating_window_by_id(Some(id));
+                }
                 return;
             }
         }
@@ -681,13 +726,23 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Workspace equivalent: toggle maximized for window
     /// TEAM_050: Implemented - delegate to row containing the window
     /// TEAM_054: Added floating window support
+    /// TEAM_059: Added restore_to_floating support
     pub fn toggle_maximized(&mut self, id: &W::Id) {
         // Check if window is floating
         if self.floating.has_window(id) {
             // Move from floating to tiled, then maximize
             let removed = self.floating.remove_tile(id);
             let mut tile = removed.tile;
+            
+            // TEAM_059: Preserve the current floating size before moving to tiled
+            let current_size = tile.window_size().to_i32_round();
+            tile.set_floating_window_size(Some(current_size));
+            
             tile.animate_move_from(Point::from((0., 0.)));
+            
+            // TEAM_059: Mark this tile to restore to floating when unmaximized
+            tile.set_restore_to_floating(true);
+            
             let width = removed.width;
             let is_full_width = removed.is_full_width;
             self.add_tile(tile, true, width, is_full_width);
@@ -700,7 +755,7 @@ impl<W: LayoutElement> Canvas2D<W> {
             // Now maximize the window in its new tiled location
             for row in self.rows.values_mut() {
                 if row.has_window(id) {
-                    row.set_maximized(id, true);
+                    row.toggle_maximized(id);
                     return;
                 }
             }
@@ -710,7 +765,12 @@ impl<W: LayoutElement> Canvas2D<W> {
         // Find the row containing this window and delegate
         for row in self.rows.values_mut() {
             if row.has_window(id) {
-                row.toggle_maximized(id);
+                let should_restore_to_floating = row.toggle_maximized(id);
+                
+                // TEAM_059: If the row indicates we should restore to floating, move the window back
+                if should_restore_to_floating {
+                    self.toggle_floating_window_by_id(Some(id));
+                }
                 return;
             }
         }

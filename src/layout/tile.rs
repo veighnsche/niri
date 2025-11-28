@@ -1446,4 +1446,24 @@ impl<W: LayoutElement> Tile<W> {
     pub fn move_y_animation_with_from(&self) -> Option<(&Animation, f64)> {
         self.move_y_animation.as_ref().map(|m| (&m.anim, m.from))
     }
+
+    /// TEAM_059: Set whether this tile should restore to floating when unfullscreened/unmaximized
+    pub fn set_restore_to_floating(&mut self, restore: bool) {
+        self.restore_to_floating = restore;
+    }
+
+    /// TEAM_059: Get whether this tile should restore to floating
+    pub fn should_restore_to_floating(&self) -> bool {
+        self.restore_to_floating
+    }
+
+    /// TEAM_059: Set the floating window size to restore to
+    pub fn set_floating_window_size(&mut self, size: Option<Size<i32, Logical>>) {
+        self.floating_window_size = size;
+    }
+
+    /// TEAM_059: Get the stored floating window size
+    pub fn floating_window_size(&self) -> Option<Size<i32, Logical>> {
+        self.floating_window_size
+    }
 }
