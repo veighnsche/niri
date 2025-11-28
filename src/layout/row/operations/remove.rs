@@ -39,11 +39,13 @@ impl<W: LayoutElement> Row<W> {
         // If this is the only tile in the column, remove the whole column.
         if self.columns[column_idx].tiles.len() == 1 {
             let mut column = self.remove_column_by_idx_with_anim(column_idx, anim_config);
+            let is_maximized = column.sizing_mode().is_maximized();
             return RemovedTile::new(
                 column.tiles.remove(tile_idx),
                 column.width,
                 column.is_full_width,
                 false,
+                is_maximized,
             );
         }
 
@@ -92,11 +94,13 @@ impl<W: LayoutElement> Row<W> {
             }
         }
 
+        let is_maximized = column.sizing_mode().is_maximized();
         let removed = RemovedTile::new(
             tile,
             column.width,
             column.is_full_width,
             false,
+            is_maximized,
         );
 
         #[allow(clippy::comparison_chain)]

@@ -205,6 +205,13 @@ impl<W: LayoutElement> Row<W> {
     pub fn idx(&self) -> i32 {
         self.row_index
     }
+    
+    /// Set the row index.
+    /// TEAM_059: Added for renumbering rows after cleanup
+    pub fn set_idx(&mut self, idx: i32) {
+        self.row_index = idx;
+        self.y_offset = idx as f64 * self.view_size.h;
+    }
 
     /// Returns the Y offset from canvas origin.
     pub fn y_offset(&self) -> f64 {
@@ -1128,10 +1135,20 @@ impl<W: LayoutElement> Row<W> {
             idx += 1;
         }
 
+        // Check if we need to restore maximize state BEFORE setting fullscreen to false
+        let should_restore_maximized = !is_fullscreen && self.columns[idx].is_pending_maximized;
+
         self.columns[idx].set_fullscreen(is_fullscreen);
 
         // Update column data
         self.data[idx].update(&self.columns[idx]);
+        
+        // If unfullscreening and the column was previously maximized, restore maximize state
+        if should_restore_maximized {
+            // Store the window ID before calling set_maximized since it might move the column
+            let window_id = id.clone();
+            self.set_maximized(&window_id, true);
+        }
         
         // TEAM_050: View offset animation is handled in update_window() after the window
         // acknowledges the fullscreen state. This ensures view_offset_to_restore is saved
@@ -1164,10 +1181,8 @@ impl<W: LayoutElement> Row<W> {
             return;
         };
 
-        // Check if state is already the same
-        if maximize == self.columns[idx].is_pending_maximized {
-            return;
-        }
+        // Removed early return check to allow setting maximize state even when window is fullscreen
+        // This ensures the maximize state is preserved across workspace moves and restored on unfullscreen
 
         let is_tabbed = self.columns[idx].display_mode == ColumnDisplay::Tabbed;
         let has_multiple_tiles = self.columns[idx].tiles.len() > 1;

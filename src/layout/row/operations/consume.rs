@@ -99,7 +99,7 @@ impl<W: LayoutElement> Row<W> {
             // We're inserting into the source column position.
             let target_column_idx = source_col_idx;
 
-            let (tile, width, is_full_width, _) = removed.into_parts();
+            let (tile, width, is_full_width, _, is_maximized) = removed.into_parts();
             self.add_tile(
                 Some(target_column_idx),
                 tile,
@@ -200,7 +200,7 @@ impl<W: LayoutElement> Row<W> {
 
             let target_column_idx = source_col_idx + 1;
 
-            let (tile, width, is_full_width, _) = removed.into_parts();
+            let (tile, width, is_full_width, _, is_maximized) = removed.into_parts();
             self.add_tile(
                 Some(target_column_idx),
                 tile,

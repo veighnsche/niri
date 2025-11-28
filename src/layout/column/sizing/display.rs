@@ -22,9 +22,8 @@ impl<W: LayoutElement> Column<W> {
     }
 
     pub(crate) fn set_maximized(&mut self, maximize: bool) {
-        if self.is_pending_maximized == maximize {
-            return;
-        }
+        // Removed early return check to allow setting maximize state even when already set
+        // This ensures the maximize state is properly preserved across workspace moves
 
         if maximize {
             assert!(self.tiles.len() == 1 || self.display_mode == ColumnDisplay::Tabbed);

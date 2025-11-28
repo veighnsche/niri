@@ -539,6 +539,7 @@ impl<W: LayoutElement> FloatingSpace<W> {
             width,
             is_full_width: false,
             is_floating: true,
+            is_maximized: false,
         }
     }
 

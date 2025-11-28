@@ -902,6 +902,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
                 width: column.width,
                 is_full_width: column.is_full_width,
                 is_floating: false,
+                is_maximized: column.sizing_mode().is_maximized(),
             };
         }
 
@@ -954,6 +955,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
             width: column.width,
             is_full_width: column.is_full_width,
             is_floating: false,
+            is_maximized: column.sizing_mode().is_maximized(),
         };
 
         #[allow(clippy::comparison_chain)] // What do you even want here?

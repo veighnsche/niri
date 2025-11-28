@@ -3,7 +3,7 @@
 > **Check this file first** before starting work.
 > This is the single source of truth for what needs to be done.
 
-**Last updated**: TEAM_053
+**Last updated**: TEAM_058
 
 ---
 
@@ -12,9 +12,79 @@
 | Metric | Value |
 |--------|-------|
 | **Build** | ✅ Compiles |
-| **Tests** | 213 passed, 55 failed (79.5%) |
-| **Golden Tests** | ✅ 88/88 pass (0 failing) |
+| **Tests** | 265 passed, 7 failed (97.4%) |
+| **Golden Tests** | ❌ 2440 snapshot regressions detected |
 | **TODOs in codebase** | 84 total |
+
+---
+
+# 🚨 GOLDEN TEST FAILURES (TEAM_058)
+
+> **Status**: CRITICAL - 2440 snapshot regressions detected  
+> **Date**: Nov 28, 2025  
+> **Command**: `cargo insta test`
+
+## Test Failures Summary
+
+**7 Failed Tests**:
+1. `move_window_to_workspace_maximize_and_fullscreen` - Window sizing mode incorrect (Normal vs Maximized)
+2. `move_to_workspace_by_idx_does_not_leave_empty_workspaces` - Empty workspace assertion failed
+3. `move_workspace_to_output` - Workspace count mismatch (0 vs 1)
+4. `removing_all_outputs_preserves_empty_named_workspaces` - Workspace count mismatch (3 vs 2)
+5. `removing_output_must_keep_empty_focus_on_primary` - Active workspace index wrong (0 vs 1)
+6. `restore_to_floating_persists_across_fullscreen_maximize` - Tiles found when none expected
+7. `unmaximize_during_fullscreen_does_not_float` - Tiles found when none expected
+
+## Root Cause Analysis
+
+### Pattern 1: Window State Management Issues
+**Tests**: `move_window_to_workspace_maximize_and_fullscreen`, `restore_to_floating_persists_across_fullscreen_maximize`, `unmaximize_during_fullscreen_does_not_float`
+
+**Issue**: Window sizing mode and floating state not preserved correctly across workspace moves and fullscreen/maximize operations.
+
+**Related Files**:
+- `src/layout/mod.rs` - `move_window_to_workspace()` implementation
+- `src/layout/canvas/operations.rs` - Window movement logic
+- `src/layout/row/mod.rs` - Maximize/fullscreen state handling
+
+### Pattern 2: Workspace Count and Index Issues  
+**Tests**: `move_to_workspace_by_idx_does_not_leave_empty_workspaces`, `move_workspace_to_output`, `removing_all_outputs_preserves_empty_named_workspaces`, `removing_output_must_keep_empty_focus_on_primary`
+
+**Issue**: Workspace creation, deletion, and index tracking not working correctly in Canvas2D system.
+
+**Related Files**:
+- `src/layout/mod.rs` - Workspace management functions
+- `src/layout/canvas/navigation.rs` - Active workspace index tracking
+- `src/layout/canvas/operations.rs` - Workspace creation/deletion
+
+### Pattern 3: Floating Window State Issues
+**Tests**: `restore_to_floating_persists_across_fullscreen_maximize`, `unmaximize_during_fullscreen_does_not_float`
+
+**Issue**: Floating windows incorrectly appearing in tiled space after fullscreen/maximize operations.
+
+**Related Files**:
+- `src/layout/mod.rs` - Floating state management
+- `src/layout/floating.rs` - Floating space operations
+- `src/layout/row/mod.rs` - Tile enumeration
+
+## Immediate Action Required
+
+1. **Fix workspace indexing**: Active workspace index calculation is incorrect
+2. **Fix window state preservation**: Maximize/fullscreen/floating states lost during moves
+3. **Fix workspace cleanup**: Empty workspaces not being removed properly
+4. **Fix floating tile enumeration**: Floating windows appearing in tile iterators
+
+## Investigation Commands
+
+```bash
+# Review specific snapshot differences
+cargo insta review
+
+# Run individual failing tests
+cargo test move_window_to_workspace_maximize_and_fullscreen
+cargo test move_to_workspace_by_idx_does_not_leave_empty_workspaces
+cargo test move_workspace_to_output
+```
 
 ---
 

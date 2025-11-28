@@ -179,6 +179,8 @@ impl<W: LayoutElement> Canvas2D<W> {
         if let Some(target_row) = self.rows.get_mut(&target_row_idx) {
             let is_full_width = removed_tile.is_full_width();
             let width = removed_tile.width();
+            let is_maximized = removed_tile.is_maximized();
+            
             target_row.add_tile(
                 None, 
                 removed_tile.tile(), 
@@ -186,8 +188,23 @@ impl<W: LayoutElement> Canvas2D<W> {
                 width,
                 true
             );
+            
+            // Restore maximize state directly on the column if the window was maximized
+            // We set this directly instead of calling set_maximized() to avoid early return checks
+            if is_maximized {
+                // Use the active window to set maximize state
+                let window_id = target_row.active_window().map(|w| w.id().clone());
+                if let Some(window_id) = window_id {
+                    target_row.set_maximized(&window_id, true);
+                }
+            }
+            
             // Switch focus to target row
             self.focus_row(target_row_idx);
+            
+            // TEAM_059: Clean up empty rows and renumber to maintain contiguous workspace indices
+            self.cleanup_and_renumber_rows();
+            
             true
         } else {
             false
@@ -238,6 +255,10 @@ impl<W: LayoutElement> Canvas2D<W> {
             if activate {
                 self.focus_row(target_row_idx);
             }
+            
+            // TEAM_059: Clean up empty rows and renumber to maintain contiguous workspace indices
+            self.cleanup_and_renumber_rows();
+            
             true
         } else {
             false
@@ -407,6 +428,8 @@ impl<W: LayoutElement> Canvas2D<W> {
         if let Some(target_row) = self.rows.get_mut(&idx) {
             let is_full_width = removed_tile.is_full_width();
             let width = removed_tile.width();
+            let is_maximized = removed_tile.is_maximized();
+            
             target_row.add_tile(
                 None,
                 removed_tile.tile(),
@@ -415,9 +438,23 @@ impl<W: LayoutElement> Canvas2D<W> {
                 activate
             );
             
+            // Restore maximize state directly on the column if the window was maximized
+            // We set this directly instead of calling set_maximized() to avoid early return checks
+            if is_maximized {
+                // Use the active window to set maximize state
+                let window_id = target_row.active_window().map(|w| w.id().clone());
+                if let Some(window_id) = window_id {
+                    target_row.set_maximized(&window_id, true);
+                }
+            }
+            
             if activate {
                 self.focus_row(idx);
             }
+            
+            // TEAM_059: Clean up empty rows and renumber to maintain contiguous workspace indices
+            self.cleanup_and_renumber_rows();
+            
             true
         } else {
             false

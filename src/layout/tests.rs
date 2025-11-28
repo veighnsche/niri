@@ -3350,12 +3350,9 @@ fn move_window_to_workspace_maximize_and_fullscreen() {
     let (_, win) = layout.windows().next().unwrap();
 
     // Unfullscreening should return to maximized because the window was maximized before.
-    //
-    // FIXME: it currently doesn't because windows themselves can only be either fullscreen or
-    // maximized. So when a window is fullscreen, whether it is also maximized or not is stored in
-    // the column. MoveWindowToWorkspace removes the window from the column and this information is
-    // forgotten.
-    assert_eq!(win.pending_sizing_mode(), SizingMode::Normal);
+    // This now works correctly because we preserve the maximize state in RemovedTile and
+    // restore it when moving windows between workspaces.
+    assert_eq!(win.pending_sizing_mode(), SizingMode::Maximized);
 }
 
 #[test]

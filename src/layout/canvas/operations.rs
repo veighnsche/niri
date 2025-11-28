@@ -51,6 +51,39 @@ impl<W: LayoutElement> Canvas2D<W> {
     pub fn cleanup_empty_rows(&mut self) {
         self.rows.retain(|&idx, row| idx == 0 || row.name().is_some() || !row.is_empty());
     }
+    
+    /// Renumbers rows to maintain contiguous indices starting from 0.
+    /// This should be called after cleanup_empty_rows to ensure workspaces are contiguous.
+    /// TEAM_059: Added to fix move_to_workspace_by_idx_does_not_leave_empty_workspaces test
+    pub fn renumber_rows(&mut self) {
+        // Take all rows out of the map
+        let old_rows = std::mem::take(&mut self.rows);
+        
+        // Collect and sort by index
+        let mut sorted_rows: Vec<(i32, Row<W>)> = old_rows.into_iter().collect();
+        sorted_rows.sort_by_key(|(idx, _)| *idx);
+        
+        // Re-insert with contiguous indices starting from 0
+        for (new_idx, (old_idx, mut row)) in sorted_rows.into_iter().enumerate() {
+            let new_idx = new_idx as i32;
+            if old_idx != new_idx {
+                row.set_idx(new_idx);
+            }
+            self.rows.insert(new_idx, row);
+        }
+        
+        // Update active_row_idx to point to a valid row
+        if !self.rows.contains_key(&self.active_row_idx) {
+            self.active_row_idx = self.rows.keys().next().copied().unwrap_or(0);
+        }
+    }
+    
+    /// Cleans up empty rows and renumbers remaining rows to be contiguous.
+    /// TEAM_059: Combined cleanup and renumber for convenience
+    pub fn cleanup_and_renumber_rows(&mut self) {
+        self.cleanup_empty_rows();
+        self.renumber_rows();
+    }
 
     // =========================================================================
     // Tile Operations

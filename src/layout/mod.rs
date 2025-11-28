@@ -463,6 +463,8 @@ pub struct RemovedTile<W: LayoutElement> {
     is_full_width: bool,
     /// Whether the tile was floating.
     is_floating: bool,
+    /// Whether the tile was maximized (to preserve state across workspace moves).
+    is_maximized: bool,
 }
 
 impl<W: LayoutElement> RemovedTile<W> {
@@ -472,12 +474,14 @@ impl<W: LayoutElement> RemovedTile<W> {
         width: ColumnWidth,
         is_full_width: bool,
         is_floating: bool,
+        is_maximized: bool,
     ) -> Self {
         Self {
             tile,
             width,
             is_full_width,
             is_floating,
+            is_maximized,
         }
     }
 
@@ -501,9 +505,19 @@ impl<W: LayoutElement> RemovedTile<W> {
         self.is_floating
     }
 
+    /// Returns whether the tile was maximized.
+    pub fn is_maximized(&self) -> bool {
+        self.is_maximized
+    }
+
+    /// Returns a reference to the window ID without consuming the tile.
+    pub fn window_id(&self) -> &W::Id {
+        self.tile.window().id()
+    }
+
     /// Destructures into components.
-    pub fn into_parts(self) -> (Tile<W>, ColumnWidth, bool, bool) {
-        (self.tile, self.width, self.is_full_width, self.is_floating)
+    pub fn into_parts(self) -> (Tile<W>, ColumnWidth, bool, bool, bool) {
+        (self.tile, self.width, self.is_full_width, self.is_floating, self.is_maximized)
     }
 }
 
@@ -1165,6 +1179,7 @@ impl<W: LayoutElement> Layout<W> {
                             width: move_.width,
                             is_full_width: move_.is_full_width,
                             is_floating: false,
+                            is_maximized: false,
                         });
                     }
                 }
@@ -4161,6 +4176,7 @@ impl<W: LayoutElement> Layout<W> {
                     width,
                     is_full_width,
                     is_floating,
+                    is_maximized,
                 } = self.remove_window(window, Transaction::new()).unwrap();
 
                 tile.stop_move_animations();
