@@ -48,8 +48,8 @@ use super::row::{Row, RowRenderElement};
 use super::tile::Tile;
 use super::LayoutElement;
 use super::Options;
-// TEAM_055: Renamed from workspace_types to row_types, WorkspaceId to RowId
-use super::row_types::RowId as WorkspaceId;
+// TEAM_060: Using RowId directly instead of WorkspaceId alias
+use super::row_types::RowId;
 use crate::animation::Clock;
 use crate::niri_render_elements;
 
@@ -131,7 +131,7 @@ impl<W: LayoutElement> Canvas2D<W> {
         scale: f64,
         clock: Clock,
         options: Rc<Options>,
-        initial_workspace_id: WorkspaceId,
+        initial_workspace_id: RowId,
     ) -> Self {
         // Create origin row (row 0)
         let mut rows = BTreeMap::new();

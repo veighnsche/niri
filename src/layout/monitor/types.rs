@@ -9,8 +9,8 @@ use smithay::utils::{Logical, Point};
 
 use crate::animation::Animation;
 use crate::input::swipe_tracker::SwipeTracker;
-// TEAM_055: Renamed from workspace_types to row_types, WorkspaceId to RowId
-use crate::layout::row_types::RowId as WorkspaceId;
+// TEAM_060: Using RowId directly instead of WorkspaceId alias
+use crate::layout::row_types::RowId;
 use crate::layout::LayoutElement;
 
 // TEAM_013: Re-export InsertPosition from types module
@@ -72,7 +72,7 @@ pub struct WorkspaceSwitchGesture {
 /// Which workspace to insert a window into.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InsertWorkspace {
-    Existing(WorkspaceId),
+    Existing(RowId),
     NewAt(usize),
 }
 
@@ -102,7 +102,7 @@ pub enum MonitorAddWindowTarget<'a, W: LayoutElement> {
     /// On this workspace.
     Workspace {
         /// Id of the target workspace.
-        id: WorkspaceId,
+        id: RowId,
         /// Override where the window will open as a new column.
         column_idx: Option<usize>,
     },
@@ -185,7 +185,7 @@ impl WorkspaceSwitchGesture {
 }
 
 impl InsertWorkspace {
-    pub fn existing_id(self) -> Option<WorkspaceId> {
+    pub fn existing_id(self) -> Option<RowId> {
         match self {
             InsertWorkspace::Existing(id) => Some(id),
             InsertWorkspace::NewAt(_) => None,

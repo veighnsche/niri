@@ -44,8 +44,8 @@ use std::rc::Rc;
 use niri_config::{Struts, Border, PresetSize};
 use niri_config::utils::MergeWith;
 use niri_ipc::{ColumnDisplay, SizeChange};
-// TEAM_055: Renamed from workspace_types to row_types, WorkspaceId to RowId
-use crate::layout::row_types::RowId as WorkspaceId;
+// TEAM_060: Using RowId directly instead of WorkspaceId alias
+use crate::layout::row_types::RowId;
 use smithay::utils::{Logical, Point, Rectangle, Size, Serial};
 use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
@@ -99,7 +99,7 @@ pub struct Row<W: LayoutElement> {
     name: Option<String>,
 
     /// TEAM_039: Unique workspace ID for this row
-    workspace_id: WorkspaceId,
+    workspace_id: RowId,
 
     // =========================================================================
     // Column management (from ScrollingSpace)
@@ -160,7 +160,7 @@ impl<W: LayoutElement> Row<W> {
     /// Creates a new empty row at the specified index.
     pub fn new(
         row_index: i32,
-        workspace_id: WorkspaceId,
+        workspace_id: RowId,
         view_size: Size<f64, Logical>,
         parent_area: Rectangle<f64, Logical>,
         scale: f64,

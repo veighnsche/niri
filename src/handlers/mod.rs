@@ -73,7 +73,7 @@ use smithay::{
 };
 
 pub use crate::handlers::xdg_shell::KdeDecorationsModeState;
-// TEAM_055: Renamed from workspace_types to row_types, WorkspaceId to RowId
+// TEAM_060: Using RowId directly instead of WorkspaceId alias
 use crate::layout::row_types::RowId as WorkspaceId;
 use crate::layout::ActivateWindow;
 use crate::niri::{DndIcon, NewClient, State};

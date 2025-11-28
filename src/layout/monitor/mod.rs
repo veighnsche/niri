@@ -18,8 +18,8 @@ use smithay::utils::{Logical, Rectangle, Size};
 use crate::animation::Clock;
 use crate::layout::canvas::Canvas2D;
 use crate::layout::insert_hint_element::InsertHintElement;
-// TEAM_055: Renamed from workspace_types to row_types, WorkspaceId to RowId
-use crate::layout::row_types::{RowId as WorkspaceId, compute_working_area};
+// TEAM_060: Using RowId directly instead of WorkspaceId alias
+use crate::layout::row_types::{RowId, compute_working_area};
 use crate::layout::row::Row;
 use crate::layout::{LayoutElement, Options};
 use crate::niri_render_elements;
@@ -116,7 +116,7 @@ impl<W: LayoutElement> Monitor<W> {
         clock: Clock,
         base_options: Rc<Options>,
         layout_config: Option<LayoutPart>,
-        initial_workspace_id: WorkspaceId,
+        initial_workspace_id: RowId,
     ) -> Self {
         let options =
             Rc::new(Options::clone(&base_options).with_merged_layout(layout_config.as_ref()));
@@ -182,7 +182,7 @@ impl<W: LayoutElement> Monitor<W> {
     }
 
     // TEAM_022: Returns active row index (was workspace index)
-    pub fn active_workspace_idx(&self) -> usize {
+    pub fn active_row_idx(&self) -> usize {
         self.canvas.active_row_idx() as usize
     }
 

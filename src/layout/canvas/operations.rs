@@ -12,8 +12,8 @@ use super::super::floating::FloatingSpace;
 use super::super::tile::Tile;
 use super::super::LayoutElement;
 use super::super::Options;
-// TEAM_055: Renamed from workspace_types to row_types, WorkspaceId to RowId
-use super::super::row_types::RowId as WorkspaceId;
+// TEAM_060: Using RowId directly instead of WorkspaceId alias
+use super::super::row_types::RowId;
 use super::super::ColumnWidth;
 use niri_ipc::PositionChange;
 
@@ -32,7 +32,7 @@ impl<W: LayoutElement> Canvas2D<W> {
             // Use a large stride (1000) to avoid collisions with other canvases
             // Each canvas starts with a unique base from Layout.next_row_id()
             self.row_id_counter += 1000;
-            let row_id = WorkspaceId(self.row_id_counter);
+            let row_id = RowId(self.row_id_counter);
             
             Row::new(
                 row_idx,
@@ -765,17 +765,6 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Workspace equivalent: clean up all empty rows - TEAM_021
     pub fn clean_up_workspaces(&mut self) {
         self.cleanup_empty_rows();
-    }
-
-    /// Workspace equivalent: get all rows for iteration - TEAM_021
-    pub fn workspaces(&self) -> impl Iterator<Item = (i32, &Row<W>)> {
-        self.rows()
-    }
-
-    /// Workspace equivalent: get all rows for mutable iteration - TEAM_021
-    /// TEAM_035: Returns (i32, &mut Row<W>) tuples like workspaces() for consistency
-    pub fn workspaces_mut(&mut self) -> impl Iterator<Item = (i32, &mut Row<W>)> + '_ {
-        self.rows_mut()
     }
 
     /// Workspace equivalent: get active workspace (row) - TEAM_021

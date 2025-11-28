@@ -3,7 +3,7 @@
 > **Check this file first** before starting work.
 > This is the single source of truth for what needs to be done.
 
-**Last updated**: TEAM_059
+**Last updated**: TEAM_060
 
 ---
 
@@ -16,7 +16,7 @@
 
 | Area | Status | Notes |
 |------|--------|-------|
-| **Internal Layout Code** | 🔄 In Progress | ~60% migrated |
+| **Internal Layout Code** | ✅ Complete | TEAM_060 - WorkspaceId→RowId, method renames |
 | **Config (niri-config)** | ✅ Complete | TEAM_055 |
 | **Test Operations (Op::)** | ✅ Complete | TEAM_014 |
 | **Test Function Names** | ⏳ Pending | Still use "workspace" |
@@ -39,7 +39,7 @@
 
 | Old Name | New Name | File | Status |
 |----------|----------|------|--------|
-| `WorkspaceId` | `RowId` | `src/layout/row_types.rs` | ⏳ Pending |
+| `WorkspaceId` | `RowId` | `src/layout/row_types.rs` | ✅ Done |
 | `WorkspaceAddWindowTarget` | `RowAddWindowTarget` | `src/layout/row_types.rs` | ✅ Done |
 | `Workspace` (config) | `RowConfig` | `niri-config/src/` | ✅ Done |
 | `WorkspaceName` | `RowName` | `niri-config/src/` | ✅ Done |
@@ -48,15 +48,15 @@
 
 | Old Name | New Name | Status |
 |----------|----------|--------|
-| `move_to_workspace()` | `move_to_row()` | ⏳ Pending |
-| `move_to_workspace_up()` | `move_to_row_up()` | ⏳ Pending |
-| `move_to_workspace_down()` | `move_to_row_down()` | ⏳ Pending |
+| `move_to_workspace()` | `move_to_row()` | ✅ Done |
+| `move_to_workspace_up()` | `move_to_row_up()` | ✅ Done |
+| `move_to_workspace_down()` | `move_to_row_down()` | ✅ Done |
 | `move_column_to_workspace()` | `move_column_to_row()` | ⏳ Pending |
 | `focus_workspace()` | `focus_row()` | ⏳ Pending |
 | `focus_workspace_up()` | `focus_row_up()` | ⏳ Pending |
 | `focus_workspace_down()` | `focus_row_down()` | ⏳ Pending |
-| `active_workspace()` | `active_row()` | ⏳ Pending |
-| `active_workspace_idx()` | `active_row_idx()` | ⏳ Pending |
+| `active_workspace()` | `active_row()` | ✅ Done |
+| `active_workspace_idx()` | `active_row_idx()` | ✅ Done |
 | `find_workspace_by_name()` | `find_row_by_name()` | ✅ Done |
 | `ensure_named_workspace()` | `ensure_named_row()` | ✅ Done |
 
@@ -64,16 +64,16 @@
 
 | Old Name | New Name | File | Status |
 |----------|----------|------|--------|
-| `active_workspace_idx()` | `active_row_idx()` | `mod.rs` | ⏳ Pending |
-| `workspaces()` | `rows()` | `mod.rs` | ⏳ Pending |
-| `workspaces_mut()` | `rows_mut()` | `mod.rs` | ⏳ Pending |
+| `active_workspace_idx()` | `active_row_idx()` | `mod.rs` | ✅ Done |
+| `workspaces()` | `rows()` | `mod.rs` | ✅ Done |
+| `workspaces_mut()` | `rows_mut()` | `mod.rs` | ✅ Done |
 
 ### 4. Method Renames (src/layout/canvas/)
 
 | Old Name | New Name | File | Status |
 |----------|----------|------|--------|
-| `workspaces()` | `rows()` | `operations.rs` | ⏳ Pending |
-| `workspaces_mut()` | `rows_mut()` | `operations.rs` | ⏳ Pending |
+| `workspaces()` | `rows()` | `operations.rs` | ✅ Done |
+| `workspaces_mut()` | `rows_mut()` | `operations.rs` | ✅ Done |
 
 ### 5. Field Renames
 
