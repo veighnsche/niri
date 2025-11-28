@@ -1,4 +1,10 @@
-### Overview
+### Overview (legacy)
+
+> [!NOTE]
+> This page describes the legacy Overview feature from pre–2D canvas versions of niri.
+> In the 2D canvas refactor, the Overview feature and the `toggle-overview` action,
+> as well as the `overview {}` config section, have been removed.
+> The information below only applies to older releases.
 
 <sup>Since: 25.05</sup>
 

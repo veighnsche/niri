@@ -393,10 +393,8 @@ binds {
     XF86MonBrightnessUp allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "+10%"; }
     XF86MonBrightnessDown allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "10%-"; }
 
-    // Open/close the Overview: a zoomed-out view of workspaces and windows.
-    // You can also move the mouse into the top-left hot corner,
-    // or do a four-finger swipe up on a touchpad.
-    Mod+O repeat=false { toggle-overview; }
+    // TEAM_046: Overview mode has been removed in the 2D canvas layout.
+    // Mod+O is intentionally unbound by default; you can repurpose it for your own actions.
 
     Mod+Q repeat=false { close-window; }
 
@@ -418,12 +416,12 @@ binds {
     Mod+Ctrl+K     { move-window-up; }
     Mod+Ctrl+L     { move-column-right; }
 
-    // Alternative commands that move across workspaces when reaching
+    // TEAM_046: Alternative commands that move across rows when reaching
     // the first or last window in a column.
-    // Mod+J     { focus-window-or-workspace-down; }
-    // Mod+K     { focus-window-or-workspace-up; }
-    // Mod+Ctrl+J     { move-window-down-or-to-workspace-down; }
-    // Mod+Ctrl+K     { move-window-up-or-to-workspace-up; }
+    // Mod+J     { focus-window-or-row-down; }
+    // Mod+K     { focus-window-or-row-up; }
+    // Mod+Ctrl+J     { move-window-down-or-to-row-down; }
+    // Mod+Ctrl+K     { move-window-up-or-to-row-up; }
 
     Mod+Home { focus-column-first; }
     Mod+End  { focus-column-last; }
@@ -478,7 +476,7 @@ binds {
     // You can bind mouse wheel scroll ticks using the following syntax.
     // These binds will change direction based on the natural-scroll setting.
     //
-    // To avoid scrolling through workspaces really fast, you can use
+    // To avoid scrolling through rows really fast, you can use
     // the cooldown-ms property. The bind will be rate-limited to this value.
     // You can set a cooldown on any bind, but it's most useful for the wheel.
     Mod+WheelScrollDown      cooldown-ms=150 { focus-row-down; }

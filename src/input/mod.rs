@@ -689,6 +689,7 @@ impl State {
                 self.niri.debug_toggle_damage();
             }
             Action::Spawn(command) => {
+                info!("Spawn action triggered with command: {:?}", command);
                 let (token, _) = self.niri.activation_state.create_external_token(None);
                 spawn(command, Some(token.clone()));
             }

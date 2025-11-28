@@ -3,7 +3,7 @@
 > **Check this file first** before starting work.
 > This is the single source of truth for what needs to be done.
 
-**Last updated**: TEAM_045
+**Last updated**: TEAM_046
 
 ---
 
@@ -240,6 +240,25 @@ render_offset: move_y exists=true, value=0, offset.y=0  ← Should be interpolat
 | niri.rs | 4533 | TEAM_023 | Update workspace-specific rendering |
 | niri.rs | 4541 | TEAM_023 | Fix workspace-specific element rendering |
 | a11y.rs | 122 | TEAM_023 | Implement proper row ID generation |
+
+### docs/wiki (Documentation updates for rows & removed overview)
+
+- [x] TODO(TEAM_046): Update `docs/wiki/Overview.md` for removal of the Overview feature and new Canvas2D/row model.
+- [x] TODO(TEAM_046): Update `docs/wiki/Workspaces-legacy.md` to either migrate concepts to rows/canvas or archive as legacy.
+- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Named-Workspaces.md` to reflect row naming / camera bookmarks or archive.
+- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Key-Bindings.md` examples to use row-based actions and current default binds.
+- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Input.md` to remove or replace `workspace-auto-back-and-forth` and workspace-centric language.
+- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Gestures.md` to remove `dnd-edge-workspace-switch`, overview hot-corner behavior, and workspace-scrolling text.
+- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Animations.md` to reflect row-based animations and removal of `overview-open-close` / `workspace-switch` semantics.
+- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Outputs.md` backdrop-color and hot-corner text that references workspaces/overview.
+- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Include.md` examples that use the `overview {}` section.
+- [ ] TODO(TEAM_046): Update `docs/wiki/Layer60Shell-Components.md` overview layering description for the new canvas/row model.
+- [ ] TODO(TEAM_046): Update `docs/wiki/Accessibility.md` references to entering the Overview.
+- [ ] TODO(TEAM_046): Update `docs/wiki/IPC.md` examples that use `focus-workspace` actions.
+- [ ] TODO(TEAM_046): Update `docs/wiki/Configuration:-Miscellaneous.md` section that documents `overview {}`.
+- [ ] TODO(TEAM_046): Review `docs/wiki/Configuration:-Introduction.md` in light of the new default `resources/default-config.kdl`.
+- [ ] TODO(TEAM_046): Review `docs/wiki/Integrating-niri.md` references to the embedded default config link.
+- [ ] TODO(TEAM_046): Review `docs/wiki/Development:-Design-Principles.md` "Default config" section against the new row-based default config.
 
 ---
 

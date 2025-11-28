@@ -1,4 +1,9 @@
-### Overview
+### Workspaces (legacy)
+
+> [!NOTE]
+> This page describes the legacy workspace model from pre–2D canvas versions of niri.
+> In the 2D canvas refactor, workspaces have been removed in favor of rows and the Canvas2D model.
+> The information below only applies to older releases.
 
 Niri has dynamic workspaces that can move between monitors.
 

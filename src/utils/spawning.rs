@@ -67,8 +67,11 @@ pub fn spawn<T: AsRef<OsStr> + Send + 'static>(command: Vec<T>, token: Option<Xd
     let _span = tracy_client::span!();
 
     if command.is_empty() {
+        warn!("spawn: command is empty, returning early");
         return;
     }
+
+    info!("spawn: starting command spawner thread");
 
     // Spawning and waiting takes some milliseconds, so do it in a thread.
     let res = thread::Builder::new()
@@ -101,6 +104,7 @@ fn spawn_sync(
     let _span = tracy_client::span!();
 
     let mut command = command.as_ref();
+    info!("spawn_sync: executing command {:?}", command);
 
     // Expand `~` at the start.
     let expanded = expand_home(Path::new(command));
