@@ -10,14 +10,14 @@ use crate::utils::ResizeEdge;
 
 impl<W: LayoutElement> Monitor<W> {
     // =========================================================================
-    // Workspace hit testing
+    // Row hit testing
     // =========================================================================
 
-    pub fn workspace_under(
+    pub fn row_under(
         &self,
         pos_within_output: Point<f64, Logical>,
     ) -> Option<(&crate::layout::row::Row<W>, Rectangle<f64, Logical>)> {
-        let (row, geo) = self.canvas.workspaces().find_map(|(_, row)| {
+        let (row, geo) = self.canvas.rows().find_map(|(_, row)| {
             // TEAM_023: Implement proper row geometry calculation
             // Use same pattern as render geometry but account for camera offset
             let row_height = row.row_height();
@@ -43,11 +43,11 @@ impl<W: LayoutElement> Monitor<W> {
         Some((row, geo))
     }
 
-    pub fn workspace_under_narrow(
+    pub fn row_under_narrow(
         &self,
         pos_within_output: Point<f64, Logical>,
     ) -> Option<&crate::layout::row::Row<W>> {
-        self.canvas.workspaces()
+        self.canvas.rows()
             .find_map(|(_, row)| {
                 // TEAM_023: Implement proper row geometry calculation
                 // Use same pattern as render geometry but account for camera offset
@@ -78,7 +78,7 @@ impl<W: LayoutElement> Monitor<W> {
     // =========================================================================
 
     pub fn window_under(&self, pos_within_output: Point<f64, Logical>) -> Option<(&W, HitType)> {
-        let (ws, geo) = self.workspace_under(pos_within_output)?;
+        let (ws, geo) = self.row_under(pos_within_output)?;
 
         // DEPRECATED(overview): Removed overview_progress zoom handling
         // TEAM_036: Row's window_under now returns Option<(&W, HitType)>
@@ -88,7 +88,7 @@ impl<W: LayoutElement> Monitor<W> {
 
     pub fn resize_edges_under(&self, pos_within_output: Point<f64, Logical>) -> Option<ResizeEdge> {
         // DEPRECATED(overview): Removed overview_progress check
-        let (ws, geo) = self.workspace_under(pos_within_output)?;
+        let (ws, geo) = self.row_under(pos_within_output)?;
         ws.resize_edges_under(pos_within_output - geo.loc)
     }
 

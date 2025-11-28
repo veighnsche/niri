@@ -222,7 +222,7 @@ pub struct Niri {
     /// Clock for driving animations.
     pub clock: Clock,
 
-    // Each workspace corresponds to a Space. Each workspace generally has one Output mapped to it,
+    // Each row corresponds to a layout area. Each row generally has one Output mapped to it,
     // however it may have none (when there are no outputs connected) or multiple (when mirroring).
     pub layout: Layout<Mapped>,
 
@@ -725,7 +725,7 @@ impl State {
 
         // Advance animations to the current time (not target render time) before rendering outputs
         // in order to clear completed animations and render elements. Even if we're not rendering,
-        // it's good to advance every now and then so the workspace clean-up and animations don't
+        // it's good to advance every now and then so the row clean-up and animations don't
         // build up (the 1 second frame callback timer will call this line).
         self.niri.advance_animations();
 
@@ -3397,9 +3397,9 @@ impl Niri {
                         layers.layer_geometry(layer_surface).unwrap().loc.to_f64();
                     layer_pos_within_output += mapped.bob_offset();
 
-                    // Background and bottom layers move together with the workspaces.
+                    // Background and bottom layers move together with the rows.
                     let mon = self.layout.monitor_for_output(output)?;
-                    let (_, geo) = mon.workspace_under(pos_within_output)?;
+                    let (_, geo) = mon.row_under(pos_within_output)?;
                     layer_pos_within_output += geo.loc;
 
                     let surface_type = WindowSurfaceType::POPUP | WindowSurfaceType::SUBSURFACE;
@@ -3416,10 +3416,10 @@ impl Niri {
         false
     }
 
-    /// Returns the workspace under the position to be activated.
+    /// Returns the row under the position to be activated.
     ///
-    /// The return value is an output and a workspace index on it.
-    pub fn workspace_under(
+    /// The return value is an output and a row index on it.
+    pub fn row_under(
         &self,
         extended_bounds: bool,
         pos: Point<f64, Logical>,
@@ -3440,16 +3440,16 @@ impl Niri {
 
         let ws = self
             .layout
-            .workspace_under(extended_bounds, output, pos_within_output)?;
+            .row_under(extended_bounds, output, pos_within_output)?;
         Some((output.clone(), ws))
     }
 
-    pub fn workspace_under_cursor(
+    pub fn row_under_cursor(
         &self,
         extended_bounds: bool,
     ) -> Option<(Output, &crate::layout::row::Row<Mapped>)> {
         let pos = self.seat.get_pointer().unwrap().current_location();
-        self.workspace_under(extended_bounds, pos)
+        self.row_under(extended_bounds, pos)
     }
 
     /// Returns the window under the position to be activated.
@@ -3559,10 +3559,10 @@ impl Niri {
                         layers.layer_geometry(layer_surface).unwrap().loc.to_f64();
                     layer_pos_within_output += mapped.bob_offset();
 
-                    // Background and bottom layers move together with the workspaces.
+                    // Background and bottom layers move together with the rows.
                     if matches!(layer, Layer::Background | Layer::Bottom) {
                         let mon = self.layout.monitor_for_output(output)?;
-                        let (_, geo) = mon.workspace_under(pos_within_output)?;
+                        let (_, geo) = mon.row_under(pos_within_output)?;
                         layer_pos_within_output += geo.loc;
                         // Don't need to deal with zoom here because in the overview background and
                         // bottom layers don't receive input.
@@ -3803,7 +3803,7 @@ impl Niri {
         &self,
         workspace_reference: WorkspaceReference,
     ) -> Option<(Option<Output>, usize)> {
-        let (target_workspace_index, target_workspace) = match workspace_reference {
+        let (target_row_index, target_row) = match workspace_reference {
             WorkspaceReference::Index(index) => {
                 return Some((None, index.saturating_sub(1) as usize));
             }
@@ -3815,7 +3815,7 @@ impl Niri {
         };
 
         let target_output = None; // TODO: TEAM_023: Get output from monitor when workspace methods return monitor info
-        Some((target_output, target_workspace_index as usize))
+        Some((target_output, target_row_index as usize))
     }
 
     pub fn find_window_by_id(&self, id: MappedId) -> Option<Window> {

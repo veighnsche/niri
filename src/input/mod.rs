@@ -1040,7 +1040,7 @@ impl State {
                 self.niri.queue_redraw_all();
             }
             Action::FocusColumnLeftUnderMouse => {
-                if let Some((output, ws)) = self.niri.workspace_under_cursor(true) {
+                if let Some((output, ws)) = self.niri.row_under_cursor(true) {
                     let ws_id = ws.id();
                     let ws = {
                         let mut workspaces = self.niri.layout.workspaces_mut();
@@ -1060,7 +1060,7 @@ impl State {
                 self.niri.queue_redraw_all();
             }
             Action::FocusColumnRightUnderMouse => {
-                if let Some((output, ws)) = self.niri.workspace_under_cursor(true) {
+                if let Some((output, ws)) = self.niri.row_under_cursor(true) {
                     let ws_id = ws.id();
                     let ws = {
                         let mut workspaces = self.niri.layout.workspaces_mut();
@@ -2016,7 +2016,7 @@ impl State {
                 let active_window = self
                     .niri
                     .layout
-                    .active_workspace_mut()
+                    .active_row_mut()
                     .and_then(|ws| ws.active_window_mut());
                 if let Some(window) = active_window {
                     if window.rules().opacity.is_some_and(|o| o != 1.) {
@@ -2044,7 +2044,7 @@ impl State {
                 let id = self
                     .niri
                     .layout
-                    .active_workspace()
+                    .active_row()
                     .and_then(|ws| ws.active_window())
                     .map(|mapped| mapped.id().get());
                 if let Some(id) = id {
@@ -2580,7 +2580,7 @@ impl State {
             let is_overview_open = false;
 
             if is_overview_open && !pointer.is_grabbed() && button == Some(MouseButton::Right) {
-                if let Some((output, ws)) = self.niri.workspace_under_cursor(true) {
+                if let Some((output, ws)) = self.niri.row_under_cursor(true) {
                     let ws_id = ws.id();
                     let ws_idx = self.niri.layout.find_workspace_by_id(ws_id).unwrap().0;
 
@@ -2611,7 +2611,7 @@ impl State {
                 let mod_down = modifiers_from_state(mods).contains(mod_key.to_modifiers());
                 if mod_down {
                     let output_ws = if is_overview_open {
-                        self.niri.workspace_under_cursor(true)
+                        self.niri.row_under_cursor(true)
                     } else {
                         // We don't want to accidentally "catch" the wrong workspace during
                         // animations.
@@ -3067,7 +3067,7 @@ impl State {
                         }
                     } else {
                         if action.begin() {
-                            if let Some((output, ws)) = self.niri.workspace_under_cursor(true) {
+                            if let Some((output, ws)) = self.niri.row_under_cursor(true) {
                                 let ws_id = ws.id();
                                 let ws_idx =
                                     self.niri.layout.find_workspace_by_id(ws_id).unwrap().0;
@@ -3547,7 +3547,7 @@ impl State {
                 if let Some(output) = self.niri.output_under_cursor() {
                     if cx.abs() > cy.abs() {
                         let output_ws = if is_overview_open {
-                            self.niri.workspace_under_cursor(true)
+                            self.niri.row_under_cursor(true)
                         } else {
                             // We don't want to accidentally "catch" the wrong workspace during
                             // animations.
@@ -3841,10 +3841,10 @@ impl State {
                 let _output = output.clone();
 
                 let mut _matched_narrow = true;
-                let mut ws = self.niri.workspace_under(false, pos);
+                let mut ws = self.niri.row_under(false, pos);
                 if ws.is_none() {
                     _matched_narrow = false;
-                    ws = self.niri.workspace_under(true, pos);
+                    ws = self.niri.row_under(true, pos);
                 }
                 let _ws_id = ws.map(|(_, ws)| ws.id());
 

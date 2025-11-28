@@ -586,7 +586,7 @@ impl State {
 
         let mut events = Vec::new();
         let layout = &self.niri.layout;
-        let focused_ws_id = layout.active_workspace().map(|ws| ws.id().get());
+        let focused_ws_id = layout.active_row().map(|ws| ws.id().get());
 
         // Check for workspace changes.
         let mut seen = HashSet::new();
@@ -633,7 +633,7 @@ impl State {
             }
 
             // Check if this workspace became active.
-            let is_active = mon.is_some_and(|mon| mon.active_workspace_idx() == ws_idx as usize);
+            let is_active = mon.is_some_and(|mon| mon.active_row_idx() == ws_idx as usize);
             if is_active && !ipc_ws.is_active {
                 events.push(Event::WorkspaceActivated { id, focused: false });
             }
@@ -657,7 +657,7 @@ impl State {
                         name: ws.name().map(|s| s.to_string()),
                         output: mon.map(|mon| mon.output_name().clone()),
                         is_urgent: ws.is_urgent(),
-                        is_active: mon.is_some_and(|mon| mon.active_workspace_idx() == ws_idx as usize),
+                        is_active: mon.is_some_and(|mon| mon.active_row_idx() == ws_idx as usize),
                         is_focused: Some(id) == focused_ws_id,
                         active_window_id: ws.active_window().map(|win| win.id().get()),
                     }

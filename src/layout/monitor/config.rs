@@ -25,7 +25,7 @@ impl<W: LayoutElement> Monitor<W> {
         {
             if options.layout.empty_row_above_first {
                 self.add_workspace_top();
-            } else if self.workspace_switch.is_none() && self.active_workspace_idx() != 0 {
+            } else if self.workspace_switch.is_none() && self.active_row_idx() != 0 {
                 // Remove row 0 only if it's empty and unnamed
                 if let Some(row) = self.canvas.row(0) {
                     if row.is_empty() && row.name().is_none() {
@@ -36,7 +36,7 @@ impl<W: LayoutElement> Monitor<W> {
         }
 
         // TEAM_035: Extract row from tuple
-        for (_, ws) in self.canvas.workspaces_mut() {
+        for (_, ws) in self.canvas.rows_mut() {
             ws.update_config(self.view_size, self.working_area, self.scale.fractional_scale(), options.clone());
         }
 
@@ -60,7 +60,7 @@ impl<W: LayoutElement> Monitor<W> {
 
     pub fn update_shaders(&mut self) {
         // TEAM_035: Extract row from tuple
-        for (_, ws) in self.canvas.workspaces_mut() {
+        for (_, ws) in self.canvas.rows_mut() {
             ws.update_shaders();
         }
 
@@ -77,7 +77,7 @@ impl<W: LayoutElement> Monitor<W> {
         self.working_area = compute_working_area(&self.output);
 
         // TEAM_035: Extract row from tuple
-        for (_, ws) in self.canvas.workspaces_mut() {
+        for (_, ws) in self.canvas.rows_mut() {
             ws.update_output_size();
         }
     }

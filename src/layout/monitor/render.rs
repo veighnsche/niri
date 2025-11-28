@@ -48,11 +48,13 @@ impl<W: LayoutElement> Monitor<W> {
                 InsertWorkspace::Existing(ws_id) => {
                     // Find the row with this workspace ID
                     if let Some(row_idx) = self.canvas.find_row_by_id(ws_id) {
-                        if let Some(row) = self.canvas.row(row_idx) {
-                            row.insert_hint_area(hint.position)
-                        } else {
-                            None
-                        }
+                        self.canvas.rows().find_map(|(idx, row)| {
+                            if idx == row_idx {
+                                row.insert_hint_area(hint.position)
+                            } else {
+                                None
+                            }
+                        })
                     } else {
                         None
                     }
@@ -133,7 +135,7 @@ impl<W: LayoutElement> Monitor<W> {
 
     /// Returns the render geometry for all rows in the canvas.
     pub fn workspaces_render_geo(&self) -> impl Iterator<Item = Rectangle<f64, Logical>> + '_ {
-        self.canvas.workspaces().map(|(row_idx, row)| {
+        self.canvas.rows().map(|(_row_idx, row)| {
             // For Canvas2D, each row occupies the full width and has its own height
             let row_height = row.row_height();
             let y_offset = row.y_offset();
@@ -152,7 +154,7 @@ impl<W: LayoutElement> Monitor<W> {
         let output_geo = Rectangle::from_size(self.view_size);
 
         self.canvas
-            .workspaces()
+            .rows()
             .map(|(row_idx, row)| {
                 let row_height = row.row_height();
                 let y_offset = row.y_offset();
@@ -173,7 +175,7 @@ impl<W: LayoutElement> Monitor<W> {
         let output_geo = Rectangle::from_size(self.view_size);
 
         self.canvas
-            .workspaces()
+            .rows()
             .map(|(row_idx, row)| {
                 let row_height = row.row_height();
                 let y_offset = row.y_offset();
@@ -196,7 +198,7 @@ impl<W: LayoutElement> Monitor<W> {
         let view_size = self.view_size;
 
         self.canvas
-            .workspaces_mut()
+            .rows_mut()
             // TEAM_035: Extract row from (i32, &mut Row) tuple
             .map(move |(_, row)| {
                 let row_height = row.row_height();

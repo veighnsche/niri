@@ -21,7 +21,7 @@ impl<W: LayoutElement> Monitor<W> {
     // =========================================================================
 
     pub fn workspace_switch_gesture_begin(&mut self, is_touchpad: bool) {
-        let center_idx = self.active_workspace_idx();
+        let center_idx = self.active_row_idx();
         let current_idx = self.workspace_render_idx();
 
         let gesture = WorkspaceSwitchGesture {
@@ -112,7 +112,7 @@ impl<W: LayoutElement> Monitor<W> {
         };
 
         // TEAM_033: Get values before mutable borrow to avoid borrow conflicts
-        let current_active_idx = self.active_workspace_idx();
+        let current_active_idx = self.active_row_idx();
         let row_count = self.canvas.rows().count();
 
         let Some(WorkspaceSwitch::Gesture(gesture)) = &mut self.workspace_switch else {
@@ -237,7 +237,7 @@ impl<W: LayoutElement> Monitor<W> {
         let pos = gesture.tracker.pos() / total_height;
         let unclamped = gesture.start_idx + pos;
 
-        let (min, max) = gesture.min_max(self.canvas.workspaces().count());
+        let (min, max) = gesture.min_max(self.canvas.rows().count());
         let clamped = unclamped.clamp(min, max);
 
         // Make sure that DnD scrolling too much outside the min/max does not "build up".

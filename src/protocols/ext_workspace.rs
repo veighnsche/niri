@@ -272,7 +272,7 @@ fn refresh_workspace(
     ws: &crate::layout::row::Row<Mapped>,
 ) -> bool {
     let mut state = ext_workspace_handle_v1::State::empty();
-    if mon.is_some_and(|mon| mon.active_workspace_idx() == ws_idx) {
+    if mon.is_some_and(|mon| mon.active_row_idx() == ws_idx) {
         state |= ext_workspace_handle_v1::State::Active;
     }
     

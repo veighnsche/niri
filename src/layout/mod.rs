@@ -2528,9 +2528,9 @@ impl<W: LayoutElement> Layout<W> {
 
         let mon = self.monitor_for_output(output)?;
         if extended_bounds {
-            mon.workspace_under(pos_within_output).map(|(ws, _)| ws)
+            mon.row_under(pos_within_output).map(|(ws, _)| ws)
         } else {
-            mon.workspace_under_narrow(pos_within_output)
+            mon.row_under_narrow(pos_within_output)
         }
     }
 
@@ -2760,7 +2760,7 @@ impl<W: LayoutElement> Layout<W> {
                 scrolled |= mon.dnd_scroll_gesture_scroll(pos_within_output, 1.);
 
                 if is_scrolling {
-                    if let Some((ws, geo)) = mon.workspace_under(pos_within_output) {
+                    if let Some((ws, geo)) = mon.row_under(pos_within_output) {
                         let ws_id = ws.id();
                         // TEAM_035: Extract row from tuple
                         let (_, ws) = mon
@@ -2787,7 +2787,7 @@ impl<W: LayoutElement> Layout<W> {
                         .window_under(pos_within_output)
                         .map(|(win, _)| DndHoldTarget::Window(win.id().clone()))
                         .or_else(|| {
-                            mon.workspace_under_narrow(pos_within_output)
+                            mon.row_under_narrow(pos_within_output)
                                 .map(|ws| DndHoldTarget::Workspace(ws.id()))
                         });
 
@@ -4894,7 +4894,7 @@ impl<W: LayoutElement> Layout<W> {
                 let Some(mon) = self.monitor_for_output_mut(&output) else {
                     return;
                 };
-                let Some((ws, ws_geo)) = mon.workspace_under(pointer_pos_within_output) else {
+                let Some((ws, ws_geo)) = mon.row_under(pointer_pos_within_output) else {
                     return;
                 };
                 let ws_id = ws.id();
@@ -5127,7 +5127,7 @@ impl<W: LayoutElement> Layout<W> {
 
         // TEAM_054: Include both tiled and floating windows
         let tiled = self
-            .rows()
+            .workspaces()
             .flat_map(|(mon, _, ws)| ws.windows().map(move |win| (mon, win)));
         
         let floating: Box<dyn Iterator<Item = (Option<&Monitor<W>>, &W)>> = match &self.monitor_set {
