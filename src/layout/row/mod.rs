@@ -1100,38 +1100,36 @@ impl<W: LayoutElement> Row<W> {
             .iter()
             .position(|col| col.contains(id));
         
-        let Some(col_idx) = col_idx else {
+        let Some(mut idx) = col_idx else {
             return;
         };
 
         // Check if state is already the same
-        if is_fullscreen == self.columns[col_idx].is_pending_fullscreen {
+        if is_fullscreen == self.columns[idx].is_pending_fullscreen {
             return;
         }
 
-        let col = &mut self.columns[col_idx];
-        let is_tabbed = col.display_mode == ColumnDisplay::Tabbed;
+        let is_tabbed = self.columns[idx].display_mode == ColumnDisplay::Tabbed;
+        let has_multiple_tiles = self.columns[idx].tiles.len() > 1;
 
         // Cancel any ongoing resize for this column
-        // TODO: Implement cancel_resize_for_column equivalent
         if let Some(resize) = &mut self.interactive_resize {
             if &resize.window == id {
-                // Cancel the resize
                 self.interactive_resize = None;
             }
         }
 
-        // If setting fullscreen and column has multiple tiles, extract the window
-        if is_fullscreen && (col.tiles.len() > 1 && !is_tabbed) {
+        // TEAM_054: If setting fullscreen and column has multiple tiles, extract the window
+        if is_fullscreen && has_multiple_tiles && !is_tabbed {
             // This wasn't the only window in its column; extract it into a separate column.
-            // TODO: Implement consume_or_expel_window_right equivalent
-            // For now, we'll just set fullscreen on the column
+            self.consume_or_expel_window_right(Some(id));
+            idx += 1;
         }
 
-        col.set_fullscreen(is_fullscreen);
+        self.columns[idx].set_fullscreen(is_fullscreen);
 
         // Update column data
-        self.data[col_idx].update(col);
+        self.data[idx].update(&self.columns[idx]);
         
         // TEAM_050: View offset animation is handled in update_window() after the window
         // acknowledges the fullscreen state. This ensures view_offset_to_restore is saved
@@ -1160,16 +1158,17 @@ impl<W: LayoutElement> Row<W> {
             .iter()
             .position(|col| col.contains(id));
         
-        let Some(col_idx) = col_idx else {
+        let Some(mut idx) = col_idx else {
             return;
         };
 
         // Check if state is already the same
-        if maximize == self.columns[col_idx].is_pending_maximized {
+        if maximize == self.columns[idx].is_pending_maximized {
             return;
         }
 
-        let col = &mut self.columns[col_idx];
+        let is_tabbed = self.columns[idx].display_mode == ColumnDisplay::Tabbed;
+        let has_multiple_tiles = self.columns[idx].tiles.len() > 1;
 
         // Cancel any ongoing resize for this column
         if let Some(resize) = &mut self.interactive_resize {
@@ -1178,10 +1177,17 @@ impl<W: LayoutElement> Row<W> {
             }
         }
 
-        col.set_maximized(maximize);
+        // TEAM_054: If setting maximized and column has multiple tiles, extract the window
+        if maximize && has_multiple_tiles && !is_tabbed {
+            // This wasn't the only window in its column; extract it into a separate column.
+            self.consume_or_expel_window_right(Some(id));
+            idx += 1;
+        }
+
+        self.columns[idx].set_maximized(maximize);
 
         // Update column data
-        self.data[col_idx].update(col);
+        self.data[idx].update(&self.columns[idx]);
     }
     
     pub fn toggle_maximized(&mut self, id: &W::Id) {

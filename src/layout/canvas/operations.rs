@@ -5,6 +5,7 @@
 use std::rc::Rc;
 
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
+use smithay::utils::Point;
 use crate::layout::canvas::Canvas2D;
 use crate::layout::row::Row;
 use super::super::floating::FloatingSpace;
@@ -497,7 +498,36 @@ impl<W: LayoutElement> Canvas2D<W> {
 
     /// Workspace equivalent: set fullscreen for window
     /// TEAM_050: Implemented - delegate to row containing the window
+    /// TEAM_054: Added floating window support - move to tiled first
     pub fn set_fullscreen(&mut self, id: &W::Id, is_fullscreen: bool) {
+        // Check if window is floating
+        if self.floating.has_window(id) {
+            if is_fullscreen {
+                // Move from floating to tiled, then fullscreen
+                let removed = self.floating.remove_tile(id);
+                let mut tile = removed.tile;
+                tile.animate_move_from(Point::from((0., 0.)));
+                let width = removed.width;
+                let is_full_width = removed.is_full_width;
+                self.add_tile(tile, true, width, is_full_width);
+                
+                // TEAM_054: Switch to tiled mode since window is no longer floating
+                if self.floating.is_empty() {
+                    self.floating_is_active = false;
+                }
+                
+                // Now fullscreen the window in its new tiled location
+                for row in self.rows.values_mut() {
+                    if row.has_window(id) {
+                        row.set_fullscreen(id, true);
+                        return;
+                    }
+                }
+            }
+            // If unsetting fullscreen on a floating window, nothing to do
+            return;
+        }
+        
         // Find the row containing this window and delegate
         for row in self.rows.values_mut() {
             if row.has_window(id) {
@@ -509,7 +539,33 @@ impl<W: LayoutElement> Canvas2D<W> {
 
     /// Workspace equivalent: toggle fullscreen for window
     /// TEAM_050: Implemented - delegate to row containing the window
+    /// TEAM_054: Added floating window support
     pub fn toggle_fullscreen(&mut self, id: &W::Id) {
+        // Check if window is floating
+        if self.floating.has_window(id) {
+            // Move from floating to tiled, then fullscreen
+            let removed = self.floating.remove_tile(id);
+            let mut tile = removed.tile;
+            tile.animate_move_from(Point::from((0., 0.)));
+            let width = removed.width;
+            let is_full_width = removed.is_full_width;
+            self.add_tile(tile, true, width, is_full_width);
+            
+            // TEAM_054: Switch to tiled mode since window is no longer floating
+            if self.floating.is_empty() {
+                self.floating_is_active = false;
+            }
+            
+            // Now fullscreen the window in its new tiled location
+            for row in self.rows.values_mut() {
+                if row.has_window(id) {
+                    row.set_fullscreen(id, true);
+                    return;
+                }
+            }
+            return;
+        }
+        
         // Find the row containing this window and delegate
         for row in self.rows.values_mut() {
             if row.has_window(id) {
@@ -521,7 +577,36 @@ impl<W: LayoutElement> Canvas2D<W> {
 
     /// Workspace equivalent: set maximized for window
     /// TEAM_050: Implemented - delegate to row containing the window
+    /// TEAM_054: Added floating window support - move to tiled first
     pub fn set_maximized(&mut self, id: &W::Id, maximize: bool) {
+        // Check if window is floating
+        if self.floating.has_window(id) {
+            if maximize {
+                // Move from floating to tiled, then maximize
+                let removed = self.floating.remove_tile(id);
+                let mut tile = removed.tile;
+                tile.animate_move_from(Point::from((0., 0.)));
+                let width = removed.width;
+                let is_full_width = removed.is_full_width;
+                self.add_tile(tile, true, width, is_full_width);
+                
+                // TEAM_054: Switch to tiled mode since window is no longer floating
+                if self.floating.is_empty() {
+                    self.floating_is_active = false;
+                }
+                
+                // Now maximize the window in its new tiled location
+                for row in self.rows.values_mut() {
+                    if row.has_window(id) {
+                        row.set_maximized(id, true);
+                        return;
+                    }
+                }
+            }
+            // If unsetting maximized on a floating window, nothing to do
+            return;
+        }
+        
         // Find the row containing this window and delegate
         for row in self.rows.values_mut() {
             if row.has_window(id) {
@@ -533,7 +618,33 @@ impl<W: LayoutElement> Canvas2D<W> {
 
     /// Workspace equivalent: toggle maximized for window
     /// TEAM_050: Implemented - delegate to row containing the window
+    /// TEAM_054: Added floating window support
     pub fn toggle_maximized(&mut self, id: &W::Id) {
+        // Check if window is floating
+        if self.floating.has_window(id) {
+            // Move from floating to tiled, then maximize
+            let removed = self.floating.remove_tile(id);
+            let mut tile = removed.tile;
+            tile.animate_move_from(Point::from((0., 0.)));
+            let width = removed.width;
+            let is_full_width = removed.is_full_width;
+            self.add_tile(tile, true, width, is_full_width);
+            
+            // TEAM_054: Switch to tiled mode since window is no longer floating
+            if self.floating.is_empty() {
+                self.floating_is_active = false;
+            }
+            
+            // Now maximize the window in its new tiled location
+            for row in self.rows.values_mut() {
+                if row.has_window(id) {
+                    row.set_maximized(id, true);
+                    return;
+                }
+            }
+            return;
+        }
+        
         // Find the row containing this window and delegate
         for row in self.rows.values_mut() {
             if row.has_window(id) {

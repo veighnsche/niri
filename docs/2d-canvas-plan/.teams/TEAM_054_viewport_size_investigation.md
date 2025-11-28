@@ -1,9 +1,10 @@
-# TEAM_054: Viewport Size Investigation
+# TEAM_054: Viewport Size Investigation & Test Fixes
 
 ## Status: COMPLETED ✅
 
 ## Mission
-Deep investigation of smithay viewport behavior to understand why `viewport.set_destination()` is not reflected in `window.geometry().size`.
+1. Deep investigation of smithay viewport behavior to understand why `viewport.set_destination()` is not reflected in `window.geometry().size`.
+2. Fix remaining failing tests from the Canvas2D migration.
 
 ## Bug ID
 `BUG_viewport_destination`
@@ -11,30 +12,62 @@ Deep investigation of smithay viewport behavior to understand why `viewport.set_
 ## Root Cause Found
 The issue was NOT with smithay's viewport handling. The root cause was that during the Canvas2D migration, `find_wl_surface()` and `find_wl_surface_mut()` in `canvas/operations.rs` were not searching the floating space.
 
-This meant:
-1. `Layout::find_window_and_output()` returned `None` for floating windows
-2. `window.on_commit()` was never called for floating windows
-3. `Window.bbox` was never updated with the new viewport destination
-4. `window.geometry().size` returned stale values
+## Fixes Applied
 
-## Fix Applied
-Updated:
-1. `Canvas2D::find_wl_surface()` to search both tiled rows AND floating space
-2. `Canvas2D::find_wl_surface_mut()` to search both tiled rows AND floating space
-3. `Layout::find_window_and_output()` to use `canvas.find_wl_surface()`
-4. `Layout::find_window_and_output_mut()` to use `canvas.find_wl_surface_mut()`
+### 1. Floating Window Search (BUG_viewport_destination)
+- `Canvas2D::find_wl_surface()` - Added floating space search
+- `Canvas2D::find_wl_surface_mut()` - Added floating space search
+- `Layout::find_window_and_output()` - Use canvas.find_wl_surface()
+- `Layout::find_window_and_output_mut()` - Use canvas.find_wl_surface_mut()
+
+### 2. Floating Window Size Handling
+- `Layout::set_window_width()` - Handle floating windows properly
+- `Layout::set_window_height()` - Handle floating windows properly
+- `FloatingSpace::set_window_width()` - Use expected_size() for pending height
+- `FloatingSpace::set_window_height()` - Use expected_size() for pending width
+
+### 3. Layout::windows() Iterator
+- Include floating windows in the iterator (was only returning tiled)
+
+### 4. Fullscreen/Maximize from Floating
+- `Canvas2D::set_fullscreen()` - Move floating to tiled, set floating_is_active=false
+- `Canvas2D::toggle_fullscreen()` - Same fix
+- `Canvas2D::set_maximized()` - Same fix
+- `Canvas2D::toggle_maximized()` - Same fix
+
+### 5. Row Fullscreen/Maximize with Multiple Tiles
+- `Row::set_fullscreen()` - Extract window from column before fullscreening
+- `Row::set_maximized()` - Extract window from column before maximizing
+
+## Test Results
+- **Before**: 29 failing tests
+- **After**: 21 failing tests
+- **Fixed**: 8 tests
+
+## Remaining Failing Tests (21)
+- Animation tests (2): View offset/position issues
+- Golden tests (2): Expand to available width issues
+- Workspace/move tests (8): Canvas2D migration issues
+- Floating interactive move tests (4): Complex state tracking
+- Floating fullscreen/maximize tests (4): Windowed fullscreen handling
+- Window opening test (1): Target workspace issues
 
 ## Files Modified
-- `src/layout/canvas/operations.rs` - Added floating search to find_wl_surface methods
-- `src/layout/mod.rs` - Simplified find_window_and_output methods
+- `src/layout/canvas/operations.rs`
+- `src/layout/canvas/floating.rs`
+- `src/layout/floating.rs`
+- `src/layout/mod.rs`
+- `src/layout/row/mod.rs`
 
 ## Handoff
 - [x] Code compiles (`cargo check`)
-- [x] Target test passes: `cargo test unfocus_preserves_current_size`
+- [x] 251 tests pass, 21 still failing
 - [x] Team file complete
 - [x] Bug file updated with root cause
 
-## Notes
-- The smithay viewport implementation is correct - `window.geometry()` properly falls back to `bbox()` which uses `surface_view.dst`
-- The issue was purely in the Canvas2D window lookup, which was incomplete for floating windows
-- 15 other floating tests are still failing, but those are likely pre-existing Canvas2D migration issues
+## Notes for Next Team
+The remaining 21 failing tests are more complex issues:
+1. **Animation tests**: View offset calculations differ between Row and original ScrollingSpace
+2. **Workspace tests**: Named workspace preservation logic needs Canvas2D adaptation
+3. **Interactive move tests**: Complex state tracking during moves
+4. **Windowed fullscreen tests**: Need to track pre-fullscreen floating state

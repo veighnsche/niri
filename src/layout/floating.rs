@@ -423,7 +423,7 @@ impl<W: LayoutElement> FloatingSpace<W> {
             // fullscreen until now), fall back to (0, 0).
             floating_size.unwrap_or_else(|| win.expected_size().unwrap_or_default())
         };
-
+        
         // Apply min/max size window rules. If requesting a concrete size, apply completely; if
         // requesting (0, 0), apply only when min/max results in a fixed size.
         let min_size = win.min_size();
@@ -782,9 +782,9 @@ impl<W: LayoutElement> FloatingSpace<W> {
 
         let win_width = ensure_min_max_size(win_width, min_size.w, max_size.w);
 
-        // TEAM_043: Use size() instead of expected_size() to preserve client's current height
-        // when the client has resized the window themselves
-        let win_height = win.size().h;
+        // TEAM_054: Use expected_size() first to preserve pending height from set_window_height,
+        // fall back to size() for client-resized windows
+        let win_height = win.expected_size().unwrap_or_else(|| win.size()).h;
         let win_height = ensure_min_max_size(win_height, min_size.h, max_size.h);
 
         let win_size = Size::from((win_width, win_height));
@@ -831,9 +831,9 @@ impl<W: LayoutElement> FloatingSpace<W> {
 
         let win_height = ensure_min_max_size(win_height, min_size.h, max_size.h);
 
-        // TEAM_043: Use size() instead of expected_size() to preserve client's current width
-        // when the client has resized the window themselves
-        let win_width = win.size().w;
+        // TEAM_054: Use expected_size() first to preserve pending width from set_window_width,
+        // fall back to size() for client-resized windows
+        let win_width = win.expected_size().unwrap_or_else(|| win.size()).w;
         let win_width = ensure_min_max_size(win_width, min_size.w, max_size.w);
 
         let win_size = Size::from((win_width, win_height));
