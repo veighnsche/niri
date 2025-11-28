@@ -1001,7 +1001,61 @@ impl<W: LayoutElement> Row<W> {
     
     // TEAM_035: Updated signature to take no arguments (uses active column)
     pub fn expand_column_to_available_width(&mut self) {
-        // TODO: TEAM_024: Implement column width expansion if needed
+        if self.columns.is_empty() {
+            return;
+        }
+
+        let col_idx = self.active_column_idx;
+        let num_columns = self.columns.len();
+        
+        // Don't expand if column is already full width or in special sizing mode
+        let col = &mut self.columns[col_idx];
+        if !col.pending_sizing_mode().is_normal() || col.is_full_width {
+            return;
+        }
+
+        // Store extra_size before we need to modify the column
+        let extra_size_w = col.extra_size().w;
+
+        // Calculate total width taken by all columns except the active one
+        let gap = self.options.layout.gaps;
+        let mut total_other_width = 0.0;
+        
+        for (idx, data) in self.data.iter().enumerate() {
+            if idx != col_idx {
+                total_other_width += data.width;
+            }
+        }
+        
+        // Add gaps between columns (num_columns - 1 gaps total, but exclude gap after active if it's last)
+        let gaps_between_columns = (num_columns - 1) as f64 * gap;
+        total_other_width += gaps_between_columns;
+
+        // Calculate available width (assuming row width equals view width)
+        let view_width = self.view_size.w;
+        let active_col_current_width = self.data[col_idx].width;
+        let available_width = view_width - total_other_width - active_col_current_width - extra_size_w;
+        
+        if available_width <= 0.0 {
+            // No space to expand
+            return;
+        }
+
+        // If this is the only column, use toggle_full_width for better UX
+        if num_columns == 1 {
+            col.toggle_full_width();
+            return;
+        }
+
+        // Expand the active column by the available width
+        let new_width = active_col_current_width + available_width;
+        col.width = crate::layout::types::ColumnWidth::Fixed(new_width);
+        col.preset_width_idx = None;
+        col.is_full_width = false;
+        col.update_tile_sizes(true);
+        
+        // Update cached width
+        self.data[col_idx].width = new_width;
     }
     
     // TEAM_035: Updated signature to accept Option<&W::Id>
@@ -1826,14 +1880,41 @@ impl<W: LayoutElement> Row<W> {
     /// TEAM_033: Added for interactive move window closing
     pub fn start_close_animation_for_tile(
         &mut self,
-        _renderer: &mut GlesRenderer,
-        _snapshot: crate::layout::tile::TileRenderSnapshot,
-        _tile_size: Size<f64, Logical>,
-        _tile_pos: Point<f64, Logical>,
-        _blocker: TransactionBlocker,
+        renderer: &mut GlesRenderer,
+        snapshot: crate::layout::tile::TileRenderSnapshot,
+        tile_size: Size<f64, Logical>,
+        tile_pos: Point<f64, Logical>,
+        blocker: TransactionBlocker,
     ) {
-        // TODO(TEAM_033): Implement proper close animation with snapshot
-        // This requires ClosingWindow infrastructure similar to ScrollingSpace
+        // TEAM_033: Implemented proper close animation with snapshot
+        // Based on ScrollingSpace::start_close_animation_for_tile
+        
+        let anim = crate::animation::Animation::new(
+            self.clock.clone(),
+            0.,
+            1.,
+            0.,
+            self.options.animations.window_close.anim,
+        );
+
+        let blocker = if self.options.disable_transactions {
+            TransactionBlocker::completed()
+        } else {
+            blocker
+        };
+
+        let scale = smithay::utils::Scale::from(self.scale);
+        let res = ClosingWindow::new(
+            renderer, snapshot, scale, tile_size, tile_pos, blocker, anim,
+        );
+        match res {
+            Ok(closing) => {
+                self.closing_windows.push(closing);
+            }
+            Err(err) => {
+                tracing::warn!("error creating a closing window animation: {err:?}");
+            }
+        }
     }
 
     /// Convert logical position to size fraction for floating windows.

@@ -18,16 +18,27 @@ impl<W: LayoutElement> Monitor<W> {
         pos_within_output: Point<f64, Logical>,
     ) -> Option<(&crate::layout::row::Row<W>, Rectangle<f64, Logical>)> {
         let (row, geo) = self.canvas.workspaces().find_map(|(_, row)| {
-            // Get the row geometry - this is a simplified approach
-            // TODO: TEAM_023: Implement proper row geometry calculation
-            let geo = Rectangle::from_loc_and_size((0., 0.), self.view_size);
+            // TEAM_023: Implement proper row geometry calculation
+            // Use same pattern as render geometry but account for camera offset
+            let row_height = row.row_height();
+            let y_offset = row.y_offset();
             
-            // Extend width to entire output.
-            let loc = Point::from((0., geo.loc.y));
-            let size = Size::from((self.view_size.w, geo.size.h));
-            let bounds = Rectangle::new(loc, size);
+            // Get camera position to translate world coordinates to screen coordinates
+            let camera = self.canvas.camera_position();
+            
+            // Calculate row geometry in world space
+            let world_geo = Rectangle::new(
+                Point::from((0.0, y_offset)),
+                Size::from((self.view_size.w, row_height)),
+            );
+            
+            // Translate to screen space by subtracting camera offset
+            let screen_geo = Rectangle::new(
+                Point::from((world_geo.loc.x - camera.x, world_geo.loc.y - camera.y)),
+                world_geo.size,
+            );
 
-            bounds.contains(pos_within_output).then_some((row, geo))
+            screen_geo.contains(pos_within_output).then_some((row, world_geo))
         })?;
         Some((row, geo))
     }
@@ -38,9 +49,27 @@ impl<W: LayoutElement> Monitor<W> {
     ) -> Option<&crate::layout::row::Row<W>> {
         self.canvas.workspaces()
             .find_map(|(_, row)| {
-                // Simplified geometry check - TODO: TEAM_023: Implement proper row geometry
-                let geo = Rectangle::from_loc_and_size((0., 0.), self.view_size);
-                geo.contains(pos_within_output).then_some(row)
+                // TEAM_023: Implement proper row geometry calculation
+                // Use same pattern as render geometry but account for camera offset
+                let row_height = row.row_height();
+                let y_offset = row.y_offset();
+                
+                // Get camera position to translate world coordinates to screen coordinates
+                let camera = self.canvas.camera_position();
+                
+                // Calculate row geometry in world space
+                let world_geo = Rectangle::new(
+                    Point::from((0.0, y_offset)),
+                    Size::from((self.view_size.w, row_height)),
+                );
+                
+                // Translate to screen space by subtracting camera offset
+                let screen_geo = Rectangle::new(
+                    Point::from((world_geo.loc.x - camera.x, world_geo.loc.y - camera.y)),
+                    world_geo.size,
+                );
+
+                screen_geo.contains(pos_within_output).then_some(row)
             })
     }
 

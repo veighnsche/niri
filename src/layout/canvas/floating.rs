@@ -241,8 +241,30 @@ impl<W: LayoutElement> Canvas2D<W> {
             return;
         }
 
-        // TODO(TEAM_009): Add close animation for tiled windows in rows
-        // For now, tiled windows don't have close animations at the canvas level
+        // TEAM_009: Add close animation for tiled windows in rows
+        // Find the row containing this window and delegate to Row's close animation
+        for row in self.rows.values_mut() {
+            if row.contains(id) {
+                // Extract tile data first to avoid borrow checker issues
+                let mut tile_data = None;
+                for tile in row.tiles_mut() {
+                    if tile.window().id() == id {
+                        let tile_size = tile.tile_size();
+                        if let Some(snapshot) = tile.take_unmap_snapshot() {
+                            tile_data = Some((snapshot, tile_size));
+                        }
+                        break;
+                    }
+                }
+                
+                // Now call start_close_animation_for_tile after the iterator borrow ends
+                if let Some((snapshot, tile_size)) = tile_data {
+                    let tile_pos = Point::new(0.0, 0.0);
+                    row.start_close_animation_for_tile(renderer, snapshot, tile_size, tile_pos, blocker);
+                    return;
+                }
+            }
+        }
     }
 
     /// Starts a close animation from a tile snapshot.

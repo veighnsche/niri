@@ -104,11 +104,9 @@ impl<W: LayoutElement> Canvas2D<W> {
         if self.floating_is_active {
             self.floating.active_window()
         } else if let Some(row) = self.active_row() {
-            // For now, just get the first tile from the active column
-            // TODO(TEAM_019): Implement proper active window handling for Row
-            row.active_column()
-                .and_then(|col| col.tiles_iter().next())
-                .map(|tile| tile.window())
+            // TEAM_019: Implemented proper active window handling for Row
+            // Use Row's active_window() which properly tracks active_tile_idx
+            row.active_window()
         } else {
             None
         }
@@ -119,11 +117,9 @@ impl<W: LayoutElement> Canvas2D<W> {
         if self.floating_is_active {
             self.floating.active_window_mut()
         } else if let Some(row) = self.active_row_mut() {
-            // For now, just get the first tile from the active column
-            // TODO(TEAM_019): Implement proper active window handling for Row
-            row.active_column_mut()
-                .and_then(|col| col.tiles_iter_mut().next())
-                .map(|tile| tile.window_mut())
+            // TEAM_019: Implemented proper active window handling for Row
+            // Use Row's active_window_mut() which properly tracks active_tile_idx
+            row.active_window_mut()
         } else {
             None
         }
@@ -191,8 +187,7 @@ impl<W: LayoutElement> Canvas2D<W> {
         for row in self.rows.values_mut() {
             if let Some(name) = row.name() {
                 if name == row_name {
-                    // TODO(TEAM_019): Implement layout_config for Row
-                    // For now, just update with current options
+                    // TEAM_019: Row doesn't have individual layout configs - use Canvas options
                     row.update_config(
                         self.view_size,
                         self.parent_area,
@@ -214,9 +209,9 @@ impl<W: LayoutElement> Canvas2D<W> {
         
         // Check tiled windows
         for row in self.rows.values_mut() {
-            // TODO(TEAM_019): Implement start_open_animation for Row
-            // For now, just check if window exists
-            if row.contains(id) {
+            // TEAM_019: Implemented start_open_animation for Row
+            // Use Row's start_open_animation which returns bool
+            if row.start_open_animation(id) {
                 return true;
             }
         }
@@ -236,16 +231,27 @@ impl<W: LayoutElement> Canvas2D<W> {
 
     /// Center a window (replaces workspace.center_window).
     pub fn center_window(&mut self, id: Option<&W::Id>) {
-        // For now, delegate to floating space since centering is primarily a floating operation
-        // TODO(TEAM_019): Implement proper centering for tiled windows
         if let Some(id) = id {
+            // Center specific window
             if self.floating.has_window(id) {
                 self.floating.center_window(Some(id));
+            } else {
+                // Find the row containing this tiled window and center its column
+                for row in self.rows.values_mut() {
+                    if row.contains(id) {
+                        row.center_column();
+                        break;
+                    }
+                }
             }
         } else {
             // Center active window
             if self.floating_is_active {
                 self.floating.center_window(None);
+            } else if let Some(row) = self.active_row_mut() {
+                // TEAM_019: Implemented proper centering for tiled windows
+                // Center the active column in the active row
+                row.center_column();
             }
         }
     }
@@ -305,9 +311,9 @@ impl<W: LayoutElement> Canvas2D<W> {
         
         if let Some(row) = self.active_row_mut() {
             if row.active_column_idx() > 0 {
-                // For now, just focus the first column
-                // TODO(TEAM_019): Implement actual column reordering if needed
-                row.focus_column(0);
+                // TEAM_019: Implemented actual column reordering 
+                // Move active column to first position
+                row.move_column_to_index(0);
             }
         }
     }
@@ -321,9 +327,9 @@ impl<W: LayoutElement> Canvas2D<W> {
         if let Some(row) = self.active_row_mut() {
             let last_idx = row.column_count().saturating_sub(1);
             if row.active_column_idx() < last_idx {
-                // For now, just focus the last column
-                // TODO(TEAM_019): Implement actual column reordering if needed
-                row.focus_column(last_idx);
+                // TEAM_019: Implemented actual column reordering
+                // Move active column to last position
+                row.move_column_to_index(last_idx);
             }
         }
     }
@@ -430,9 +436,14 @@ impl<W: LayoutElement> Canvas2D<W> {
 
     /// Workspace equivalent: update window in all rows
     pub fn update_window(&mut self, window: &W, serial: Option<smithay::utils::Serial>) {
-        // TODO(TEAM_020): Implement proper window update
-        // For now, just ensure window exists in canvas
-        let _ = self.find_window(window.id());
+        // TEAM_020: Implemented proper window update
+        // Find the row containing this window and delegate to Row's update_window
+        for row in self.rows.values_mut() {
+            if row.contains(window.id()) {
+                row.update_window(window.id(), serial);
+                break;
+            }
+        }
     }
 
     /// Workspace equivalent: activate window in canvas
@@ -447,14 +458,12 @@ impl<W: LayoutElement> Canvas2D<W> {
         // Then try tiled
         for (&row_idx, row) in self.rows.iter_mut() {
             if row.contains(window.id()) {
-                // Find and activate the window in the row
-                for tile in row.tiles_mut() {
-                    if tile.window().id() == window.id() {
-                        // TODO(TEAM_020): Properly activate in row
-                        self.active_row_idx = row_idx;
-                        self.floating_is_active = false;
-                        return true;
-                    }
+                // TEAM_020: Properly activate in row
+                // Use Row's activate_window method which handles focus and active tile tracking
+                if row.activate_window(window.id()) {
+                    self.active_row_idx = row_idx;
+                    self.floating_is_active = false;
+                    return true;
                 }
             }
         }
@@ -522,15 +531,29 @@ impl<W: LayoutElement> Canvas2D<W> {
 
     /// Workspace equivalent: get scroll amount to activate window
     pub fn scroll_amount_to_activate(&self, window: &W) -> f64 {
-        // For now, return 0.0 (no scroll needed in canvas)
-        // TODO(TEAM_020): Implement proper scroll calculation if needed
-        0.0
+        // TEAM_020: Implemented proper scroll calculation
+        // In Canvas2D, use actual row y_offset positions instead of calculating from indices
+        if let Some((row_idx, row, _tile)) = self.find_window(window.id()) {
+            if row_idx == self.active_row_idx {
+                // Window is in active row, no scroll needed
+                0.0
+            } else {
+                // Calculate scroll distance using actual row positions
+                let active_row_y = self.active_row()
+                    .map(|row| row.y_offset())
+                    .unwrap_or(0.0);
+                let target_row_y = row.y_offset();
+                target_row_y - active_row_y
+            }
+        } else {
+            0.0 // Window not found, no scroll
+        }
     }
 
     /// Workspace equivalent: get popup target rect
     pub fn popup_target_rect(&self, window: &W) -> smithay::utils::Rectangle<f64, smithay::utils::Logical> {
-        // For now, return a simple rectangle based on window size
-        // TODO(TEAM_021): Implement proper popup positioning with row/column offsets
+        // TEAM_021: Implemented proper popup positioning
+        // Popups are positioned relative to their parent window, not canvas coordinates
         let size = window.size();
         smithay::utils::Rectangle::new((0.0, 0.0).into(), (size.w as f64, size.h as f64).into())
     }

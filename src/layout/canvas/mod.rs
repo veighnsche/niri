@@ -77,6 +77,10 @@ pub struct Canvas2D<W: LayoutElement> {
     /// Currently active row index.
     pub(crate) active_row_idx: i32,
 
+    /// Previously active row index for back-and-forth navigation.
+    /// TEAM_018: Added for previous row tracking
+    pub(crate) previous_row_idx: i32,
+
     /// Floating windows layer.
     // TEAM_009: Integrated FloatingSpace
     pub(crate) floating: FloatingSpace<W>,
@@ -154,6 +158,7 @@ impl<W: LayoutElement> Canvas2D<W> {
         Self {
             rows,
             active_row_idx: 0,
+            previous_row_idx: 0, // TEAM_018: Initialize previous row tracking
             floating,
             floating_is_active: false,
             camera_x: AnimatedValue::new(0.),
@@ -220,6 +225,12 @@ impl<W: LayoutElement> Canvas2D<W> {
         self.active_row_idx
     }
 
+    /// Returns the current camera position for rendering.
+    /// TEAM_007: Implemented camera offset support for render elements
+    pub fn camera_position(&self) -> Point<f64, Logical> {
+        Point::from((self.camera_x.current(), self.camera_y.current()))
+    }
+
     /// Returns the active row, if any.
     pub fn active_row(&self) -> Option<&Row<W>> {
         self.rows.get(&self.active_row_idx)
@@ -250,11 +261,6 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// TEAM_033: Updated to return (i32, &mut Row) tuples like rows()
     pub fn rows_mut(&mut self) -> impl Iterator<Item = (i32, &mut Row<W>)> + '_ {
         self.rows.iter_mut().map(|(&idx, row)| (idx, row))
-    }
-
-    /// Returns the current camera position.
-    pub fn camera_position(&self) -> Point<f64, Logical> {
-        Point::from((self.camera_x.current(), self.camera_y.current()))
     }
 
     // =========================================================================
@@ -319,9 +325,33 @@ impl<W: LayoutElement> Canvas2D<W> {
     }
 
     /// Remove a row by index.
-    /// TEAM_025: Stub implementation for compatibility
+    /// TEAM_025: Implemented proper row removal with active row adjustment
     pub fn remove_row(&mut self, row_idx: i32) {
-        // TEAM_025: TODO - implement proper row removal with active row adjustment
+        // Remove the row
         self.rows.remove(&row_idx);
+        
+        // Adjust active_row_idx if necessary
+        if self.active_row_idx == row_idx {
+            // Find the next available row to activate
+            if let Some((&next_idx, _)) = self.rows.iter().next() {
+                self.active_row_idx = next_idx;
+            } else {
+                // No rows left, reset to origin
+                self.active_row_idx = 0;
+            }
+        } else if self.active_row_idx > row_idx {
+            // Active row was after the removed one, adjust index
+            // Find the next available row at or after the current active index
+            if let Some((&next_idx, _)) = self.rows.range(self.active_row_idx..).next() {
+                self.active_row_idx = next_idx;
+            } else {
+                // No rows after current index, find the highest available
+                if let Some((&highest_idx, _)) = self.rows.iter().next_back() {
+                    self.active_row_idx = highest_idx;
+                } else {
+                    self.active_row_idx = 0;
+                }
+            }
+        }
     }
 }

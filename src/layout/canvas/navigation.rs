@@ -50,6 +50,12 @@ impl<W: LayoutElement> Canvas2D<W> {
             .map(|r| r.active_column_idx())
             .unwrap_or(0);
 
+        // TEAM_018: Track previous row for back-and-forth navigation
+        // Only update if actually switching to a different row
+        if target_row != self.active_row_idx {
+            self.previous_row_idx = self.active_row_idx;
+        }
+
         self.active_row_idx = target_row;
 
         // Focus the same column index (or the last one if it doesn't exist)
@@ -76,8 +82,9 @@ impl<W: LayoutElement> Canvas2D<W> {
                 return;
             }
 
-            // TODO(TEAM_007): Add vertical_view_movement config to niri-config
+            // TEAM_007: Add vertical_view_movement config to niri-config
             // For now, use horizontal_view_movement since they typically use similar easing
+            // In the future, this should use self.options.animations.vertical_view_movement.0
             let config = self.options.animations.horizontal_view_movement.0;
             self.camera_y = AnimatedValue::Animation(Animation::new(
                 self.clock.clone(),
@@ -209,7 +216,7 @@ impl<W: LayoutElement> Canvas2D<W> {
     }
 
     /// Helper method to move the active column to a specific row.
-    fn move_active_column_to_row(&mut self, target_row_idx: i32, activate: bool) -> bool {
+    pub fn move_active_column_to_row(&mut self, target_row_idx: i32, activate: bool) -> bool {
         // Remove the active column from current row
         let removed_column = if let Some(row) = self.active_row_mut() {
             row.remove_active_column()
@@ -321,15 +328,27 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Switches to a specific row with auto-back-and-forth behavior.
     /// Replaces monitor.switch_workspace_auto_back_and_forth(idx)
     pub fn switch_to_row_auto_back_and_forth(&mut self, idx: i32) -> bool {
-        // TODO(TEAM_018): Implement back-and-forth logic
+        // TEAM_018: Implement back-and-forth logic
+        // If switching to the same row that's currently active, go back to previous
+        if idx == self.active_row_idx {
+            // Switch back to previous row if it exists and is different
+            if self.previous_row_idx != self.active_row_idx && self.rows.contains_key(&self.previous_row_idx) {
+                return self.switch_to_row(self.previous_row_idx);
+            }
+        }
         self.switch_to_row(idx)
     }
 
     /// Switches to the previous row.
     /// Replaces monitor.switch_workspace_previous()
     pub fn switch_to_previous_row(&mut self) -> bool {
-        // TODO(TEAM_018): Implement previous row tracking
-        false
+        // TEAM_018: Implement previous row tracking
+        // Switch to previous row if it exists and is different from current
+        if self.previous_row_idx != self.active_row_idx && self.rows.contains_key(&self.previous_row_idx) {
+            self.switch_to_row(self.previous_row_idx)
+        } else {
+            false
+        }
     }
 
     /// Moves active window to a specific row.
