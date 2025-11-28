@@ -360,6 +360,9 @@ impl<W: LayoutElement> Monitor<W> {
         width: Option<crate::layout::types::ColumnWidth>,
         is_full_width: bool,
     ) -> Option<()> {
+        // Capture the window id for debug logging after we move the window into a tile.
+        let window_id = window.id().clone();
+
         // TEAM_022: Add window to canvas
         let (row_idx, _col_idx) = if let Some(target) = target {
             self.resolve_add_window_target(&target)
@@ -384,12 +387,14 @@ impl<W: LayoutElement> Monitor<W> {
 
         // Debug logging: record where the new window landed relative to the camera.
         let camera = self.canvas.camera_position();
+        // DBG[BUG_alacritty_invisible_CHASE_001]: TRACE[1] - row placement vs camera for newly added window
         if let Some(row) = self.canvas.row(row_idx) {
             let row_y = row.y_offset();
             let row_h = row.row_height();
             let view_h = self.view_size.h;
             let row_visible = row_y + row_h > camera.y && row_y < camera.y + view_h;
 
+            // DBG[BUG_alacritty_invisible_CHASE_001]: CLEARED - row visibility confirmed via logging (row 0 is in view during Alacritty spawn)
             info!(
                 output = %self.output_name,
                 row_idx,
@@ -399,6 +404,33 @@ impl<W: LayoutElement> Monitor<W> {
                 view_h,
                 row_visible,
                 "monitor: added window to canvas row",
+            );
+        }
+
+        // Debug logging: record this specific window's render-space position after camera offset.
+        // DBG[BUG_alacritty_invisible_CHASE_001]: TRACE[2] - tile render position for new window
+        let mut logged_tile = false;
+        for (tile, pos, is_active) in self.canvas.tiles_with_render_positions() {
+            if tile.window().id() == &window_id {
+                let size = tile.window().size().to_f64();
+                info!(
+                    output = %self.output_name,
+                    row_idx,
+                    x = pos.x,
+                    y = pos.y,
+                    w = size.w,
+                    h = size.h,
+                    is_active_tile = is_active,
+                    "monitor: new window render position",
+                );
+                logged_tile = true;
+                break;
+            }
+        }
+        if !logged_tile {
+            warn!(
+                output = %self.output_name,
+                "monitor: could not find new window tile for render-position logging",
             );
         }
 

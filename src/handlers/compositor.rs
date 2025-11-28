@@ -91,6 +91,7 @@ impl CompositorHandler for State {
 
                     let toplevel = window.toplevel().expect("no X11 support");
 
+                    // DBG[BUG_alacritty_invisible_CHASE_001]: TRACE[0] - xdg-toplevel mapped, before inserting into layout
                     // Log basic identity of every newly mapped toplevel so we can
                     // correlate spawns with actual Wayland windows (e.g. Alacritty).
                     let (app_id, title) = with_toplevel_role(toplevel, |role| {
@@ -239,6 +240,7 @@ impl CompositorHandler for State {
                             self.niri.layout.set_maximized(&window, true);
                         }
                     } else {
+                        // DBG[BUG_alacritty_invisible_CHASE_001]: BRANCH - would indicate layout insertion bug if this ever triggers
                         error!("layout is missing the window that we just added");
                     }
 
