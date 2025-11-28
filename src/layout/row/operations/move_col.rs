@@ -30,12 +30,14 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Moves the active column to a specific index.
+    /// TEAM_057: Ported animation from ScrollingSpace
     pub(crate) fn move_column_to(&mut self, new_idx: usize) {
         if self.active_column_idx == new_idx {
             return;
         }
 
         let current_col_x = self.column_x(self.active_column_idx);
+        let next_col_x = self.column_x(self.active_column_idx + 1);
 
         let column = self.columns.remove(self.active_column_idx);
         let data = self.data.remove(self.active_column_idx);
@@ -46,9 +48,23 @@ impl<W: LayoutElement> Row<W> {
         let view_offset_delta = -self.column_x(self.active_column_idx) + current_col_x;
         self.view_offset_x.offset(view_offset_delta);
 
+        // TEAM_057: Animate the column we just moved from its old position
+        let new_col_x = self.column_x(new_idx);
+        self.columns[new_idx].animate_move_from(current_col_x - new_col_x);
+
+        // TEAM_057: Animate all columns in between - they moved by the width of the moved column
+        let others_x_offset = next_col_x - current_col_x;
+        if self.active_column_idx < new_idx {
+            for col in &mut self.columns[self.active_column_idx..new_idx] {
+                col.animate_move_from(others_x_offset);
+            }
+        } else {
+            for col in &mut self.columns[new_idx + 1..=self.active_column_idx] {
+                col.animate_move_from(-others_x_offset);
+            }
+        }
+
         self.active_column_idx = new_idx;
         self.animate_view_offset_to_column(None, new_idx, None);
-
-        // TODO(TEAM_006): Animate column movement (port from ScrollingSpace)
     }
 }

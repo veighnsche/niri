@@ -794,8 +794,15 @@ impl<W: LayoutElement> Layout<W> {
                     if primary.canvas().has_windows() {
                         primary.canvas_mut().clean_up_workspaces();
                     } else if primary.canvas.rows().count() == 2 {
-                        // Both rows are empty, remove one
-                        // TODO: TEAM_024: Implement canvas cleanup logic
+                        // TEAM_057: Both rows are empty, remove the non-origin row
+                        // When empty_row_above_first is set, we keep row 0 (origin) and remove
+                        // the other empty row (typically row -1)
+                        let non_origin_idx = primary.canvas.rows()
+                            .find(|(idx, _)| *idx != 0)
+                            .map(|(idx, _)| idx);
+                        if let Some(idx) = non_origin_idx {
+                            primary.canvas_mut().remove_row(idx);
+                        }
                     }
                 }
 
@@ -1046,12 +1053,8 @@ impl<W: LayoutElement> Layout<W> {
                 // Set the default height for scrolling windows.
                 if !is_floating {
                     if let Some(change) = scrolling_height {
-                        // Find the window in the canvas and set its height
-                        if let Some((_, _, tile)) = mon.canvas.find_window(&id) {
-                            let window = tile.window();
-                            // TODO: TEAM_023: Implement window height setting on canvas/row
-                            // For now, we'll skip this as the API needs to be adapted
-                        }
+                        // TEAM_057: Set window height using Canvas2D method
+                        mon.canvas_mut().set_window_height(&id, change);
                     }
                 }
 
@@ -1065,9 +1068,8 @@ impl<W: LayoutElement> Layout<W> {
                     }
                     AddWindowTarget::Output(_) => panic!(),
                     AddWindowTarget::Workspace(ws_id) => {
-                        // Find the row with the given workspace ID
-                        // TODO: TEAM_023: Implement proper workspace ID to row mapping
-                        let ws_idx = 0; // Default to origin row for now
+                        // TEAM_057: Find the row with the given workspace ID
+                        let ws_idx = canvas.find_row_by_id(ws_id).unwrap_or(0);
                         (ws_idx, WorkspaceAddWindowTarget::Auto)
                     }
                     AddWindowTarget::NextTo(next_to) => {
@@ -4747,9 +4749,8 @@ impl<W: LayoutElement> Layout<W> {
 
     // TEAM_012: Renamed from set_workspace_name, simplified to not take reference
     // TEAM_018: Now calls canvas instead of workspace code
+    // TEAM_057: Duplicate name checking implemented in canvas/navigation.rs
     pub fn set_row_name(&mut self, name: String) {
-        // TODO(TEAM_018): implement proper duplicate name checking for canvas rows
-        // For now, just set the name on the active row
         let Some(monitor) = self.active_monitor() else {
             return;
         };

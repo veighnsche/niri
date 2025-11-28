@@ -1997,11 +1997,85 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Convert logical position to size fraction for floating windows.
-    /// TEAM_035: Stub implementation for compatibility
+    /// TEAM_057: Implemented proper conversion using working area
     pub fn floating_logical_to_size_frac(&self, pos: Point<f64, Logical>) -> Point<f64, super::SizeFrac> {
-        // TODO: Implement proper conversion using working area
-        // For now, just convert the coordinates
-        Point::from((pos.x, pos.y))
+        // Convert from logical coordinates to size fraction (0.0 to 1.0 relative to working area)
+        let relative_pos = pos - self.working_area.loc;
+        Point::from((
+            relative_pos.x / f64::max(self.working_area.size.w, 1.0),
+            relative_pos.y / f64::max(self.working_area.size.h, 1.0),
+        ))
+    }
+
+    /// TEAM_057: Compute the area for the insert hint based on position.
+    /// Ported from ScrollingSpace::insert_hint_area
+    pub fn insert_hint_area(
+        &self,
+        position: super::InsertPosition,
+    ) -> Option<Rectangle<f64, Logical>> {
+        use super::InsertPosition;
+        
+        let hint_area = match position {
+            InsertPosition::NewColumn(column_index) => {
+                if column_index == 0 || column_index == self.columns.len() {
+                    let size = Size::from((
+                        300.,
+                        self.working_area.size.h - self.options.layout.gaps * 2.,
+                    ));
+                    let mut loc = Point::from((
+                        self.column_x(column_index),
+                        self.working_area.loc.y + self.options.layout.gaps,
+                    ));
+                    if column_index == 0 && !self.columns.is_empty() {
+                        loc.x -= size.w + self.options.layout.gaps;
+                    }
+                    Rectangle::new(loc, size)
+                } else if column_index > self.columns.len() {
+                    return None;
+                } else {
+                    let size = Size::from((
+                        300.,
+                        self.working_area.size.h - self.options.layout.gaps * 2.,
+                    ));
+                    let loc = Point::from((
+                        self.column_x(column_index) - size.w / 2. - self.options.layout.gaps / 2.,
+                        self.working_area.loc.y + self.options.layout.gaps,
+                    ));
+                    Rectangle::new(loc, size)
+                }
+            }
+            InsertPosition::InColumn(column_index, tile_index) => {
+                if column_index >= self.columns.len() {
+                    return None;
+                }
+
+                let col = &self.columns[column_index];
+                if tile_index > col.tiles.len() {
+                    return None;
+                }
+
+                let top = col.tile_offset(tile_index).y;
+                let height = if tile_index == 0 || tile_index == col.tiles.len() {
+                    150.
+                } else {
+                    300.
+                };
+                let y = if tile_index == 0 {
+                    top
+                } else if tile_index == col.tiles.len() {
+                    top - self.options.layout.gaps - 150.
+                } else {
+                    top - self.options.layout.gaps / 2. - 150.
+                };
+
+                let size = Size::from((self.data[column_index].width, height));
+                let loc = Point::from((self.column_x(column_index), y));
+                Rectangle::new(loc, size)
+            }
+            InsertPosition::Floating => return None,
+        };
+
+        Some(hint_area)
     }
 }
 

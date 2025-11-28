@@ -304,7 +304,21 @@ impl<W: LayoutElement> Canvas2D<W> {
     }
 
     /// Sets the name of the current row.
+    /// TEAM_057: Implements duplicate name checking - if another row already has
+    /// this name, clear that row's name first (move the name to the new row).
     pub fn set_row_name(&mut self, name: Option<String>) {
+        // TEAM_057: Check for duplicate names and clear them first
+        if let Some(ref new_name) = name {
+            // Find any other row with this name and clear it
+            let active_idx = self.active_row_idx;
+            for (idx, row) in self.rows.iter_mut() {
+                if *idx != active_idx && row.name() == Some(new_name.as_str()) {
+                    row.set_name(None);
+                    break; // Names should be unique, so only one match possible
+                }
+            }
+        }
+        
         if let Some(row) = self.active_row_mut() {
             row.set_name(name);
         }

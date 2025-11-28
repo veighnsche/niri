@@ -40,9 +40,49 @@ impl<W: LayoutElement> Monitor<W> {
             self.canvas.update_render_elements();
         }
 
-        // TEAM_022: Insert hint handling simplified
+        // TEAM_057: Compute insert hint render location from insert_hint
         self.insert_hint_render_loc = None;
-        // TODO(TEAM_022): Implement proper insert hint rendering with canvas
+        if let Some(ref hint) = self.insert_hint {
+            // Find the row for this hint and compute the hint area
+            let hint_area = match hint.workspace {
+                InsertWorkspace::Existing(ws_id) => {
+                    // Find the row with this workspace ID
+                    if let Some(row_idx) = self.canvas.find_row_by_id(ws_id) {
+                        if let Some(row) = self.canvas.row(row_idx) {
+                            row.insert_hint_area(hint.position)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }
+                InsertWorkspace::NewAt(_) => {
+                    // For new workspaces, use the active row's hint area
+                    if let Some(row) = self.canvas.active_row() {
+                        row.insert_hint_area(hint.position)
+                    } else {
+                        None
+                    }
+                }
+            };
+            
+            if let Some(area) = hint_area {
+                self.insert_hint_render_loc = Some(InsertHintRenderLoc {
+                    workspace: hint.workspace,
+                    location: area.loc,
+                });
+                
+                // Update the insert hint element size
+                let view_rect = Rectangle::from_loc_and_size((0., 0.), self.view_size);
+                self.insert_hint_element.update_render_elements(
+                    area.size,
+                    view_rect,
+                    hint.corner_radius,
+                    self.scale.fractional_scale(),
+                );
+            }
+        }
     }
 
     // =========================================================================

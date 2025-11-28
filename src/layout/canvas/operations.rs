@@ -23,11 +23,15 @@ impl<W: LayoutElement> Canvas2D<W> {
     // =========================================================================
 
     /// Creates a new row at the specified index if it doesn't exist.
+    /// TEAM_057: Fixed row ID generation to avoid collisions across canvases.
+    /// Each canvas gets a unique base ID from Layout, and we use a large stride
+    /// to ensure IDs don't collide when multiple canvases create rows.
     pub fn ensure_row(&mut self, row_idx: i32) -> &mut Row<W> {
         self.rows.entry(row_idx).or_insert_with(|| {
-            // TEAM_039: Generate unique row ID for new row
-            // TEAM_055: Renamed from workspace_id_counter to row_id_counter
-            self.row_id_counter += 1;
+            // TEAM_057: Generate unique row ID for new row
+            // Use a large stride (1000) to avoid collisions with other canvases
+            // Each canvas starts with a unique base from Layout.next_row_id()
+            self.row_id_counter += 1000;
             let row_id = WorkspaceId(self.row_id_counter);
             
             Row::new(
@@ -79,6 +83,14 @@ impl<W: LayoutElement> Canvas2D<W> {
         None
     }
 
+    /// TEAM_057: Find a row by its workspace/row ID.
+    /// Returns the row index if found.
+    pub fn find_row_by_id(&self, ws_id: super::super::row_types::RowId) -> Option<i32> {
+        self.rows.iter()
+            .find(|(_, row)| row.id() == ws_id)
+            .map(|(&idx, _)| idx)
+    }
+
     /// Find a window across all rows in the canvas (mutable).
     /// Returns the row index and a mutable reference to the tile.
     pub fn find_window_mut(&mut self, id: &W::Id) -> Option<(i32, &mut Tile<W>)> {
@@ -100,6 +112,21 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Check if any row in the canvas contains the window.
     pub fn has_window(&self, id: &W::Id) -> bool {
         self.rows.values().any(|row| row.contains(id)) || self.floating.has_window(id)
+    }
+
+    /// TEAM_057: Set the height of a window in the canvas.
+    /// Finds the row containing the window and calls set_window_height on it.
+    pub fn set_window_height(&mut self, window_id: &W::Id, change: super::super::SizeChange) {
+        // Find which row contains this window
+        let row_idx = self.rows.iter()
+            .find(|(_, row)| row.contains(window_id))
+            .map(|(&idx, _)| idx);
+        
+        if let Some(idx) = row_idx {
+            if let Some(row) = self.rows.get_mut(&idx) {
+                row.set_window_height(Some(window_id), change);
+            }
+        }
     }
 
     /// Get the active window in the canvas (tiled or floating).
