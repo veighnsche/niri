@@ -1062,9 +1062,7 @@ impl<W: LayoutElement> Row<W> {
         col.preset_width_idx = None;
         col.is_full_width = false;
         col.update_tile_sizes(true);
-        
-        // Update cached width
-        self.data[col_idx].width = new_width;
+        // Note: Don't update self.data[col_idx].width here - it updates when tiles respond
     }
     
     // TEAM_035: Updated signature to accept Option<&W::Id>

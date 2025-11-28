@@ -182,8 +182,12 @@ impl<W: LayoutElement> Monitor<W> {
     }
 
     // TEAM_022: Returns active row index (was workspace index)
+    // TEAM_055: Changed to return ordinal position in iteration order, not raw BTreeMap key
     pub fn active_row_idx(&self) -> usize {
-        self.canvas.active_row_idx() as usize
+        let active_key = self.canvas.active_row_idx;
+        self.canvas.rows()
+            .position(|(idx, _)| idx == active_key)
+            .unwrap_or(0)
     }
 
     // TEAM_022: Returns the number of rows (was workspace count)
@@ -295,21 +299,46 @@ impl<W: LayoutElement> Monitor<W> {
 
     /// TEAM_033: Append canvas from another monitor.
     /// Used when a monitor is removed and windows need to be transferred.
+    /// TEAM_055: Matches original append_workspaces behavior - inserts before last empty row
     pub fn append_canvas(&mut self, other_canvas: Canvas2D<W>) {
-        // Transfer all rows from other canvas to this one
-        for (idx, mut row) in other_canvas.rows {
-            // TEAM_033: Properly merge rows - simplified approach to avoid API complexity
-            // For monitor removal, just insert as new rows to avoid complex merging logic
-            // This preserves window organization better than trying to merge columns
-            let new_idx = self.canvas.rows.keys().max().unwrap_or(&-1) + 1;
-            // Update row with this monitor's config
+        if other_canvas.rows.is_empty() {
+            return;
+        }
+        
+        // TEAM_055: Match original behavior:
+        // 1. If empty workspace was focused, keep it focused after append
+        // 2. Insert transferred rows BEFORE the last empty row
+        
+        let empty_was_focused = {
+            let active_key = self.canvas.active_row_idx;
+            let row_keys: Vec<i32> = self.canvas.rows.keys().copied().collect();
+            let last_key = row_keys.last().copied();
+            last_key.map(|k| k == active_key).unwrap_or(false) &&
+            self.canvas.rows.get(&active_key).map(|r| !r.has_windows()).unwrap_or(false)
+        };
+        
+        // Find the minimum key to insert transferred rows before existing ones
+        let min_existing_key = self.canvas.rows.keys().min().copied().unwrap_or(0);
+        
+        // Insert transferred rows at keys lower than existing ones
+        let mut insert_key = min_existing_key - 1;
+        for (_idx, mut row) in other_canvas.rows {
             row.update_config(
                 self.view_size,
                 self.working_area,
                 self.scale.fractional_scale(),
                 self.options.clone(),
             );
-            self.canvas.rows.insert(new_idx, row);
+            self.canvas.rows.insert(insert_key, row);
+            insert_key -= 1;
+        }
+        
+        // If empty was focused, keep it focused (it's now at a higher position in iteration order)
+        if empty_was_focused {
+            // Find the last key (which should be the empty row) and focus it
+            if let Some(&last_key) = self.canvas.rows.keys().last() {
+                self.canvas.active_row_idx = last_key;
+            }
         }
     }
 
@@ -538,14 +567,21 @@ impl<W: LayoutElement> Monitor<W> {
         self.workspace_switch = None;
     }
 
-    /// Remove a row/workspace by index.
-    pub fn remove_workspace_by_idx(&mut self, idx: usize) {
-        self.canvas.remove_row(idx as i32);
+    /// Remove a row/workspace by index and return it.
+    /// TEAM_055: Modified to return the removed row for workspace transfer
+    pub fn remove_workspace_by_idx(&mut self, idx: usize) -> Option<Row<W>> {
+        self.canvas.remove_row(idx as i32)
     }
 
-    /// Insert a workspace/row at specific index.
+    /// Insert a workspace/row at specific index (creates empty row).
     pub fn insert_workspace(&mut self, idx: usize) {
         self.canvas.ensure_row(idx as i32);
+    }
+    
+    /// Insert an existing row at a specific index.
+    /// TEAM_055: Added for workspace transfer between monitors
+    pub fn insert_row(&mut self, idx: usize, row: Row<W>) {
+        self.canvas.insert_row(idx as i32, row);
     }
 
     /// Activate workspace/row with animation config.

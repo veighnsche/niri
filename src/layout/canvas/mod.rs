@@ -327,11 +327,12 @@ impl<W: LayoutElement> Canvas2D<W> {
         }
     }
 
-    /// Remove a row by index.
+    /// Remove a row by index and return it.
     /// TEAM_025: Implemented proper row removal with active row adjustment
-    pub fn remove_row(&mut self, row_idx: i32) {
-        // Remove the row
-        self.rows.remove(&row_idx);
+    /// TEAM_055: Modified to return the removed row
+    pub fn remove_row(&mut self, row_idx: i32) -> Option<Row<W>> {
+        // Remove the row and get it back
+        let removed = self.rows.remove(&row_idx);
         
         // Adjust active_row_idx if necessary
         if self.active_row_idx == row_idx {
@@ -356,5 +357,13 @@ impl<W: LayoutElement> Canvas2D<W> {
                 }
             }
         }
+        
+        removed
+    }
+    
+    /// Insert a row at a specific index.
+    /// TEAM_055: Added for workspace transfer between monitors
+    pub fn insert_row(&mut self, row_idx: i32, row: Row<W>) {
+        self.rows.insert(row_idx, row);
     }
 }

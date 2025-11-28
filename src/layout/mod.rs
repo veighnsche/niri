@@ -1045,8 +1045,9 @@ impl<W: LayoutElement> Layout<W> {
                 };
                 let mon = &mut monitors[mon_idx];
 
-                let (ws_idx, _) = mon.resolve_add_window_target(&target);
-                let ws = &mon.canvas.rows().nth(ws_idx as usize).unwrap().1;
+                let (ws_key, _) = mon.resolve_add_window_target(&target);
+                // TEAM_055: ws_key is a BTreeMap key, not an ordinal index
+                let ws = mon.canvas.row(ws_key).expect("row should exist");
                 // TEAM_039: resolve_scrolling_width now takes &W and returns ColumnWidth
                 let scrolling_width = Some(ws.resolve_scrolling_width(&window, width));
 
@@ -1195,41 +1196,47 @@ impl<W: LayoutElement> Layout<W> {
                         return Some(removed);
                     }
 
-                    // First pass: find which row has the window (immutable borrow)
-                    let found_ws_idx = mon.canvas.rows().enumerate().find_map(|(idx, (_, ws))| {
+                    // TEAM_055: First pass: find which row has the window
+                    // Use the actual BTreeMap key, not enumeration index
+                    let found_row_key = mon.canvas.rows().find_map(|(key, ws)| {
                         if ws.has_window(window) {
-                            Some(idx)
+                            Some(key)
                         } else {
                             None
                         }
                     });
 
-                    if let Some(ws_idx) = found_ws_idx {
-                        // Now we can mutably access the specific row
-                        let removed = mon.canvas.row_mut(ws_idx as i32)
+                    if let Some(row_key) = found_row_key {
+                        // Get ordinal position for comparisons
+                        let ws_ord_idx = mon.canvas.rows()
+                            .position(|(k, _)| k == row_key)
+                            .unwrap_or(0);
+                        
+                        // Now we can mutably access the specific row using its key
+                        let removed = mon.canvas.row_mut(row_key)
                             .expect("row should exist")
                             .remove_tile(window, transaction);
 
                         // Get state we need for cleanup checks
-                        let ws_has_windows = mon.canvas.row(ws_idx as i32)
+                        let ws_has_windows = mon.canvas.row(row_key)
                             .map(|ws| ws.has_windows_or_name())
                             .unwrap_or(false);
-                        let active_idx = mon.active_row_idx();
+                        let active_ord_idx = mon.active_row_idx();
                         let ws_count = mon.canvas.rows().count();
                         let switch_in_progress = mon.workspace_switch.is_some();
 
                         // Clean up empty workspaces that are not active and not last.
                         if !ws_has_windows
-                            && ws_idx != active_idx
-                            && ws_idx != ws_count - 1
+                            && ws_ord_idx != active_ord_idx
+                            && ws_ord_idx != ws_count - 1
                             && !switch_in_progress
                         {
-                            mon.canvas.remove_row(ws_idx as i32);
+                            mon.canvas.remove_row(row_key);
                         }
 
-                        if ws_idx < active_idx {
-                            mon.canvas.active_row_idx -= 1;
-                        }
+                        // TEAM_055: Adjust active_row_idx if row at lower key was removed
+                        // Note: This adjustment only makes sense if we track ordinal position
+                        // Since we now use keys, we skip this adjustment - the key is stable
 
                         // Special case handling when empty_row_above_first is set and all
                         // workspaces are empty.
@@ -1237,11 +1244,14 @@ impl<W: LayoutElement> Layout<W> {
                             && mon.canvas.rows().count() == 2
                             && !switch_in_progress
                         {
-                            let ws0_empty = mon.canvas.row(0).map(|ws| !ws.has_windows_or_name()).unwrap_or(true);
-                            let ws1_empty = mon.canvas.row(1).map(|ws| !ws.has_windows_or_name()).unwrap_or(true);
-                            if ws0_empty && ws1_empty {
-                                mon.canvas.remove_row(1);
-                                mon.canvas.active_row_idx = 0;
+                            let keys: Vec<i32> = mon.canvas.rows.keys().copied().collect();
+                            if keys.len() == 2 {
+                                let ws0_empty = mon.canvas.row(keys[0]).map(|ws| !ws.has_windows_or_name()).unwrap_or(true);
+                                let ws1_empty = mon.canvas.row(keys[1]).map(|ws| !ws.has_windows_or_name()).unwrap_or(true);
+                                if ws0_empty && ws1_empty {
+                                    mon.canvas.remove_row(keys[1]);
+                                    mon.canvas.active_row_idx = keys[0];
+                                }
                             }
                         }
                         return Some(removed);
@@ -1255,26 +1265,27 @@ impl<W: LayoutElement> Layout<W> {
                     return Some(removed);
                 }
 
-                // First pass: find which row has the window
-                let found_ws_idx = canvas.rows().enumerate().find_map(|(idx, (_, ws))| {
+                // TEAM_055: First pass: find which row has the window
+                // Use the actual BTreeMap key, not enumeration index
+                let found_row_key = canvas.rows().find_map(|(key, ws)| {
                     if ws.has_window(window) {
-                        Some(idx)
+                        Some(key)
                     } else {
                         None
                     }
                 });
 
-                if let Some(ws_idx) = found_ws_idx {
-                    let removed = canvas.row_mut(ws_idx as i32)
+                if let Some(row_key) = found_row_key {
+                    let removed = canvas.row_mut(row_key)
                         .expect("row should exist")
                         .remove_tile(window, transaction);
 
                     // Clean up empty workspaces.
-                    let ws_has_windows = canvas.row(ws_idx as i32)
+                    let ws_has_windows = canvas.row(row_key)
                         .map(|ws| ws.has_windows_or_name())
                         .unwrap_or(false);
                     if !ws_has_windows {
-                        canvas.remove_row(ws_idx as i32);
+                        canvas.remove_row(row_key);
                     }
 
                     return Some(removed);
@@ -3049,9 +3060,6 @@ impl<W: LayoutElement> Layout<W> {
             return;
         }
 
-        let clock = self.clock.clone();
-        let options = self.options.clone();
-
         match &mut self.monitor_set {
             MonitorSet::Normal {
                 monitors,
@@ -3070,26 +3078,43 @@ impl<W: LayoutElement> Layout<W> {
                     .unwrap_or(*active_monitor_idx);
                 let mon = &mut monitors[mon_idx];
 
-                // TEAM_024: Create a named row in the canvas instead of a workspace
-                // Find the next available row index (start from 1, above origin)
-                let mut row_idx = 1i32;
-                while mon.canvas.rows().any(|(idx, _)| idx == row_idx) {
-                    row_idx += 1;
-                }
-                
-                let row = mon.canvas.ensure_row(row_idx);
+                // TEAM_055: Create a new row at position -1 (before existing rows)
+                // Original behavior: insert new workspace at position 0, which pushes existing down
+                // In BTreeMap: use negative key so it comes first in iteration order
+                let insert_key = mon.canvas.rows().map(|(idx, _)| idx).min().unwrap_or(0) - 1;
+                let row = mon.canvas.ensure_row(insert_key);
                 row.set_name(Some(row_config.name.0.clone()));
+                
+                // TEAM_055: Clean up empty unnamed rows (like original clean_up_workspaces)
+                let active_key = mon.canvas.active_row_idx;
+                let rows_to_remove: Vec<i32> = mon.canvas.rows()
+                    .filter(|(idx, row)| {
+                        *idx != active_key && !row.has_windows() && row.name().is_none()
+                    })
+                    .map(|(idx, _)| idx)
+                    .collect();
+                for idx in rows_to_remove {
+                    mon.canvas.remove_row(idx);
+                }
             }
             MonitorSet::NoOutputs { canvas } => {
-                // TEAM_024: Create a named row in the canvas instead of a workspace
-                // Find the next available row index (start from 1, above origin)
-                let mut row_idx = 1i32;
-                while canvas.rows().any(|(idx, _)| idx == row_idx) {
-                    row_idx += 1;
-                }
-                
-                let row = canvas.ensure_row(row_idx);
+                // TEAM_055: Create a new row at position -1 (before existing rows)
+                // Original behavior: insert new workspace at position 0
+                let insert_key = canvas.rows().map(|(idx, _)| idx).min().unwrap_or(0) - 1;
+                let row = canvas.ensure_row(insert_key);
                 row.set_name(Some(row_config.name.0.clone()));
+                
+                // TEAM_055: Clean up empty unnamed rows
+                let active_key = canvas.active_row_idx;
+                let rows_to_remove: Vec<i32> = canvas.rows()
+                    .filter(|(idx, row)| {
+                        *idx != active_key && !row.has_windows() && row.name().is_none()
+                    })
+                    .map(|(idx, _)| idx)
+                    .collect();
+                for idx in rows_to_remove {
+                    canvas.remove_row(idx);
+                }
             }
         }
     }
@@ -3734,17 +3759,34 @@ impl<W: LayoutElement> Layout<W> {
         let activate =
             current_idx == *active_monitor_idx && old_idx == current.active_row_idx();
 
-        // TEAM_035: In Canvas2D, we don't move workspaces between monitors
-        // Each monitor has its own canvas. Just ensure the target has a row at the right index.
-        let _ws = current.remove_workspace_by_idx(old_idx);
-        // TODO: TEAM_032: original_output field doesn't exist in Row - adapt or remove this functionality
-        // ws.original_output = OutputId::new(new_output);
+        // TEAM_055: Transfer row from source to target monitor
+        // Remove the row from source and get it back
+        let removed_row = current.remove_workspace_by_idx(old_idx);
+        
+        // TEAM_055: Ensure source canvas has at least one empty row
+        if current.canvas.rows().count() == 0 {
+            current.canvas.ensure_row(0);
+        }
 
         let target = &mut monitors[target_idx];
-        let target_idx_row = target.active_row_idx() + 1;
-        target.insert_workspace(target_idx_row);
-
+        
+        // TEAM_055: Original insert_workspace has "Don't insert past the last empty workspace"
+        // logic that adjusts idx to insert BEFORE the last workspace when idx == len.
+        // In BTreeMap terms, we want to insert at a key that comes BEFORE existing empty rows.
+        // Use key -1 so it sorts before key 0 in BTreeMap iteration order.
+        let insert_key = -1i32;
+        
+        // Insert the removed row into the target
+        if let Some(row) = removed_row {
+            target.canvas.insert_row(insert_key, row);
+        } else {
+            // If no row was removed (shouldn't happen), just ensure a row exists
+            target.canvas.ensure_row(insert_key);
+        }
+        
+        // If activating, set the inserted row as active
         if activate {
+            target.canvas.focus_row(insert_key);
             *active_monitor_idx = target_idx;
         }
 
