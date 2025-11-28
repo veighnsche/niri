@@ -501,28 +501,53 @@ impl Canvas2D {
 
 > **Status**: IN PROGRESS  
 > **Date**: Nov 28, 2025  
+> **Latest Update**: Compilation fixes completed, tests now running
 
 ## Recently Fixed (TEAM_059)
 
 1. ✅ `move_window_to_workspace_maximize_and_fullscreen` - Fixed maximize state preservation
 2. ✅ `move_to_workspace_by_idx_does_not_leave_empty_workspaces` - Fixed row cleanup/renumbering
+3. ✅ **Compilation errors** - Fixed all `workspaces()`/`rows()` method mismatches on Canvas2D vs Layout
+4. ✅ **Test compilation** - Fixed `active_workspace()` → `active_row()` calls in tests
+5. ✅ **Method naming** - Fixed `move_to_workspace()` → `move_to_row()` in tests
 
-## Remaining Failures
+## Current Failing Tests (16 total as of Nov 28, 2025)
 
-### Pattern 1: Floating Window State Issues
-**Tests**: `restore_to_floating_persists_across_fullscreen_maximize`, `unmaximize_during_fullscreen_does_not_float`
+### Pattern 1: Floating Window State Issues (6 tests)
+**Tests**: 
+- `restore_to_floating_persists_across_fullscreen_maximize`
+- `unmaximize_during_fullscreen_does_not_float`
+- `interactive_move_unfullscreen_to_floating_restores_size`
+- `interactive_move_unmaximize_to_floating_restores_size`
+- `resize_during_interactive_move_propagates_to_floating`
+- `interactive_move_restores_floating_size_when_set_to_floating`
 
-**Issue**: Floating windows incorrectly appearing in tiled space after fullscreen/maximize operations.
+**Issue**: Floating windows incorrectly appearing in tiled space after fullscreen/maximize operations, size preservation issues during interactive move.
 
-### Pattern 2: Output/Row Management Issues  
-**Tests**: `move_workspace_to_output`, `removing_all_outputs_preserves_empty_named_workspaces`, `removing_output_must_keep_empty_focus_on_primary`
+### Pattern 2: Output/Row Management Issues (3 tests)
+**Tests**: 
+- `move_workspace_to_output`
+- `removing_all_outputs_preserves_empty_named_workspaces`
+- `removing_output_must_keep_empty_focus_on_primary`
 
 **Issue**: Row creation, deletion, and index tracking not working correctly when outputs change.
 
-### Pattern 3: Golden Snapshot Regressions
-**Tests**: Various floating/animation tests
+### Pattern 3: Golden Snapshot Regressions (2 tests)
+**Tests**: 
+- `golden_anim_expand_to_available`
+- `golden_y1_expand_column_to_available_width`
 
-**Issue**: Floating window size preservation and animation capture issues.
+**Issue**: Animation capture and column width expansion issues in golden snapshots.
+
+### Pattern 4: Floating Configure Events (5 tests)
+**Tests**: 
+- `unfullscreen_to_floating_doesnt_send_extra_configure`
+- `unfullscreen_to_same_size_windowed_fullscreen_floating`
+- `unmaximize_to_floating_doesnt_send_extra_configure`
+- `unmaximize_to_same_size_windowed_fullscreen_floating`
+- `target_output_and_rows`
+
+**Issue**: Extra configure events being sent to floating windows during state transitions.
 
 ---
 
@@ -690,7 +715,37 @@ The test failure was caused by TWO separate issues:
 
 ---
 
-## 🟡 MEDIUM PRIORITY (Functional Enhancements)
+## � HIGH PRIORITY (Test Failures)
+
+### src/layout/row/operations/fullscreen.rs & src/layout/floating/operations.rs
+**TODO**: `TEAM_059: Fix floating window state preservation during fullscreen/maximize operations`
+
+**Status**: 🔄 **IN PROGRESS**
+
+**Issue**: 6 tests failing due to floating windows incorrectly appearing in tiled space after fullscreen/maximize operations, and size preservation issues during interactive move.
+
+**Failing Tests**:
+- `restore_to_floating_persists_across_fullscreen_maximize`
+- `unmaximize_during_fullscreen_does_not_float`
+- `interactive_move_unfullscreen_to_floating_restores_size`
+- `interactive_move_unmaximize_to_floating_restores_size`
+- `resize_during_interactive_move_propagates_to_floating`
+- `interactive_move_restores_floating_size_when_set_to_floating`
+
+**Root Cause Analysis Needed**:
+1. Floating window state tracking during fullscreen transitions
+2. Size preservation logic in interactive move operations
+3. Configure event handling for floating windows
+4. Canvas2D vs FloatingSpace state synchronization
+
+**Next Steps**:
+1. Investigate floating window state machine in fullscreen/maximize operations
+2. Fix size preservation during interactive move
+3. Ensure proper configure event sequencing
+
+---
+
+## �🟡 MEDIUM PRIORITY (Functional Enhancements)
 
 ### src/layout/mod.rs - Line 798
 **TODO**: `TEAM_024: Implement canvas cleanup logic`

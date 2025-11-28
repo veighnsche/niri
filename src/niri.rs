@@ -3438,9 +3438,10 @@ impl Niri {
             return None;
         }
 
-        let ws = self
+        let (ws, _) = self
             .layout
-            .row_under(extended_bounds, output, pos_within_output)?;
+            .monitor_for_output(&output)?
+            .row_under(pos_within_output)?;
         Some((output.clone(), ws))
     }
 

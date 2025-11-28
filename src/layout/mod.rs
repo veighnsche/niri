@@ -899,7 +899,7 @@ impl<W: LayoutElement> Layout<W> {
                     let mut canvas = monitor.into_canvas();
                     
                     // Update all rows with layout options
-                    // TEAM_033: Destructure tuple from rows_mut()
+                    // TEAM_033: Destructure tuple from workspaces_mut()
                     for (_, row) in canvas.rows_mut() {
                         row.update_config(view_size, working_area, scale, options.clone());
                     }
@@ -1076,13 +1076,13 @@ impl<W: LayoutElement> Layout<W> {
                 let (ws_idx, target) = match target {
                     AddWindowTarget::Auto => {
                         // In Canvas2D, we always add to the active row (row 0 by default)
-                        (0, WorkspaceAddWindowTarget::Auto)
+                        (0, RowAddWindowTarget::Auto)
                     }
                     AddWindowTarget::Output(_) => panic!(),
                     AddWindowTarget::Workspace(ws_id) => {
                         // TEAM_057: Find the row with the given workspace ID
                         let ws_idx = canvas.find_row_by_id(ws_id).unwrap_or(0);
-                        (ws_idx, WorkspaceAddWindowTarget::Auto)
+                        (ws_idx, RowAddWindowTarget::Auto)
                     }
                     AddWindowTarget::NextTo(next_to) => {
                         if self
@@ -1101,14 +1101,14 @@ impl<W: LayoutElement> Layout<W> {
                             // The next_to window is being interactively moved. If there are no
                             // other windows, we may have no workspaces at all.
                             // In Canvas2D, we always have at least the origin row
-                            (0, WorkspaceAddWindowTarget::Auto)
+                            (0, RowAddWindowTarget::Auto)
                         } else {
                             // Find the row that contains the next_to window
                             if let Some((ws_idx, _, tile)) = canvas.find_window(&next_to) {
-                                (ws_idx, WorkspaceAddWindowTarget::NextTo(tile.window()))
+                                (ws_idx, RowAddWindowTarget::NextTo(tile.window()))
                             } else {
                                 // Default to origin row if not found
-                                (0, WorkspaceAddWindowTarget::Auto)
+                                (0, RowAddWindowTarget::Auto)
                             }
                         }
                     }
@@ -1283,7 +1283,7 @@ impl<W: LayoutElement> Layout<W> {
         }
 
         // For MonitorSet::NoOutputs, still need workspace iteration
-        for ws in self.rows_mut() {
+        for ws in self.workspaces_mut() {
             if ws.descendants_added(id) {
                 return true;
             }
@@ -1552,7 +1552,7 @@ impl<W: LayoutElement> Layout<W> {
         }
 
         // For MonitorSet::NoOutputs, fallback to workspace iteration
-        self.rows()
+        self.workspaces()
             .find_map(|(_, _, ws)| ws.popup_target_rect(window))
             .unwrap()
     }
@@ -2043,7 +2043,7 @@ impl<W: LayoutElement> Layout<W> {
 
         let workspace = if let Some(window) = window {
             Some(
-                self.rows_mut()
+                self.workspaces_mut()
                     .find(|ws| ws.has_window(window))
                     .unwrap(),
             )
@@ -2066,7 +2066,7 @@ impl<W: LayoutElement> Layout<W> {
 
         let workspace = if let Some(window) = window {
             Some(
-                self.rows_mut()
+                self.workspaces_mut()
                     .find(|ws| ws.has_window(window))
                     .unwrap(),
             )
@@ -3137,7 +3137,7 @@ impl<W: LayoutElement> Layout<W> {
 
         let workspace = if let Some(window) = window {
             Some(
-                self.rows_mut()
+                self.workspaces_mut()
                     .find(|ws| ws.has_window(window))
                     .unwrap(),
             )
@@ -3160,7 +3160,7 @@ impl<W: LayoutElement> Layout<W> {
 
         let workspace = if let Some(window) = window {
             Some(
-                self.rows_mut()
+                self.workspaces_mut()
                     .find(|ws| ws.has_window(window))
                     .unwrap(),
             )
@@ -3325,7 +3325,7 @@ impl<W: LayoutElement> Layout<W> {
 
         let workspace = if let Some(window) = window {
             Some(
-                self.rows_mut()
+                self.workspaces_mut()
                     .find(|ws| ws.has_window(window))
                     .unwrap(),
             )
@@ -3428,7 +3428,7 @@ impl<W: LayoutElement> Layout<W> {
 
         let workspace = if let Some(window) = window {
             Some(
-                self.rows_mut()
+                self.workspaces_mut()
                     .find(|ws| ws.has_window(window))
                     .unwrap(),
             )
@@ -3637,7 +3637,7 @@ impl<W: LayoutElement> Layout<W> {
                 return;
             }
 
-            let ws = current.active_row();
+            let ws = current.active_workspace();
 
             if let Some(ws) = ws {
                 let Some(column) = ws.remove_active_column() else {
@@ -3761,7 +3761,7 @@ impl<W: LayoutElement> Layout<W> {
         }
 
         // For MonitorSet::NoOutputs, fallback to workspace iteration
-        for ws in self.rows_mut() {
+        for ws in self.workspaces_mut() {
             if ws.has_window(id) {
                 ws.set_fullscreen(id, is_fullscreen);
                 return;
@@ -3785,7 +3785,7 @@ impl<W: LayoutElement> Layout<W> {
         }
 
         // For MonitorSet::NoOutputs, fallback to workspace iteration
-        for ws in self.rows_mut() {
+        for ws in self.workspaces_mut() {
             if ws.has_window(id) {
                 ws.toggle_fullscreen(id);
                 return;
@@ -3832,7 +3832,7 @@ impl<W: LayoutElement> Layout<W> {
         }
 
         // For MonitorSet::NoOutputs, fallback to workspace iteration
-        for ws in self.rows_mut() {
+        for ws in self.workspaces_mut() {
             if ws.has_window(id) {
                 ws.set_maximized(id, maximize);
                 return;
@@ -3856,7 +3856,7 @@ impl<W: LayoutElement> Layout<W> {
         }
 
         // For MonitorSet::NoOutputs, fallback to workspace iteration
-        for ws in self.rows_mut() {
+        for ws in self.workspaces_mut() {
             if ws.has_window(id) {
                 ws.toggle_maximized(id);
                 return;
@@ -4101,7 +4101,7 @@ impl<W: LayoutElement> Layout<W> {
                 .band(sq_dist / INTERACTIVE_MOVE_START_THRESHOLD);
 
                 let (is_floating, tile, workspace_config) = self
-                    .rows_mut()
+                    .workspaces_mut()
                     .find(|ws| ws.has_window(&window_id))
                     .map(|ws| {
                         let workspace_config = ws.layout_config().map(|c| (ws.id(), c.clone()));
@@ -4163,7 +4163,7 @@ impl<W: LayoutElement> Layout<W> {
                 // Unset fullscreen before removing the tile. This will restore its size properly,
                 // and move it to floating if needed, so we don't have to deal with that here.
                 let ws = self
-                    .rows_mut()
+                    .workspaces_mut()
                     .find(|ws| ws.has_window(&window_id))
                     .unwrap();
                 ws.set_fullscreen(window, false);
@@ -4331,7 +4331,7 @@ impl<W: LayoutElement> Layout<W> {
                     }
                 }
 
-                for ws in self.rows_mut() {
+                for ws in self.workspaces_mut() {
                     if let Some(tile) = ws.tiles_mut().find(|tile| *tile.window().id() == window_id)
                     {
                         let offset = tile.interactive_move_offset;
@@ -4602,7 +4602,7 @@ impl<W: LayoutElement> Layout<W> {
         if begin_gesture {
             // dnd_scroll_gesture_begin removed - was overview-only
 
-            for ws in self.rows_mut() {
+            for ws in self.workspaces_mut() {
                 ws.dnd_scroll_gesture_begin();
             }
         }
@@ -4801,7 +4801,7 @@ impl<W: LayoutElement> Layout<W> {
         }
 
         // Fallback to workspace iteration for compatibility
-        for ws in self.rows_mut() {
+        for ws in self.workspaces_mut() {
             if ws.start_open_animation(window) {
                 return;
             }
@@ -4911,7 +4911,7 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        // TEAM_033: Destructure tuples from rows_mut()
+        // TEAM_033: Destructure tuples from workspaces_mut()
         match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
@@ -4996,7 +4996,7 @@ impl<W: LayoutElement> Layout<W> {
         {
             ongoing_scrolling_dnd.get_or_insert_with(|| {
                 let (_, _, ws) = self
-                    .rows()
+                    .workspaces()
                     .find(|(_, _, ws)| ws.has_window(window_id))
                     .unwrap();
                 !ws.is_floating(window_id)

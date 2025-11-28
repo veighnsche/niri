@@ -40,7 +40,7 @@ use crate::layout::snapshot::{CanvasSnapshot, ScrollingSnapshot};
 
 /// Helper to run ops and get scrolling snapshot (tiled layout only).
 fn snapshot(ops: impl IntoIterator<Item = Op>) -> ScrollingSnapshot {
-    check_ops(ops).active_workspace().unwrap().scrolling().snapshot()
+    check_ops(ops).active_row().unwrap().scrolling().snapshot()
 }
 
 /// Helper to run ops and get full canvas snapshot (includes tiled + floating).

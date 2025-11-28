@@ -342,7 +342,7 @@ impl<W: LayoutElement> Monitor<W> {
             }
             MonitorAddWindowTarget::Workspace { id, column_idx } => {
                 // Find the row with this workspace ID
-                let row_idx = self.canvas.workspaces()
+                let row_idx = self.canvas.rows()
                     .find(|(_, ws)| ws.id() == *id)
                     .map(|(idx, _)| idx)
                     .unwrap_or_else(|| self.canvas.active_row_idx());
@@ -350,7 +350,7 @@ impl<W: LayoutElement> Monitor<W> {
             }
             MonitorAddWindowTarget::NextTo(window_id) => {
                 // Find the row containing this window
-                let row_idx = self.canvas.workspaces()
+                let row_idx = self.canvas.rows()
                     .find(|(_, ws)| ws.has_window(window_id))
                     .map(|(idx, _)| idx)
                     .unwrap_or_else(|| self.canvas.active_row_idx());

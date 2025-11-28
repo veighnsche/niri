@@ -952,7 +952,7 @@ impl Op {
                 match &layout.monitor_set {
                     MonitorSet::Normal { monitors, .. } => {
                         for mon in monitors {
-                            for (_, ws) in mon.canvas.workspaces() {
+                            for (_, ws) in mon.canvas.rows() {
                                 for win in ws.windows() {
                                     if win.0.id == params.id {
                                         return;
@@ -966,7 +966,7 @@ impl Op {
                         }
                     }
                     MonitorSet::NoOutputs { canvas, .. } => {
-                        for (_, ws) in canvas.workspaces() {
+                        for (_, ws) in canvas.rows() {
                             for win in ws.windows() {
                                 if win.0.id == params.id {
                                     return;
@@ -1019,7 +1019,7 @@ impl Op {
                 match &layout.monitor_set {
                     MonitorSet::Normal { monitors, .. } => {
                         for mon in monitors {
-                            for (_, ws) in mon.canvas.workspaces() {
+                            for (_, ws) in mon.canvas.rows() {
                                 for win in ws.windows() {
                                     if win.0.id == params.id {
                                         return;
@@ -1036,7 +1036,7 @@ impl Op {
                         }
                     }
                     MonitorSet::NoOutputs { canvas, .. } => {
-                        for (_, ws) in canvas.workspaces() {
+                        for (_, ws) in canvas.rows() {
                             for win in ws.windows() {
                                 if win.0.id == params.id {
                                     return;
@@ -1214,7 +1214,7 @@ impl Op {
                 row_idx,
             } => {
                 let window_id = window_id.filter(|id| layout.has_window(id));
-                layout.move_to_workspace(window_id.as_ref(), row_idx, ActivateWindow::Smart);
+                layout.move_to_row(window_id.as_ref(), row_idx, ActivateWindow::Smart);
             }
             // TEAM_014: Renamed from MoveColumnToWorkspace* to MoveColumnToRow*
             Op::MoveColumnToRowDown(focus) => layout.move_column_to_row_down(focus),
@@ -1232,8 +1232,8 @@ impl Op {
                 let mon = layout.monitor_for_output(&output).unwrap();
 
                 let window_id = window_id.filter(|id| layout.has_window(id));
-                // TEAM_035: Use canvas.workspaces().count() instead of mon.workspaces.len()
-                let target_ws_idx = target_ws_idx.filter(|idx| mon.canvas.workspaces().count() > *idx);
+                // TEAM_035: Use canvas.rows().count() instead of mon.workspaces.len()
+                let target_ws_idx = target_ws_idx.filter(|idx| mon.canvas.rows().count() > *idx);
                 layout.move_to_output(
                     window_id.as_ref(),
                     &output,
@@ -1268,16 +1268,15 @@ impl Op {
                 let Some((old_idx, old_output)) = monitors.iter().find_map(|monitor| {
                     monitor
                         .canvas
-                        .workspaces()
+                        .rows()
                         .enumerate()
                         .find_map(|(i, (_, ws))| {
                             if ws.name() == Some(&format!("ws{ws_name}")) {
-                                Some(i)
+                                Some((i, monitor.output.clone()))
                             } else {
                                 None
                             }
                         })
-                        .map(|i| (i, monitor.output.clone()))
                 }) else {
                     return;
                 };
@@ -1314,7 +1313,7 @@ impl Op {
                 let Some((old_idx, old_output)) = monitors.iter().find_map(|monitor| {
                     monitor
                         .canvas
-                        .workspaces()
+                        .rows()
                         .enumerate()
                         .find_map(|(i, (_, ws))| {
                             if ws.name() == Some(&format!("ws{ws_name}")) {
@@ -1421,7 +1420,7 @@ impl Op {
                 match &layout.monitor_set {
                     MonitorSet::Normal { monitors, .. } => {
                         'outer: for mon in monitors {
-                            for (_, ws) in mon.canvas.workspaces() {
+                            for (_, ws) in mon.canvas.rows() {
                                 for win in ws.windows() {
                                     if win.0.id == id {
                                         win.0.parent_id.set(new_parent_id);
@@ -1433,7 +1432,7 @@ impl Op {
                         }
                     }
                     MonitorSet::NoOutputs { canvas, .. } => {
-                        'outer: for (_, ws) in canvas.workspaces() {
+                        'outer: for (_, ws) in canvas.rows() {
                             for win in ws.windows() {
                                 if win.0.id == id {
                                     win.0.parent_id.set(new_parent_id);
@@ -1480,7 +1479,7 @@ impl Op {
                 match &layout.monitor_set {
                     MonitorSet::Normal { monitors, .. } => {
                         'outer: for mon in monitors {
-                            for (_, ws) in mon.canvas.workspaces() {
+                            for (_, ws) in mon.canvas.rows() {
                                 for win in ws.windows() {
                                     if win.0.id == id {
                                         if win.communicate() {
@@ -1493,7 +1492,7 @@ impl Op {
                         }
                     }
                     MonitorSet::NoOutputs { canvas, .. } => {
-                        'outer: for (_, ws) in canvas.workspaces() {
+                        'outer: for (_, ws) in canvas.rows() {
                             for win in ws.windows() {
                                 if win.0.id == id {
                                     if win.communicate() {
@@ -2030,8 +2029,8 @@ fn removing_output_must_keep_empty_focus_on_primary() {
 
     // The workspace from the removed output was inserted at position 0, so the active workspace
     // must change to 1 to keep the focus on the empty workspace.
-    // TEAM_035: Use active_workspace_idx() method instead of field
-    assert_eq!(monitors[0].active_workspace_idx(), 1);
+    // TEAM_035: Use active_row_idx() method instead of field
+    assert_eq!(monitors[0].active_row_idx(), 1);
 }
 
 #[test]
@@ -2059,8 +2058,8 @@ fn move_to_workspace_by_idx_does_not_leave_empty_workspaces() {
         unreachable!()
     };
 
-    // TEAM_035: Use canvas.workspaces() instead of mon.workspaces
-    let (_, ws) = monitors[0].canvas.workspaces().nth(1).unwrap();
+    // TEAM_035: Use canvas.rows() instead of mon.workspaces
+    let (_, ws) = monitors[0].canvas.rows().nth(1).unwrap();
     assert!(ws.has_windows());
 }
 
@@ -2216,13 +2215,13 @@ fn move_workspace_to_output() {
     };
 
     assert_eq!(active_monitor_idx, 1);
-    // TEAM_035: Use canvas.workspaces() instead of mon.workspaces
-    assert_eq!(monitors[0].canvas.workspaces().count(), 1);
-    let (_, ws0) = monitors[0].canvas.workspaces().nth(0).unwrap();
+    // TEAM_035: Use canvas.rows() instead of mon.workspaces
+    assert_eq!(monitors[0].canvas.rows().count(), 1);
+    let (_, ws0) = monitors[0].canvas.rows().nth(0).unwrap();
     assert!(!ws0.has_windows());
-    assert_eq!(monitors[1].active_workspace_idx(), 0);
-    assert_eq!(monitors[1].canvas.workspaces().count(), 2);
-    let (_, ws1) = monitors[1].canvas.workspaces().nth(0).unwrap();
+    assert_eq!(monitors[1].active_row_idx(), 0);
+    assert_eq!(monitors[1].canvas.rows().count(), 2);
+    let (_, ws1) = monitors[1].canvas.rows().nth(0).unwrap();
     assert!(ws1.has_windows());
 }
 
@@ -2250,7 +2249,7 @@ fn removing_all_outputs_preserves_empty_named_workspaces() {
         unreachable!()
     };
 
-    assert_eq!(canvas.workspaces().count(), 2);
+    assert_eq!(canvas.rows().count(), 2);
 }
 
 #[test]
@@ -3221,8 +3220,8 @@ fn move_column_to_workspace_down_focus_false_on_floating_window() {
         unreachable!()
     };
 
-    // TEAM_035: Use active_workspace_idx() method
-    assert_eq!(monitors[0].active_workspace_idx(), 0);
+    // TEAM_035: Use active_row_idx() method
+    assert_eq!(monitors[0].active_row_idx(), 0);
 }
 
 #[test]
@@ -3245,8 +3244,8 @@ fn move_column_to_workspace_focus_false_on_floating_window() {
         unreachable!()
     };
 
-    // TEAM_035: Use active_workspace_idx() method
-    assert_eq!(monitors[0].active_workspace_idx(), 0);
+    // TEAM_035: Use active_row_idx() method
+    assert_eq!(monitors[0].active_row_idx(), 0);
 }
 
 #[test]
@@ -3267,7 +3266,7 @@ fn restore_to_floating_persists_across_fullscreen_maximize() {
     let mut layout = check_ops(ops);
 
     // Unfullscreening should return the window to the maximized state.
-    let scrolling = layout.active_workspace().unwrap().scrolling();
+    let scrolling = layout.active_row().unwrap().scrolling();
     assert!(scrolling.tiles().next().is_some());
 
     let ops = [
@@ -3277,7 +3276,7 @@ fn restore_to_floating_persists_across_fullscreen_maximize() {
     check_ops_on_layout(&mut layout, ops);
 
     // Unmaximize should return the window back to floating.
-    let scrolling = layout.active_workspace().unwrap().scrolling();
+    let scrolling = layout.active_row().unwrap().scrolling();
     assert!(scrolling.tiles().next().is_none());
 }
 
@@ -3299,7 +3298,7 @@ fn unmaximize_during_fullscreen_does_not_float() {
     let mut layout = check_ops(ops);
 
     // Unmaximize shouldn't have changed the window state since it's fullscreen.
-    let scrolling = layout.active_workspace().unwrap().scrolling();
+    let scrolling = layout.active_row().unwrap().scrolling();
     assert!(scrolling.tiles().next().is_some());
 
     let ops = [
@@ -3309,7 +3308,7 @@ fn unmaximize_during_fullscreen_does_not_float() {
     check_ops_on_layout(&mut layout, ops);
 
     // Unfullscreen should return the window back to floating.
-    let scrolling = layout.active_workspace().unwrap().scrolling();
+    let scrolling = layout.active_row().unwrap().scrolling();
     assert!(scrolling.tiles().next().is_none());
 }
 

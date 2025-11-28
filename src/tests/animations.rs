@@ -14,7 +14,7 @@ use crate::niri::Niri;
 
 fn format_tiles(niri: &Niri) -> String {
     let mut buf = String::new();
-    let ws = niri.layout.active_workspace().unwrap();
+    let ws = niri.layout.active_row().unwrap();
     let mut tiles: Vec<_> = ws.tiles_with_render_positions().collect();
 
     // We sort by id since that gives us a consistent order (from first opened to last), but we
