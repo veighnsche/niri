@@ -1205,6 +1205,49 @@ impl<W: LayoutElement> Row<W> {
             .map(|tile| tile.window())
     }
     
+    /// TEAM_053: Get fullscreen size for a window before removing it
+    /// This is needed by Canvas2D::toggle_floating_window_by_id to preserve fullscreen dimensions
+    pub fn get_fullscreen_size_for_window(&self, id: &W::Id) -> Option<Size<i32, Logical>> {
+        // Find the column containing this window
+        let col_idx = self
+            .columns
+            .iter()
+            .position(|col| col.contains(id));
+        
+        let Some(col_idx) = col_idx else {
+            eprintln!("TEAM_053 DEBUG: No column found for window");
+            return None;
+        };
+
+        let col = &self.columns[col_idx];
+        
+        // TEAM_053: Debug both column and window fullscreen states
+        eprintln!("TEAM_053 DEBUG: col.is_pending_fullscreen: {}", col.is_pending_fullscreen);
+        if let Some(tile) = col.tiles.iter().find(|tile| tile.window().id() == id) {
+            eprintln!("TEAM_053 DEBUG: window.pending_sizing_mode(): {:?}", tile.window().pending_sizing_mode());
+            eprintln!("TEAM_053 DEBUG: window.expected_size(): {:?}", tile.window().expected_size());
+        }
+        
+        // TEAM_053: Check fullscreen state at column level, not tile level
+        // Fullscreen state is stored in col.is_pending_fullscreen, not in window.pending_sizing_mode()
+        if col.is_pending_fullscreen {
+            eprintln!("TEAM_053 DEBUG: Column is pending fullscreen, getting size from active tile");
+            // Return the fullscreen size (expected_size of the fullscreen window)
+            col.tiles.iter().find(|tile| tile.window().id() == id)
+                .and_then(|tile| tile.window().expected_size())
+        } else {
+            eprintln!("TEAM_053 DEBUG: Column is not pending fullscreen, checking window state instead");
+            // Fallback: check if window itself reports fullscreen
+            if let Some(tile) = col.tiles.iter().find(|tile| tile.window().id() == id) {
+                if tile.window().pending_sizing_mode().is_fullscreen() {
+                    eprintln!("TEAM_053 DEBUG: Window reports fullscreen, using its size");
+                    return tile.window().expected_size();
+                }
+            }
+            None
+        }
+    }
+    
     pub fn activate_window(&mut self, window: &W::Id) -> bool {
         // Find the column containing this window
         let column_idx = self.columns.iter().position(|col| col.contains(window));
@@ -1428,6 +1471,15 @@ impl<W: LayoutElement> Row<W> {
         let prev_width = self.data[col_idx].width;
         // TEAM_050: Track sizing mode before update for view offset save/restore
         let was_normal = column.sizing_mode().is_normal();
+        
+        // TEAM_053: Capture fullscreen size BEFORE update_window if transitioning to normal
+        let fullscreen_size_to_preserve = if !was_normal {
+            // Check if this window will transition to normal (unfullscreen)
+            column.tiles.iter().find(|tile| tile.window().id() == window)
+                .and_then(|tile| tile.window().expected_size())
+        } else {
+            None
+        };
 
         column.update_window(window);
         self.data[col_idx].update(column);
@@ -1456,8 +1508,16 @@ impl<W: LayoutElement> Row<W> {
                 self.view_offset_to_restore = Some(self.view_offset_x.stationary());
             }
 
-            // Upon unfullscreening, restore the view offset.
+            // Upon unfullscreening, restore the view offset and preserve fullscreen size.
             let unfullscreen_offset = if !was_normal && is_normal {
+                // TEAM_053: Set the captured fullscreen size to the tile
+                if let Some(fullscreen_size) = fullscreen_size_to_preserve {
+                    if let Some(tile) = self.columns[col_idx].tiles.iter_mut()
+                        .find(|tile| tile.window().id() == window) {
+                        tile.floating_window_size = Some(fullscreen_size);
+                    }
+                }
+                
                 self.view_offset_to_restore.take()
             } else {
                 None

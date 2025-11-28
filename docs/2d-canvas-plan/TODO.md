@@ -3,7 +3,7 @@
 > **Check this file first** before starting work.
 > This is the single source of truth for what needs to be done.
 
-**Last updated**: TEAM_046
+**Last updated**: TEAM_053
 
 ---
 
@@ -49,6 +49,7 @@
 ## Remaining Test Categories
 
 - **Floating tests**: ~22 failing (size preservation issues - complex expected_size() interactions)
+  - **BLOCKED (TEAM_053)**: `unfocus_preserves_current_size` - viewport.set_destination() not reflected in window.geometry().size. Requires smithay expertise.
 - **Animation tests**: ~10 failing (move animations)
 - **Fullscreen tests**: ~5 failing (view offset preservation)
 - **Window opening tests**: ~10 failing (workspace targeting)
