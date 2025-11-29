@@ -1,7 +1,7 @@
 # Phase A4: Extract niri/lock.rs
 
-> **Status**: ⏳ PENDING
-> **Estimated Time**: 45 minutes
+> **Status**: ✅ COMPLETE
+> **Actual Time**: 10 minutes
 > **Risk Level**: 🟡 Medium (state machine, but self-contained)
 > **Prerequisite**: Phase A3 complete
 
@@ -13,7 +13,7 @@ Extract all session lock methods from `niri.rs` into `src/niri/lock.rs`.
 
 The lock system is a self-contained state machine with clear boundaries.
 
-User: Remember that when a item is too big of a refactor than planned. that I want you to make it smaller and do it in multiple steps. Write it down in this folder as broken down steps in the phase file...
+> **Note**: If any step is too big, break it down further in this file.
 
 ---
 

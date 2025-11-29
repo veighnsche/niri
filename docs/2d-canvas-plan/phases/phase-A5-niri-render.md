@@ -1,6 +1,6 @@
 # Phase A5: Extract niri/render.rs + frame_callbacks.rs
 
-> **Status**: ⏳ PENDING
+> **Status**: 🔄 IN PROGRESS (frame_callbacks.rs complete)
 > **Estimated Time**: 1.5 hours
 > **Risk Level**: 🟡 Medium (core rendering path)
 > **Prerequisite**: Phase A4 complete
@@ -10,10 +10,10 @@
 ## Goal
 
 Extract rendering and frame callback methods into two files:
-- `src/niri/render.rs` — Core rendering logic
-- `src/niri/frame_callbacks.rs` — Frame callbacks and presentation feedback
+- `src/niri/frame_callbacks.rs` — Frame callbacks and presentation feedback ✅ DONE
+- `src/niri/render.rs` — Core rendering logic (TODO)
 
-User: Remember that when a item is too big of a refactor than planned. that I want you to make it smaller and do it in multiple steps. Write it down in this folder as broken down steps in the phase file...
+> **Note**: This phase is large. Breaking into sub-phases.
 
 ---
 
