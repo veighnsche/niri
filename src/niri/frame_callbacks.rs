@@ -16,9 +16,8 @@ use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::Size;
 use smithay::wayland::compositor::SurfaceData;
 
-use crate::utils::get_monotonic_time;
-
 use super::{Niri, SurfaceFrameThrottlingState, FRAME_CALLBACK_THROTTLE};
+use crate::utils::get_monotonic_time;
 
 // =============================================================================
 // Frame Callback Methods

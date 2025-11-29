@@ -55,7 +55,8 @@ impl<W: LayoutElement> Layout<W> {
                     .map(|(ws, ws_geo)| {
                         let is_correct_output = mon.output() == output;
                         let is_floating = ws.is_floating(&window_id);
-                        let tile_info = ws.tiles_with_render_positions()
+                        let tile_info = ws
+                            .tiles_with_render_positions()
                             .find(|(tile, _, _)| tile.window().id() == &window_id)
                             .map(|(tile, tile_offset, _)| {
                                 let window_offset = tile.window_loc();
@@ -64,8 +65,16 @@ impl<W: LayoutElement> Layout<W> {
                                     start_pos_within_output - tile_pos - window_offset;
                                 let window_size = tile.window_size();
                                 (
-                                    f64::clamp(pointer_offset_within_window.x / window_size.w, 0., 1.),
-                                    f64::clamp(pointer_offset_within_window.y / window_size.h, 0., 1.),
+                                    f64::clamp(
+                                        pointer_offset_within_window.x / window_size.w,
+                                        0.,
+                                        1.,
+                                    ),
+                                    f64::clamp(
+                                        pointer_offset_within_window.y / window_size.h,
+                                        0.,
+                                        1.,
+                                    ),
                                 )
                             });
                         (is_correct_output, is_floating, tile_info)
@@ -87,7 +96,9 @@ impl<W: LayoutElement> Layout<W> {
                     if mon.output() != output || !mon.canvas.floating.has_window(&window_id) {
                         return None;
                     }
-                    mon.canvas.floating.tiles_with_offsets()
+                    mon.canvas
+                        .floating
+                        .tiles_with_offsets()
                         .find(|(tile, _)| tile.window().id() == &window_id)
                         .map(|(tile, offset)| {
                             let tile_pos = offset;
@@ -114,7 +125,10 @@ impl<W: LayoutElement> Layout<W> {
 
         // Now we can mutate self without borrow issues
         match location {
-            WindowLocation::Tiled { is_floating, pointer_ratio_within_window } => {
+            WindowLocation::Tiled {
+                is_floating,
+                pointer_ratio_within_window,
+            } => {
                 self.interactive_move = Some(InteractiveMoveState::Starting {
                     window_id,
                     pointer_delta: Point::from((0., 0.)),
@@ -130,7 +144,9 @@ impl<W: LayoutElement> Layout<W> {
 
                 true
             }
-            WindowLocation::Floating { pointer_ratio_within_window } => {
+            WindowLocation::Floating {
+                pointer_ratio_within_window,
+            } => {
                 self.interactive_move = Some(InteractiveMoveState::Starting {
                     window_id,
                     pointer_delta: Point::from((0., 0.)),
@@ -193,35 +209,39 @@ impl<W: LayoutElement> Layout<W> {
                     .map(|ws| {
                         let workspace_config = ws.layout_config().map(|c| (ws.id(), c.clone()));
                         let is_floating = ws.is_floating(&window_id);
-                        let tile = ws.tiles_mut()
+                        let tile = ws
+                            .tiles_mut()
                             .find(|tile| *tile.window().id() == window_id)
                             .unwrap();
                         tile.interactive_move_offset = pointer_delta.upscale(factor);
                         (is_floating, workspace_config)
                     });
 
-                let (is_floating, workspace_config) = if let Some((is_floating, workspace_config)) = found_in_rows {
-                    (is_floating, workspace_config)
-                } else {
-                    // Check floating space
-                    let found_floating = self.monitors_mut().find_map(|mon| {
-                        mon.canvas.floating.tiles_mut()
-                            .find(|tile| *tile.window().id() == window_id)
-                            .map(|tile| {
-                                tile.interactive_move_offset = pointer_delta.upscale(factor);
-                            })
-                    });
-                    if found_floating.is_none() {
-                        // Window not found anywhere, return false
-                        self.interactive_move = Some(InteractiveMoveState::Starting {
-                            window_id,
-                            pointer_delta,
-                            pointer_ratio_within_window,
+                let (is_floating, workspace_config) =
+                    if let Some((is_floating, workspace_config)) = found_in_rows {
+                        (is_floating, workspace_config)
+                    } else {
+                        // Check floating space
+                        let found_floating = self.monitors_mut().find_map(|mon| {
+                            mon.canvas
+                                .floating
+                                .tiles_mut()
+                                .find(|tile| *tile.window().id() == window_id)
+                                .map(|tile| {
+                                    tile.interactive_move_offset = pointer_delta.upscale(factor);
+                                })
                         });
-                        return false;
-                    }
-                    (true, None) // Floating windows don't have workspace config
-                };
+                        if found_floating.is_none() {
+                            // Window not found anywhere, return false
+                            self.interactive_move = Some(InteractiveMoveState::Starting {
+                                window_id,
+                                pointer_delta,
+                                pointer_ratio_within_window,
+                            });
+                            return false;
+                        }
+                        (true, None) // Floating windows don't have workspace config
+                    };
 
                 // Put it back to be able to easily return.
                 self.interactive_move = Some(InteractiveMoveState::Starting {
@@ -286,8 +306,10 @@ impl<W: LayoutElement> Layout<W> {
                     is_full_width,
                     is_floating: was_floating,
                     is_maximized,
-                } = self.remove_window(window, crate::utils::transaction::Transaction::new()).unwrap();
-                
+                } = self
+                    .remove_window(window, crate::utils::transaction::Transaction::new())
+                    .unwrap();
+
                 // TEAM_059: If window should restore to floating, treat it as floating
                 let is_floating = was_floating || should_restore_to_floating;
 
@@ -312,22 +334,22 @@ impl<W: LayoutElement> Layout<W> {
                     for mon in self.monitors_mut() {
                         mon.canvas_mut().dnd_scroll_gesture_end();
                     }
-                    
-                    // TEAM_059: Only request the floating size when restoring to floating from 
+
+                    // TEAM_059: Only request the floating size when restoring to floating from
                     // fullscreen/maximize. For windows that were already floating, don't request
                     // a size - they'll keep their current size during the move.
                     if should_restore_to_floating {
                         let floating_size = tile.floating_window_size;
                         let win = tile.window_mut();
-                        let mut size =
-                            floating_size.unwrap_or_else(|| win.expected_size().unwrap_or_default());
-                        
+                        let mut size = floating_size
+                            .unwrap_or_else(|| win.expected_size().unwrap_or_default());
+
                         // Apply min/max size window rules
                         let min_size = win.min_size();
                         let max_size = win.max_size();
                         size.w = ensure_min_max_size_maybe_zero(size.w, min_size.w, max_size.w);
                         size.h = ensure_min_max_size_maybe_zero(size.h, min_size.h, max_size.h);
-                        
+
                         win.request_size_once(size, true);
                     }
                 } else {
@@ -440,13 +462,13 @@ impl<W: LayoutElement> Layout<W> {
                 // TEAM_021: Use canvas to find and update window instead of workspace iteration
                 for mon in self.monitors_mut() {
                     mon.dnd_scroll_gesture_end();
-                    
+
                     // Try canvas first for window operations
                     if let Some((_row_idx, tile)) = mon.canvas_mut().find_window_mut(&window_id) {
                         let offset = tile.interactive_move_offset;
                         tile.interactive_move_offset = Point::from((0., 0.));
                         tile.animate_move_from(offset);
-                        
+
                         // Unlock view
                         mon.canvas_mut().dnd_scroll_gesture_end();
                         return;
@@ -535,7 +557,8 @@ impl<W: LayoutElement> Layout<W> {
                             InsertWorkspace::Existing(ws_id) => {
                                 // TEAM_035: Extract row from tuple
                                 let ws_idx = mon
-                                    .canvas.rows_mut()
+                                    .canvas
+                                    .rows_mut()
                                     .position(|(_, ws)| ws.id() == ws_id)
                                     .unwrap();
 
@@ -629,7 +652,13 @@ impl<W: LayoutElement> Layout<W> {
                         // TEAM_035: Use canvas row directly instead of mon.add_tile_to_column
                         // Just add the tile directly to the row
                         if let Some(row) = mon.canvas.row_mut(ws_idx as i32) {
-                            row.add_tile(Some(column_idx), move_.tile, true, move_.width, move_.is_full_width);
+                            row.add_tile(
+                                Some(column_idx),
+                                move_.tile,
+                                true,
+                                move_.width,
+                                move_.is_full_width,
+                            );
                         }
                     }
                     InsertPosition::Floating => {
@@ -661,7 +690,8 @@ impl<W: LayoutElement> Layout<W> {
 
                         // Set the floating size so it takes into account any window resizing that
                         // took place during the move. Use the actual committed size, not the
-                        // expected size, because the client may have resized itself during the move.
+                        // expected size, because the client may have resized itself during the
+                        // move.
                         let size = tile.window().size();
                         tile.floating_window_size = Some(size);
 
@@ -706,16 +736,10 @@ impl<W: LayoutElement> Layout<W> {
                 // TEAM_024: Use canvas instead of creating workspaces
                 // Ensure we have at least the origin row (row 0)
                 let row = canvas.ensure_row(0);
-                
+
                 // No point in trying to use the pointer position without outputs.
                 // TEAM_035: add_tile takes (col_idx, tile, activate, width, is_full_width)
-                row.add_tile(
-                    None,
-                    move_.tile,
-                    true,
-                    move_.width,
-                    move_.is_full_width,
-                );
+                row.add_tile(None, move_.tile, true, move_.width, move_.is_full_width);
             }
         }
     }

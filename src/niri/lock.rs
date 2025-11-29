@@ -12,9 +12,8 @@ use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::reexports::wayland_server::Resource;
 use smithay::wayland::session_lock::{LockSurface, SessionLocker};
 
-use crate::utils::is_mapped;
-
 use super::{LockState, Niri};
+use crate::utils::is_mapped;
 
 // =============================================================================
 // Lock Query Methods
@@ -82,7 +81,8 @@ impl Niri {
         if self.outputs.state_count() == 0 {
             // There are no outputs, lock the session right away.
             self.ui.screenshot.close();
-            self.cursor.manager
+            self.cursor
+                .manager
                 .set_cursor_image(CursorImageStatus::default_named());
 
             let lock = confirmation.ext_session_lock().clone();
@@ -144,7 +144,8 @@ impl Niri {
                 self.event_loop.remove(deadline_token);
 
                 self.ui.screenshot.close();
-                self.cursor.manager
+                self.cursor
+                    .manager
                     .set_cursor_image(CursorImageStatus::default_named());
                 self.cancel_mru();
 

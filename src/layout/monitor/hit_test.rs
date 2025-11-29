@@ -22,23 +22,25 @@ impl<W: LayoutElement> Monitor<W> {
             // Use same pattern as render geometry but account for camera offset
             let row_height = row.row_height();
             let y_offset = row.y_offset();
-            
+
             // Get camera position to translate world coordinates to screen coordinates
             let camera = self.canvas.camera_position();
-            
+
             // Calculate row geometry in world space
             let world_geo = Rectangle::new(
                 Point::from((0.0, y_offset)),
                 Size::from((self.view_size.w, row_height)),
             );
-            
+
             // Translate to screen space by subtracting camera offset
             let screen_geo = Rectangle::new(
                 Point::from((world_geo.loc.x - camera.x, world_geo.loc.y - camera.y)),
                 world_geo.size,
             );
 
-            screen_geo.contains(pos_within_output).then_some((row, world_geo))
+            screen_geo
+                .contains(pos_within_output)
+                .then_some((row, world_geo))
         })?;
         Some((row, geo))
     }
@@ -47,30 +49,29 @@ impl<W: LayoutElement> Monitor<W> {
         &self,
         pos_within_output: Point<f64, Logical>,
     ) -> Option<&crate::layout::row::Row<W>> {
-        self.canvas.rows()
-            .find_map(|(_, row)| {
-                // TEAM_023: Implement proper row geometry calculation
-                // Use same pattern as render geometry but account for camera offset
-                let row_height = row.row_height();
-                let y_offset = row.y_offset();
-                
-                // Get camera position to translate world coordinates to screen coordinates
-                let camera = self.canvas.camera_position();
-                
-                // Calculate row geometry in world space
-                let world_geo = Rectangle::new(
-                    Point::from((0.0, y_offset)),
-                    Size::from((self.view_size.w, row_height)),
-                );
-                
-                // Translate to screen space by subtracting camera offset
-                let screen_geo = Rectangle::new(
-                    Point::from((world_geo.loc.x - camera.x, world_geo.loc.y - camera.y)),
-                    world_geo.size,
-                );
+        self.canvas.rows().find_map(|(_, row)| {
+            // TEAM_023: Implement proper row geometry calculation
+            // Use same pattern as render geometry but account for camera offset
+            let row_height = row.row_height();
+            let y_offset = row.y_offset();
 
-                screen_geo.contains(pos_within_output).then_some(row)
-            })
+            // Get camera position to translate world coordinates to screen coordinates
+            let camera = self.canvas.camera_position();
+
+            // Calculate row geometry in world space
+            let world_geo = Rectangle::new(
+                Point::from((0.0, y_offset)),
+                Size::from((self.view_size.w, row_height)),
+            );
+
+            // Translate to screen space by subtracting camera offset
+            let screen_geo = Rectangle::new(
+                Point::from((world_geo.loc.x - camera.x, world_geo.loc.y - camera.y)),
+                world_geo.size,
+            );
+
+            screen_geo.contains(pos_within_output).then_some(row)
+        })
     }
 
     // =========================================================================
@@ -155,6 +156,7 @@ impl<W: LayoutElement> Monitor<W> {
     /// During animations, assumes the final view position.
     pub fn active_tile_visual_rectangle(&self) -> Option<Rectangle<f64, Logical>> {
         // DEPRECATED(overview): Removed overview_open check
-        self.active_workspace_ref().and_then(|ws| ws.active_tile_visual_rectangle())
+        self.active_workspace_ref()
+            .and_then(|ws| ws.active_tile_visual_rectangle())
     }
 }

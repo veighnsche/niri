@@ -58,7 +58,8 @@ impl<W: LayoutElement> Layout<W> {
                         let ws_id = ws.id();
                         // TEAM_035: Extract row from tuple
                         let (_, ws) = mon
-                            .canvas.rows_mut()
+                            .canvas
+                            .rows_mut()
                             .find(|(_, ws)| ws.id() == ws_id)
                             .unwrap();
                         // As far as the DnD scroll gesture is concerned, the workspace spans across
@@ -115,9 +116,11 @@ impl<W: LayoutElement> Layout<W> {
                                     .rows_mut()
                                     .position(|(_, ws)| ws.activate_window(id))
                                     .unwrap(),
-                                DndHoldTarget::Workspace(id) => {
-                                    mon.canvas.rows().position(|(idx, ws)| ws.id() == *id).unwrap()
-                                }
+                                DndHoldTarget::Workspace(id) => mon
+                                    .canvas
+                                    .rows()
+                                    .position(|(idx, ws)| ws.id() == *id)
+                                    .unwrap(),
                             };
 
                             mon.dnd_scroll_gesture_end();
@@ -276,7 +279,8 @@ impl<W: LayoutElement> Layout<W> {
                 InsertWorkspace::Existing(ws_id) => {
                     // TEAM_035: Extract row from tuple
                     let (_, ws) = mon
-                        .canvas.rows_mut()
+                        .canvas
+                        .rows_mut()
                         .find(|(_, ws)| ws.id() == ws_id)
                         .unwrap();
                     let pos_within_workspace = move_.pointer_pos_within_output - geo.loc;
@@ -406,17 +410,20 @@ impl<W: LayoutElement> Layout<W> {
                     // TEAM_043: Refresh all rows in the canvas
                     let active_row_idx = mon.canvas().active_row_idx();
                     let floating_is_active = mon.canvas().floating_is_active;
-                    
+
                     for (row_idx, row) in mon.canvas_mut().rows_mut() {
-                        let is_focused = is_active && row_idx == active_row_idx && !floating_is_active;
+                        let is_focused =
+                            is_active && row_idx == active_row_idx && !floating_is_active;
                         row.refresh(is_active, is_focused);
                         row.view_offset_gesture_end(ongoing_scrolling_dnd);
                     }
-                    
+
                     // TEAM_043: Refresh floating space
                     let is_floating_focused = is_active && floating_is_active;
-                    mon.canvas_mut().floating.refresh(is_active, is_floating_focused);
-                    
+                    mon.canvas_mut()
+                        .floating
+                        .refresh(is_active, is_floating_focused);
+
                     if let Some(is_scrolling) = ongoing_scrolling_dnd {
                         // Lock or unlock the view for scrolling interactive move.
                         if is_scrolling {

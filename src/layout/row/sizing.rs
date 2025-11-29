@@ -58,7 +58,7 @@ impl<W: LayoutElement> Row<W> {
         let col_idx = self.active_column_idx;
         let col = &mut self.columns[col_idx];
         col.set_column_width(change, None, true);
-        
+
         // TEAM_043: Update cached column data after width change
         self.data[col_idx].update(col);
 
@@ -79,7 +79,7 @@ impl<W: LayoutElement> Row<W> {
 
         let col_idx = self.active_column_idx;
         let num_columns = self.columns.len();
-        
+
         // Don't expand if column is already full width or in special sizing mode
         let col = &mut self.columns[col_idx];
         if !col.pending_sizing_mode().is_normal() || col.is_full_width {
@@ -92,22 +92,24 @@ impl<W: LayoutElement> Row<W> {
         // Calculate total width taken by all columns except the active one
         let gap = self.options.layout.gaps;
         let mut total_other_width = 0.0;
-        
+
         for (idx, data) in self.data.iter().enumerate() {
             if idx != col_idx {
                 total_other_width += data.width;
             }
         }
-        
-        // Add gaps between columns (num_columns - 1 gaps total, but exclude gap after active if it's last)
+
+        // Add gaps between columns (num_columns - 1 gaps total, but exclude gap after active if
+        // it's last)
         let gaps_between_columns = (num_columns - 1) as f64 * gap;
         total_other_width += gaps_between_columns;
 
         // Calculate available width (assuming row width equals view width)
         let view_width = self.view_size.w;
         let active_col_current_width = self.data[col_idx].width;
-        let available_width = view_width - total_other_width - active_col_current_width - extra_size_w;
-        
+        let available_width =
+            view_width - total_other_width - active_col_current_width - extra_size_w;
+
         if available_width <= 0.0 {
             // No space to expand
             return;
@@ -158,7 +160,8 @@ impl<W: LayoutElement> Row<W> {
 
         // Cancel any ongoing resize for this column
         if let Some(resize) = &mut self.interactive_resize {
-            let target_window = window.unwrap_or_else(|| col.tiles[col.active_tile_idx].window().id());
+            let target_window =
+                window.unwrap_or_else(|| col.tiles[col.active_tile_idx].window().id());
             if &resize.window == target_window {
                 self.interactive_resize = None;
             }
@@ -190,13 +193,14 @@ impl<W: LayoutElement> Row<W> {
 
         let col = &mut self.columns[col_idx];
         col.set_column_width(change, tile_idx, true);
-        
+
         // TEAM_043: Update cached column data after width change
         self.data[col_idx].update(col);
 
         // Cancel any ongoing resize for this column
         if let Some(resize) = &mut self.interactive_resize {
-            let target_window = window.unwrap_or_else(|| col.tiles[col.active_tile_idx].window().id());
+            let target_window =
+                window.unwrap_or_else(|| col.tiles[col.active_tile_idx].window().id());
             if &resize.window == target_window {
                 self.interactive_resize = None;
             }
@@ -240,7 +244,8 @@ impl<W: LayoutElement> Row<W> {
 
         // Cancel any ongoing resize for this column
         if let Some(resize) = &mut self.interactive_resize {
-            let target_window = window.unwrap_or_else(|| col.tiles[col.active_tile_idx].window().id());
+            let target_window =
+                window.unwrap_or_else(|| col.tiles[col.active_tile_idx].window().id());
             if &resize.window == target_window {
                 self.interactive_resize = None;
             }

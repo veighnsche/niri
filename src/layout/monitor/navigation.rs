@@ -139,7 +139,11 @@ impl<W: LayoutElement> Monitor<W> {
         // TEAM_022: Move window to specific row - delegate to Canvas2D
         // Convert usize to i32 for Canvas2D API
         if let Some(window_id) = window {
-            self.canvas.move_window_to_row(window_id, _idx as i32, matches!(_activate, crate::layout::ActivateWindow::Yes));
+            self.canvas.move_window_to_row(
+                window_id,
+                _idx as i32,
+                matches!(_activate, crate::layout::ActivateWindow::Yes),
+            );
         }
     }
 
@@ -160,7 +164,8 @@ impl<W: LayoutElement> Monitor<W> {
     pub fn move_column_to_row(&mut self, _idx: usize, _activate: bool) {
         // TEAM_022: Move column to specific row - delegate to Canvas2D
         // Convert usize to i32 for Canvas2D API
-        self.canvas.move_active_column_to_row(_idx as i32, _activate);
+        self.canvas
+            .move_active_column_to_row(_idx as i32, _activate);
     }
 
     // =========================================================================

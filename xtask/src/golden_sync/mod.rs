@@ -281,7 +281,13 @@ fn pull(dry_run: bool) -> Result<()> {
     }
 
     // Get list of snapshot files from golden branch
-    let files_output = run_git(&["ls-tree", "-r", "--name-only", GOLDEN_BRANCH, SNAPSHOTS_PATH])?;
+    let files_output = run_git(&[
+        "ls-tree",
+        "-r",
+        "--name-only",
+        GOLDEN_BRANCH,
+        SNAPSHOTS_PATH,
+    ])?;
 
     let files: Vec<&str> = files_output
         .lines()
@@ -367,8 +373,14 @@ fn status() -> Result<()> {
     println!("\n📁 Local snapshots: {local_count} files");
 
     // Get golden branch snapshot count
-    let files_output =
-        run_git(&["ls-tree", "-r", "--name-only", GOLDEN_BRANCH, SNAPSHOTS_PATH]).unwrap_or_default();
+    let files_output = run_git(&[
+        "ls-tree",
+        "-r",
+        "--name-only",
+        GOLDEN_BRANCH,
+        SNAPSHOTS_PATH,
+    ])
+    .unwrap_or_default();
 
     let golden_count = files_output
         .lines()

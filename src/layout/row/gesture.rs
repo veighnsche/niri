@@ -355,8 +355,12 @@ impl<W: LayoutElement> Row<W> {
 
         // Focus the furthest window towards the direction of the gesture.
         if !self.is_centering_focused_column() {
-            new_col_idx =
-                self.adjust_snap_for_direction(new_col_idx, target_snap.view_pos, current_view_offset, target_view_offset);
+            new_col_idx = self.adjust_snap_for_direction(
+                new_col_idx,
+                target_snap.view_pos,
+                current_view_offset,
+                target_view_offset,
+            );
         }
 
         (new_col_idx, target_snap.view_pos)

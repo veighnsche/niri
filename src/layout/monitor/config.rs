@@ -19,8 +19,7 @@ impl<W: LayoutElement> Monitor<W> {
         let options =
             Rc::new(Options::clone(&base_options).with_merged_layout(self.layout_config.as_ref()));
 
-        if self.options.layout.empty_row_above_first
-            != options.layout.empty_row_above_first
+        if self.options.layout.empty_row_above_first != options.layout.empty_row_above_first
             && self.canvas.rows().count() > 1
         {
             if options.layout.empty_row_above_first {
@@ -37,7 +36,12 @@ impl<W: LayoutElement> Monitor<W> {
 
         // TEAM_035: Extract row from tuple
         for (_, ws) in self.canvas.rows_mut() {
-            ws.update_config(self.view_size, self.working_area, self.scale.fractional_scale(), options.clone());
+            ws.update_config(
+                self.view_size,
+                self.working_area,
+                self.scale.fractional_scale(),
+                options.clone(),
+            );
         }
 
         self.insert_hint_element

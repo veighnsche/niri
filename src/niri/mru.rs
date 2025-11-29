@@ -4,9 +4,8 @@
 
 use smithay::desktop::Window;
 
-use crate::ui::mru::MruCloseRequest;
-
 use super::Niri;
+use crate::ui::mru::MruCloseRequest;
 
 // =============================================================================
 // MRU Methods

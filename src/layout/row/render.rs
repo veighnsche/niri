@@ -170,10 +170,7 @@ impl<W: LayoutElement> Row<W> {
 
     /// Updates render elements for all columns in this row.
     pub fn update_render_elements(&mut self, is_active_row: bool) {
-        let view_rect = Rectangle::new(
-            Point::from((self.view_pos(), 0.)),
-            self.view_size,
-        );
+        let view_rect = Rectangle::new(Point::from((self.view_pos(), 0.)), self.view_size);
 
         let active_col_idx = self.active_column_idx;
         for (col_idx, (col, col_x)) in self.columns_mut_with_offsets().enumerate() {

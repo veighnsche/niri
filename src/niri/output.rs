@@ -7,11 +7,10 @@ use smithay::input::pointer::CursorImageStatus;
 use smithay::output::Output;
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
+use super::Niri;
 use crate::backend::Backend;
 use crate::handlers::configure_lock_surface;
 use crate::utils::{center, output_matches_name, output_size, send_scale_transform};
-
-use super::Niri;
 
 // =============================================================================
 // Output Query Methods
@@ -19,7 +18,7 @@ use super::Niri;
 
 impl Niri {
     // TEAM_083: Output query methods now delegate to OutputSubsystem
-    
+
     /// Returns the output under the given position and the position within that output.
     pub fn output_under(&self, pos: Point<f64, Logical>) -> Option<(&Output, Point<f64, Logical>)> {
         self.outputs.under_position(pos)
@@ -115,13 +114,17 @@ impl Niri {
 
     /// Returns the output matching the given name.
     pub fn output_by_name_match(&self, target: &str) -> Option<&Output> {
-        self.outputs.space()
+        self.outputs
+            .space()
             .outputs()
             .find(|output| output_matches_name(output, target))
     }
 
     /// Returns the output containing the given root surface.
-    pub fn output_for_root(&self, root: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface) -> Option<&Output> {
+    pub fn output_for_root(
+        &self,
+        root: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+    ) -> Option<&Output> {
         // Check the main layout.
         let win_out = self.layout.find_window_and_output(root);
         let layout_output = win_out.map(|(_, output)| output);
@@ -186,7 +189,8 @@ impl Niri {
             // operates in physical coordinates.
             if old_size != size || old_scale != scale || old_transform != transform {
                 self.ui.screenshot.close();
-                self.cursor.manager
+                self.cursor
+                    .manager
                     .set_cursor_image(CursorImageStatus::default_named());
                 self.queue_redraw_all();
                 return;

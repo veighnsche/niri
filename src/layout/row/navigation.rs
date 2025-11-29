@@ -124,7 +124,7 @@ impl<W: LayoutElement> Row<W> {
 
         // TEAM_039: Pass old active column index for proper view offset calculation
         let prev_idx = self.active_column_idx;
-        
+
         if idx != self.active_column_idx {
             self.activate_prev_column_on_removal = None;
             self.view_offset_to_restore = None;

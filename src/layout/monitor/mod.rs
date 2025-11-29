@@ -1,7 +1,7 @@
 // TEAM_013: Monitor module - modular refactor of monitor.rs
 //!
 //! This module contains the Monitor struct which manages a single output's layout.
-//! 
+//!
 //! The Monitor owns:
 //! - A Canvas2D for 2D layout (new system)
 //! - Workspaces for legacy compatibility (being phased out)
@@ -18,9 +18,9 @@ use smithay::utils::{Logical, Rectangle, Size};
 use crate::animation::Clock;
 use crate::layout::canvas::Canvas2D;
 use crate::layout::elements::insert_hint::InsertHintElement;
-// TEAM_060: Using RowId directly instead of WorkspaceId alias
-use crate::layout::row_types::{RowId, compute_working_area};
 use crate::layout::row::Row;
+// TEAM_060: Using RowId directly instead of WorkspaceId alias
+use crate::layout::row_types::{compute_working_area, RowId};
 use crate::layout::{LayoutElement, Options};
 use crate::niri_render_elements;
 use crate::utils::output_size;
@@ -28,18 +28,18 @@ use crate::utils::output_size;
 // TEAM_013: Submodules
 mod types;
 // TEAM_021: Legacy workspace modules removed - functionality migrated to Canvas2D
-mod navigation;       // LEGACY: Workspace navigation
-mod render;           // LEGACY: Workspace rendering
-mod hit_test;         // LEGACY: Workspace hit testing
 mod config;
-mod gestures;         // LEGACY: Workspace gestures
+mod gestures;
+mod hit_test; // LEGACY: Workspace hit testing
+mod navigation; // LEGACY: Workspace navigation
+mod render; // LEGACY: Workspace rendering // LEGACY: Workspace gestures
 
 // TEAM_013: Re-exports
 // TEAM_014: Removed OverviewProgress from re-exports (Part 3)
 pub use types::{
     InsertHint, InsertHintRenderLoc, InsertPosition, InsertWorkspace, MonitorAddWindowTarget,
-    WorkspaceSwitch, WorkspaceSwitchGesture,
-    WORKSPACE_DND_EDGE_SCROLL_MOVEMENT, WORKSPACE_GESTURE_MOVEMENT, WORKSPACE_GESTURE_RUBBER_BAND,
+    WorkspaceSwitch, WorkspaceSwitchGesture, WORKSPACE_DND_EDGE_SCROLL_MOVEMENT,
+    WORKSPACE_GESTURE_MOVEMENT, WORKSPACE_GESTURE_RUBBER_BAND,
 };
 
 // TEAM_013: Phase 1.5.3 — Monitor now uses Canvas2D instead of workspaces.
@@ -65,7 +65,6 @@ pub struct Monitor<W: LayoutElement> {
     // =========================================================================
     // TEAM_010: Canvas2D replaces workspaces
     // =========================================================================
-
     /// The 2D canvas containing all windows on this output.
     pub(in crate::layout) canvas: Canvas2D<W>,
 
@@ -76,7 +75,6 @@ pub struct Monitor<W: LayoutElement> {
     // =========================================================================
     // Shared state
     // =========================================================================
-
     /// Indication where an interactively-moved window is about to be placed.
     pub(in crate::layout) insert_hint: Option<InsertHint>,
     /// Insert hint element for rendering.
@@ -185,7 +183,8 @@ impl<W: LayoutElement> Monitor<W> {
     // TEAM_055: Changed to return ordinal position in iteration order, not raw BTreeMap key
     pub fn active_row_idx(&self) -> usize {
         let active_key = self.canvas.active_row_idx;
-        self.canvas.rows()
+        self.canvas
+            .rows()
             .position(|(idx, _)| idx == active_key)
             .unwrap_or(0)
     }
@@ -304,22 +303,27 @@ impl<W: LayoutElement> Monitor<W> {
         if other_canvas.rows.is_empty() {
             return;
         }
-        
+
         // TEAM_055: Match original behavior:
         // 1. If empty workspace was focused, keep it focused after append
         // 2. Insert transferred rows BEFORE the last empty row
-        
+
         let empty_was_focused = {
             let active_key = self.canvas.active_row_idx;
             let row_keys: Vec<i32> = self.canvas.rows.keys().copied().collect();
             let last_key = row_keys.last().copied();
-            last_key.map(|k| k == active_key).unwrap_or(false) &&
-            self.canvas.rows.get(&active_key).map(|r| !r.has_windows()).unwrap_or(false)
+            last_key.map(|k| k == active_key).unwrap_or(false)
+                && self
+                    .canvas
+                    .rows
+                    .get(&active_key)
+                    .map(|r| !r.has_windows())
+                    .unwrap_or(false)
         };
-        
+
         // Find the minimum key to insert transferred rows before existing ones
         let min_existing_key = self.canvas.rows.keys().min().copied().unwrap_or(0);
-        
+
         // Insert transferred rows at keys lower than existing ones
         let mut insert_key = min_existing_key - 1;
         for (_idx, mut row) in other_canvas.rows {
@@ -332,7 +336,7 @@ impl<W: LayoutElement> Monitor<W> {
             self.canvas.rows.insert(insert_key, row);
             insert_key -= 1;
         }
-        
+
         // If empty was focused, keep it focused (it's now at a higher position in iteration order)
         if empty_was_focused {
             // Find the last key (which should be the empty row) and focus it
@@ -352,7 +356,7 @@ impl<W: LayoutElement> Monitor<W> {
         // TEAM_022: Implement proper column addition to canvas
         // Convert usize to i32 for Canvas2D row indexing
         let row_idx_i32 = _row_idx as i32;
-        
+
         // Get the target row and add the column
         if let Some(row) = self.canvas.rows.get_mut(&row_idx_i32) {
             row.add_column(None, _column, _activate);
@@ -366,12 +370,12 @@ impl<W: LayoutElement> Monitor<W> {
         target: &MonitorAddWindowTarget<W>,
     ) -> (i32, Option<usize>) {
         match target {
-            MonitorAddWindowTarget::Auto => {
-                (self.canvas.active_row_idx(), None)
-            }
+            MonitorAddWindowTarget::Auto => (self.canvas.active_row_idx(), None),
             MonitorAddWindowTarget::Workspace { id, column_idx } => {
                 // Find the row with this workspace ID
-                let row_idx = self.canvas.rows()
+                let row_idx = self
+                    .canvas
+                    .rows()
                     .find(|(_, ws)| ws.id() == *id)
                     .map(|(idx, _)| idx)
                     .unwrap_or_else(|| self.canvas.active_row_idx());
@@ -379,7 +383,9 @@ impl<W: LayoutElement> Monitor<W> {
             }
             MonitorAddWindowTarget::NextTo(window_id) => {
                 // Find the row containing this window
-                let row_idx = self.canvas.rows()
+                let row_idx = self
+                    .canvas
+                    .rows()
                     .find(|(_, ws)| ws.has_window(window_id))
                     .map(|(idx, _)| idx)
                     .unwrap_or_else(|| self.canvas.active_row_idx());
@@ -414,13 +420,8 @@ impl<W: LayoutElement> Monitor<W> {
         // TEAM_039: Use map_smart to properly handle ActivateWindow::Smart
         // Smart should activate unless there's a reason not to (like pending fullscreen)
         let should_activate = activate.map_smart(|| true);
-        self.canvas.add_tile_to_row(
-            row_idx,
-            tile,
-            should_activate,
-            width,
-            is_full_width,
-        );
+        self.canvas
+            .add_tile_to_row(row_idx, tile, should_activate, width, is_full_width);
 
         // Debug logging: record where the new window landed relative to the camera.
         let camera = self.canvas.camera_position();
@@ -485,7 +486,9 @@ impl<W: LayoutElement> Monitor<W> {
     ) {
         // TEAM_059: Add to floating space if is_floating is true
         if is_floating {
-            self.canvas.floating.add_tile(tile, activate == crate::layout::ActivateWindow::Yes);
+            self.canvas
+                .floating
+                .add_tile(tile, activate == crate::layout::ActivateWindow::Yes);
             if activate == crate::layout::ActivateWindow::Yes {
                 self.canvas.floating_is_active = true;
             }
@@ -537,13 +540,10 @@ impl<W: LayoutElement> Monitor<W> {
     /// TEAM_055: Renamed from WorkspaceId to RowId
     pub fn unname_workspace(&mut self, id: crate::layout::row_types::RowId) -> bool {
         // Find row with matching ID first (immutable)
-        let found_idx = self.canvas.rows().find_map(|(idx, row)| {
-            if row.id() == id {
-                Some(idx)
-            } else {
-                None
-            }
-        });
+        let found_idx =
+            self.canvas
+                .rows()
+                .find_map(|(idx, row)| if row.id() == id { Some(idx) } else { None });
 
         // Then mutate (mutable borrow no longer conflicts)
         if let Some(idx) = found_idx {
@@ -577,7 +577,7 @@ impl<W: LayoutElement> Monitor<W> {
     pub fn insert_workspace(&mut self, idx: usize) {
         self.canvas.ensure_row(idx as i32);
     }
-    
+
     /// Insert an existing row at a specific index.
     /// TEAM_055: Added for workspace transfer between monitors
     pub fn insert_row(&mut self, idx: usize, row: Row<W>) {
@@ -586,7 +586,11 @@ impl<W: LayoutElement> Monitor<W> {
 
     /// Activate workspace/row with animation config.
     /// TEAM_035: Updated to accept Option<Animation>
-    pub fn activate_workspace_with_anim_config(&mut self, idx: usize, _config: Option<niri_config::Animation>) {
+    pub fn activate_workspace_with_anim_config(
+        &mut self,
+        idx: usize,
+        _config: Option<niri_config::Animation>,
+    ) {
         self.canvas.focus_row(idx as i32);
     }
 
@@ -600,4 +604,3 @@ impl<W: LayoutElement> Monitor<W> {
 
     // TEAM_033: Removed duplicate into_canvas - kept the one defined earlier
 }
-

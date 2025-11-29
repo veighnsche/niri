@@ -8,11 +8,10 @@ use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::Serial;
 
+use super::super::row_types::RowAddWindowTarget;
 use super::super::{
     ActivateWindow, AddWindowTarget, InteractiveMoveState, Layout, LayoutElement,
-    MonitorAddWindowTarget, MonitorSet, RemovedTile,
-    row_types::RowAddWindowTarget,
-    Transaction,
+    MonitorAddWindowTarget, MonitorSet, RemovedTile, Transaction,
 };
 
 impl<W: LayoutElement> Layout<W> {
@@ -171,20 +170,14 @@ impl<W: LayoutElement> Layout<W> {
                 let ws = canvas.ensure_row(ws_idx);
                 // TEAM_039: resolve_scrolling_width now takes &W and returns ColumnWidth
                 let scrolling_width = ws.resolve_scrolling_width(&window, width);
-                
+
                 // Create tile using canvas's make_tile (returns proper Tile<W>)
                 let tile = canvas.make_tile(window);
                 let activate_bool = activate.map_smart(|| false);
-                
+
                 // Get the row again (ensure_row may have modified the canvas)
                 if let Some(ws) = canvas.row_mut(ws_idx) {
-                    ws.add_tile(
-                        None,
-                        tile,
-                        activate_bool,
-                        scrolling_width,
-                        is_full_width,
-                    );
+                    ws.add_tile(None, tile, activate_bool, scrolling_width, is_full_width);
 
                     // Set the default height for scrolling windows.
                     if !is_floating {
@@ -260,17 +253,23 @@ impl<W: LayoutElement> Layout<W> {
 
                     if let Some(row_key) = found_row_key {
                         // Get ordinal position for comparisons
-                        let ws_ord_idx = mon.canvas.rows()
+                        let ws_ord_idx = mon
+                            .canvas
+                            .rows()
                             .position(|(k, _)| k == row_key)
                             .unwrap_or(0);
-                        
+
                         // Now we can mutably access the specific row using its key
-                        let removed = mon.canvas.row_mut(row_key)
+                        let removed = mon
+                            .canvas
+                            .row_mut(row_key)
                             .expect("row should exist")
                             .remove_tile(window, transaction);
 
                         // Get state we need for cleanup checks
-                        let ws_has_windows = mon.canvas.row(row_key)
+                        let ws_has_windows = mon
+                            .canvas
+                            .row(row_key)
                             .map(|ws| ws.has_windows_or_name())
                             .unwrap_or(false);
                         let active_ord_idx = mon.active_row_idx();
@@ -298,8 +297,16 @@ impl<W: LayoutElement> Layout<W> {
                         {
                             let keys: Vec<i32> = mon.canvas.rows.keys().copied().collect();
                             if keys.len() == 2 {
-                                let ws0_empty = mon.canvas.row(keys[0]).map(|ws| !ws.has_windows_or_name()).unwrap_or(true);
-                                let ws1_empty = mon.canvas.row(keys[1]).map(|ws| !ws.has_windows_or_name()).unwrap_or(true);
+                                let ws0_empty = mon
+                                    .canvas
+                                    .row(keys[0])
+                                    .map(|ws| !ws.has_windows_or_name())
+                                    .unwrap_or(true);
+                                let ws1_empty = mon
+                                    .canvas
+                                    .row(keys[1])
+                                    .map(|ws| !ws.has_windows_or_name())
+                                    .unwrap_or(true);
                                 if ws0_empty && ws1_empty {
                                     mon.canvas.remove_row(keys[1]);
                                     mon.canvas.active_row_idx = keys[0];
@@ -328,12 +335,14 @@ impl<W: LayoutElement> Layout<W> {
                 });
 
                 if let Some(row_key) = found_row_key {
-                    let removed = canvas.row_mut(row_key)
+                    let removed = canvas
+                        .row_mut(row_key)
                         .expect("row should exist")
                         .remove_tile(window, transaction);
 
                     // Clean up empty workspaces.
-                    let ws_has_windows = canvas.row(row_key)
+                    let ws_has_windows = canvas
+                        .row(row_key)
                         .map(|ws| ws.has_windows_or_name())
                         .unwrap_or(false);
                     if !ws_has_windows {

@@ -4,6 +4,7 @@
 // Most functionality has been moved to Canvas2D/Row.
 
 use std::fmt;
+
 use smithay::output::Output;
 use smithay::utils::{Logical, Rectangle};
 
@@ -22,11 +23,11 @@ impl RowId {
     pub fn get(&self) -> u64 {
         self.0
     }
-    
+
     pub fn specific(id: u64) -> Self {
         Self(id)
     }
-    
+
     /// TEAM_024: Create a RowId from a row index
     /// This maps row indices to row IDs for compatibility
     pub fn from_row_index(row_index: i32) -> Self {

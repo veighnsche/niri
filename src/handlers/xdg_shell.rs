@@ -359,18 +359,19 @@ impl XdgShellHandler for State {
         }
 
         let seat = &self.niri.seat;
-        let mut grab = match self
-            .niri
-            .protocols
-            .popups
-            .grab_popup(root.clone(), popup, seat, serial)
-        {
-            Ok(grab) => grab,
-            Err(err) => {
-                trace!("ignoring popup grab: {err:?}");
-                return;
-            }
-        };
+        let mut grab =
+            match self
+                .niri
+                .protocols
+                .popups
+                .grab_popup(root.clone(), popup, seat, serial)
+            {
+                Ok(grab) => grab,
+                Err(err) => {
+                    trace!("ignoring popup grab: {err:?}");
+                    return;
+                }
+            };
 
         let keyboard = seat.get_keyboard().unwrap();
         let pointer = seat.get_pointer().unwrap();
@@ -1066,7 +1067,8 @@ impl State {
                 .as_deref()
                 .and_then(|name| {
                     self.niri
-                        .outputs.space()
+                        .outputs
+                        .space()
                         .outputs()
                         .find(|output| output_matches_name(output, name))
                 })

@@ -19,14 +19,16 @@ use std::rc::Rc;
 
 use niri_config::utils::MergeWith as _;
 use niri_ipc::WindowLayout;
+// Re-export render types
+pub use render::{TileRenderElement, TileRenderSnapshot};
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
 use super::elements::focus_ring::FocusRing;
 use super::elements::opening_window::OpenAnimation;
 use super::elements::shadow::Shadow;
 use super::{
-    HitType, LayoutElement, LayoutElementRenderSnapshot, Options,
-    SizeFrac, RESIZE_ANIMATION_THRESHOLD,
+    HitType, LayoutElement, LayoutElementRenderSnapshot, Options, SizeFrac,
+    RESIZE_ANIMATION_THRESHOLD,
 };
 use crate::animation::{Animation, Clock};
 use crate::layout::SizingMode;
@@ -37,9 +39,6 @@ use crate::utils::transaction::Transaction;
 use crate::utils::{
     baba_is_float_offset, round_logical_in_physical, round_logical_in_physical_max1,
 };
-
-// Re-export render types
-pub use render::{TileRenderElement, TileRenderSnapshot};
 
 /// Toplevel window with decorations.
 #[derive(Debug)]
@@ -125,7 +124,6 @@ pub struct Tile<W: LayoutElement> {
     /// Configurable properties of the layout.
     pub(super) options: Rc<Options>,
 }
-
 
 #[derive(Debug)]
 struct ResizeAnimation {
@@ -761,7 +759,8 @@ impl<W: LayoutElement> Tile<W> {
         Point::from((0., y))
     }
 
-    // Render methods moved to render.rs: render_inner, render, store_unmap_snapshot_if_empty, render_snapshot, take_unmap_snapshot
+    // Render methods moved to render.rs: render_inner, render, store_unmap_snapshot_if_empty,
+    // render_snapshot, take_unmap_snapshot
 
     pub fn border(&self) -> &FocusRing {
         &self.border
@@ -798,7 +797,9 @@ impl<W: LayoutElement> Tile<W> {
     /// Returns the resize animation's from sizes (window_size, tile_size).
     #[cfg(test)]
     pub fn resize_animation_from_sizes(&self) -> Option<(Size<f64, Logical>, Size<f64, Logical>)> {
-        self.resize_animation.as_ref().map(|r| (r.size_from, r.tile_size_from))
+        self.resize_animation
+            .as_ref()
+            .map(|r| (r.size_from, r.tile_size_from))
     }
 
     /// Returns the horizontal move animation if present (animation, from_offset).

@@ -10,7 +10,6 @@ use niri_config::{Config, ConfigParseResult, ConfigPath};
 use smithay::reexports::calloop::channel::SyncSender;
 
 use crate::niri::config::StateConfigExt;
-
 use crate::niri::State;
 
 const POLLING_INTERVAL: Duration = Duration::from_millis(500);

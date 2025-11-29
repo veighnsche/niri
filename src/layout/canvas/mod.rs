@@ -48,18 +48,17 @@ pub mod floating;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
+// TEAM_063: Import from new location
+use floating::{FloatingSpace, FloatingSpaceRenderElement};
 use smithay::output::Output;
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
 use super::animated_value::AnimatedValue;
 use super::row::{Row, RowRenderElement};
-// TEAM_063: Import from new location
-use floating::{FloatingSpace, FloatingSpaceRenderElement};
-use super::tile::Tile;
-use super::LayoutElement;
-use super::Options;
 // TEAM_060: Using RowId directly instead of WorkspaceId alias
 use super::row_types::RowId;
+use super::tile::Tile;
+use super::{LayoutElement, Options};
 use crate::animation::Clock;
 use crate::niri_render_elements;
 
@@ -125,7 +124,7 @@ pub struct Canvas2D<W: LayoutElement> {
 
     /// Layout options.
     pub(crate) options: Rc<Options>,
-    
+
     /// TEAM_039: Counter for generating unique row IDs for rows
     /// TEAM_055: Renamed from workspace_id_counter to row_id_counter
     row_id_counter: u64,
@@ -343,7 +342,7 @@ impl<W: LayoutElement> Canvas2D<W> {
     pub fn remove_row(&mut self, row_idx: i32) -> Option<Row<W>> {
         // Remove the row and get it back
         let removed = self.rows.remove(&row_idx);
-        
+
         // Adjust active_row_idx if necessary
         if self.active_row_idx == row_idx {
             // Find the next available row to activate
@@ -367,10 +366,10 @@ impl<W: LayoutElement> Canvas2D<W> {
                 }
             }
         }
-        
+
         removed
     }
-    
+
     /// Insert a row at a specific index.
     /// TEAM_055: Added for workspace transfer between monitors
     pub fn insert_row(&mut self, row_idx: i32, row: Row<W>) {

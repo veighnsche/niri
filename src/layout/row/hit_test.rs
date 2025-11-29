@@ -19,7 +19,7 @@ impl<W: LayoutElement> Row<W> {
     pub fn window_under(&self, pos: Point<f64, Logical>) -> Option<(&W, super::super::HitType)> {
         let scale = self.scale;
         let view_off = Point::from((-self.view_pos(), 0.));
-        
+
         for (col, col_x) in self.columns_in_render_order() {
             let col_off = Point::from((col_x, 0.));
             let col_render_off = col.render_offset();
@@ -66,7 +66,7 @@ impl<W: LayoutElement> Row<W> {
     pub fn resize_edges_under(&self, pos: Point<f64, Logical>) -> Option<ResizeEdge> {
         let scale = self.scale;
         let view_off = Point::from((-self.view_pos(), 0.));
-        
+
         for (col, col_x) in self.columns_in_render_order() {
             let col_off = Point::from((col_x, 0.));
             let col_render_off = col.render_offset();
@@ -82,11 +82,11 @@ impl<W: LayoutElement> Row<W> {
                 let tile_pos = tile_pos.to_physical_precise_round(scale).to_logical(scale);
 
                 let pos_within_tile = pos - tile_pos;
-                
+
                 // Check if point is within this tile
                 if tile.hit(pos_within_tile).is_some() {
                     let size = tile.tile_size().to_f64();
-                    
+
                     // Determine resize edges based on position within tile (thirds)
                     let mut edges = ResizeEdge::empty();
                     if pos_within_tile.x < size.w / 3. {

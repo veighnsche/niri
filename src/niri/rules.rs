@@ -2,9 +2,8 @@
 //!
 //! This module handles recomputing window and layer rules when configuration changes.
 
-use crate::window::{InitialConfigureState, ResolvedWindowRules, WindowRef};
-
 use super::Niri;
+use crate::window::{InitialConfigureState, ResolvedWindowRules, WindowRef};
 
 // =============================================================================
 // Rules Methods

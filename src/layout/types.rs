@@ -30,7 +30,8 @@ impl From<PresetSize> for ColumnWidth {
 /// Horizontal direction for an operation.
 ///
 /// As operations often have a symmetrical counterpart, e.g. focus-right/focus-left, methods
-/// on `ScrollingSpace` can sometimes be factored using the direction of the operation as a parameter.
+/// on `ScrollingSpace` can sometimes be factored using the direction of the operation as a
+/// parameter.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ScrollDirection {
     Left,

@@ -17,13 +17,13 @@
 
 pub(crate) mod types;
 
-mod queries;
+mod focus;
 mod fullscreen;
+mod interactive_move;
+mod navigation;
+mod output_ops;
+mod queries;
+mod render;
 mod resize;
 mod row_management;
-mod focus;
-mod output_ops;
 mod window_ops;
-mod navigation;
-mod interactive_move;
-mod render;

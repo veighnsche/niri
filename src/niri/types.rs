@@ -13,11 +13,10 @@ use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point};
 use smithay::wayland::session_lock::SessionLocker;
 
-use crate::layout::HitType;
-use crate::window::mapped::MappedId;
-
 // Forward declaration - State is defined in this module's parent
 use super::State;
+use crate::layout::HitType;
+use crate::window::mapped::MappedId;
 
 // =============================================================================
 // PointerVisibility

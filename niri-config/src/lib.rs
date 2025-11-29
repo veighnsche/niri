@@ -58,11 +58,11 @@ pub use crate::misc::*;
 pub use crate::output::{Output, OutputName, Outputs, Position, Vrr};
 use crate::recent_windows::RecentWindowsPart;
 pub use crate::recent_windows::{MruDirection, MruFilter, MruPreviews, MruScope, RecentWindows};
+// TEAM_055: Renamed from Workspace to RowConfig, WorkspaceLayoutPart to RowLayoutPart
+pub use crate::row::{RowConfig, RowLayoutPart};
 pub use crate::utils::FloatOrInt;
 use crate::utils::{Flag, MergeWith as _};
 pub use crate::window_rule::{FloatingPosition, RelativeTo, WindowRule};
-// TEAM_055: Renamed from Workspace to RowConfig, WorkspaceLayoutPart to RowLayoutPart
-pub use crate::row::{RowConfig, RowLayoutPart};
 
 const RECURSION_LIMIT: u8 = 10;
 

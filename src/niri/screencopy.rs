@@ -11,14 +11,12 @@ use smithay::backend::renderer::element::utils::{Relocate, RelocateRenderElement
 use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::backend::renderer::sync::SyncPoint;
 use smithay::output::{Output, OutputModeSource};
+use smithay::reexports::wayland_protocols_wlr::screencopy::v1::server::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1;
 use smithay::utils::{Physical, Rectangle, Scale, Transform};
 
-use smithay::reexports::wayland_protocols_wlr::screencopy::v1::server::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1;
-
+use super::{Niri, OutputRenderElements};
 use crate::protocols::screencopy::{Screencopy, ScreencopyBuffer};
 use crate::render_helpers::{render_to_dmabuf, render_to_shm, RenderTarget};
-
-use super::{Niri, OutputRenderElements};
 
 // =============================================================================
 // Screencopy Methods
@@ -98,10 +96,7 @@ impl Niri {
         let _span = tracy_client::span!("Niri::render_for_screencopy");
 
         let output = screencopy.output();
-        ensure!(
-            self.outputs.has_state(output),
-            "screencopy output missing"
-        );
+        ensure!(self.outputs.has_state(output), "screencopy output missing");
 
         self.update_render_elements(Some(output));
 

@@ -80,7 +80,12 @@ impl<W: LayoutElement> Row<W> {
                 Transaction::new(),
                 Some(self.options.animations.window_movement.0),
             );
-            self.add_tile_to_column(target_column_idx, None, removed.tile(), source_tile_was_active);
+            self.add_tile_to_column(
+                target_column_idx,
+                None,
+                removed.tile(),
+                source_tile_was_active,
+            );
 
             let target_column = &mut self.columns[target_column_idx];
             offset.x -= target_column.render_offset().x;
@@ -183,7 +188,12 @@ impl<W: LayoutElement> Row<W> {
                 Transaction::new(),
                 Some(self.options.animations.window_movement.0),
             );
-            self.add_tile_to_column(target_column_idx, None, removed.tile(), source_tile_was_active);
+            self.add_tile_to_column(
+                target_column_idx,
+                None,
+                removed.tile(),
+                source_tile_was_active,
+            );
 
             let target_column = &mut self.columns[target_column_idx];
             offset += prev_off - target_column.tile_offset(target_column.tiles.len() - 1);

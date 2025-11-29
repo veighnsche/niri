@@ -7,9 +7,8 @@ use std::mem;
 use niri_config::LayoutPart;
 use smithay::output::Output;
 
-use super::super::{
-    column::Column, Layout, LayoutElement, Monitor, MonitorSet,
-};
+use super::super::column::Column;
+use super::super::{Layout, LayoutElement, Monitor, MonitorSet};
 
 impl<W: LayoutElement> Layout<W> {
     pub fn add_output(&mut self, output: Output, layout_config: Option<LayoutPart>) {
@@ -49,7 +48,9 @@ impl<W: LayoutElement> Layout<W> {
                         // TEAM_057: Both rows are empty, remove the non-origin row
                         // When empty_row_above_first is set, we keep row 0 (origin) and remove
                         // the other empty row (typically row -1)
-                        let non_origin_idx = primary.canvas.rows()
+                        let non_origin_idx = primary
+                            .canvas
+                            .rows()
                             .find(|(idx, _)| *idx != 0)
                             .map(|(idx, _)| idx);
                         if let Some(idx) = non_origin_idx {
@@ -119,11 +120,13 @@ impl<W: LayoutElement> Layout<W> {
                 // TEAM_033: Store active row ID before consuming monitor
                 // TEAM_055: Renamed from active_ws_id to active_row_id
                 let output_name = monitor.output_name().clone();
-                let active_row_id = monitor.canvas.rows()
+                let active_row_id = monitor
+                    .canvas
+                    .rows()
                     .nth(monitor.active_row_idx())
                     .map(|(_, ws)| ws.id())
                     .unwrap_or_else(|| crate::layout::row_types::RowId::specific(0));
-                
+
                 // TEAM_055: Renamed from last_active_workspace_id to last_active_row_id
                 self.last_active_row_id.insert(output_name, active_row_id);
 
@@ -134,16 +137,16 @@ impl<W: LayoutElement> Layout<W> {
                     let working_area = monitor.working_area();
                     let scale = monitor.scale().fractional_scale();
                     let options = self.options.clone();
-                    
+
                     // Convert monitor to canvas
                     let mut canvas = monitor.into_canvas();
-                    
+
                     // Update all rows with layout options
                     // TEAM_033: Destructure tuple from workspaces_mut()
                     for (_, row) in canvas.rows_mut() {
                         row.update_config(view_size, working_area, scale, options.clone());
                     }
-                    
+
                     // TEAM_052: Clean up empty unnamed rows when transitioning to NoOutputs
                     // Only rows with windows or names should remain
                     canvas.cleanup_empty_rows();
@@ -152,7 +155,7 @@ impl<W: LayoutElement> Layout<W> {
                 } else {
                     // TEAM_033: Convert monitor to canvas for transfer
                     let removed_canvas = monitor.into_canvas();
-                    
+
                     if primary_idx >= idx {
                         // Update primary_idx to either still point at the same monitor, or at some
                         // other monitor if the primary has been removed.

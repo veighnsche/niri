@@ -303,21 +303,19 @@ impl AnimationTimelineSnapshot {
     /// For pinned_edge, swaps left↔right.
     pub fn mirror_rtl(&self) -> Self {
         let is_x_axis = self.is_x_axis();
-        
+
         let (from, to) = if is_x_axis {
             (-self.from, -self.to)
         } else {
             (self.from, self.to)
         };
-        
-        let pinned_edge = self.pinned_edge.as_ref().map(|edge| {
-            match edge.as_str() {
-                "left" => "right".to_string(),
-                "right" => "left".to_string(),
-                other => other.to_string(),
-            }
+
+        let pinned_edge = self.pinned_edge.as_ref().map(|edge| match edge.as_str() {
+            "left" => "right".to_string(),
+            "right" => "left".to_string(),
+            other => other.to_string(),
         });
-        
+
         Self {
             target: self.target.clone(),
             from,

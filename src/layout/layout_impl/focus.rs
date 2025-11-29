@@ -5,9 +5,9 @@
 use niri_ipc::WindowLayout;
 use smithay::output::Output;
 
+use super::super::row_types::RowId;
 use super::super::{
     InteractiveMoveState, Layout, LayoutElement, Monitor, MonitorSet, WorkspaceSwitch,
-    row_types::RowId,
 };
 
 impl<W: LayoutElement> Layout<W> {
@@ -44,8 +44,9 @@ impl<W: LayoutElement> Layout<W> {
                     if ws.activate_window(window) {
                         *active_monitor_idx = monitor_idx;
 
-                        // If currently in the middle of a vertical swipe between the target workspace
-                        // and some other, don't switch the workspace.
+                        // If currently in the middle of a vertical swipe between the target
+                        // workspace and some other, don't switch the
+                        // workspace.
                         match &mon.workspace_switch {
                             Some(WorkspaceSwitch::Gesture(gesture))
                                 if gesture.current_idx.floor() == workspace_idx as f64
@@ -78,15 +79,17 @@ impl<W: LayoutElement> Layout<W> {
 
         for (monitor_idx, mon) in monitors.iter_mut().enumerate() {
             // TEAM_035: Find workspace index first, then switch to avoid double borrow
-            let found_ws_idx = mon.canvas.rows_mut()
-                .enumerate()
-                .find_map(|(workspace_idx, (_, ws))| {
-                    if ws.activate_window_without_raising(window) {
-                        Some(workspace_idx)
-                    } else {
-                        None
-                    }
-                });
+            let found_ws_idx =
+                mon.canvas
+                    .rows_mut()
+                    .enumerate()
+                    .find_map(|(workspace_idx, (_, ws))| {
+                        if ws.activate_window_without_raising(window) {
+                            Some(workspace_idx)
+                        } else {
+                            None
+                        }
+                    });
 
             if let Some(workspace_idx) = found_ws_idx {
                 *active_monitor_idx = monitor_idx;

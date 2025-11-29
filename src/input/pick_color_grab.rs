@@ -29,7 +29,8 @@ impl PickColorGrab {
         }
         state
             .niri
-            .cursor.manager
+            .cursor
+            .manager
             .set_cursor_image(CursorImageStatus::default_named());
         state.niri.queue_redraw_all();
     }

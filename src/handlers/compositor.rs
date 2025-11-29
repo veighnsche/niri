@@ -103,59 +103,52 @@ impl CompositorHandler for State {
                     );
 
                     // TEAM_055: Renamed workspace_id to row_id, workspace_name to row_name
-                    let (
-                        rules,
-                        width,
-                        height,
-                        is_full_width,
-                        output,
-                        row_id,
-                        is_pending_maximized,
-                    ) = if let InitialConfigureState::Configured {
-                        rules,
-                        width,
-                        height,
-                        floating_width: _,
-                        floating_height: _,
-                        is_full_width,
-                        output,
-                        row_name,
-                        is_pending_maximized,
-                    } = state
-                    {
-                        // Check that the output is still connected.
-                        let output =
-                            output.filter(|o| self.niri.layout.monitor_for_output(o).is_some());
-
-                        // Check that the row still exists.
-                        let row_id = row_name
-                            .as_deref()
-                            .and_then(|n| self.niri.layout.find_row_by_name(n))
-                            .map(|(_, ws)| ws.id());
-
-                        (
+                    let (rules, width, height, is_full_width, output, row_id, is_pending_maximized) =
+                        if let InitialConfigureState::Configured {
                             rules,
                             width,
                             height,
+                            floating_width: _,
+                            floating_height: _,
                             is_full_width,
                             output,
-                            row_id,
+                            row_name,
                             is_pending_maximized,
-                        )
-                    } else {
-                        // Can happen when a surface unmaps by attaching a null buffer while
-                        // there are in-flight pending configures.
-                        debug!("window mapped without proper initial configure");
-                        (
-                            ResolvedWindowRules::default(),
-                            None,
-                            None,
-                            false,
-                            None,
-                            None,
-                            false,
-                        )
-                    };
+                        } = state
+                        {
+                            // Check that the output is still connected.
+                            let output =
+                                output.filter(|o| self.niri.layout.monitor_for_output(o).is_some());
+
+                            // Check that the row still exists.
+                            let row_id = row_name
+                                .as_deref()
+                                .and_then(|n| self.niri.layout.find_row_by_name(n))
+                                .map(|(_, ws)| ws.id());
+
+                            (
+                                rules,
+                                width,
+                                height,
+                                is_full_width,
+                                output,
+                                row_id,
+                                is_pending_maximized,
+                            )
+                        } else {
+                            // Can happen when a surface unmaps by attaching a null buffer while
+                            // there are in-flight pending configures.
+                            debug!("window mapped without proper initial configure");
+                            (
+                                ResolvedWindowRules::default(),
+                                None,
+                                None,
+                                false,
+                                None,
+                                None,
+                                false,
+                            )
+                        };
 
                     // The GTK about dialog sets min/max size after the initial configure but
                     // before mapping, so we need to compute open_floating at the last possible
@@ -388,7 +381,8 @@ impl CompositorHandler for State {
             let output = output.cloned();
             window.on_commit();
             self.niri
-                .ui.mru
+                .ui
+                .mru
                 .update_window(&self.niri.layout, mapped.id());
             self.niri.layout.update_window(&window, None);
             if let Some(output) = output {
@@ -473,10 +467,13 @@ impl CompositorHandler for State {
         // Collect outputs first to avoid borrow conflicts.
         let outputs_with_lock: Vec<_> = self.niri.outputs.collect_outputs();
         for output in outputs_with_lock {
-            let is_lock_surface = self.niri.outputs.lock_surface(&output)
+            let is_lock_surface = self
+                .niri
+                .outputs
+                .lock_surface(&output)
                 .map(|ls| ls.wl_surface() == &root_surface)
                 .unwrap_or(false);
-            
+
             if is_lock_surface {
                 if matches!(self.niri.lock_state, LockState::WaitingForSurfaces { .. }) {
                     self.niri.maybe_continue_to_locking();

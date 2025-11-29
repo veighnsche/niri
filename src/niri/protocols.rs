@@ -3,10 +3,9 @@
 //! Groups all Wayland protocol states into a single struct to reduce
 //! clutter in the main Niri struct.
 
-use smithay::reexports::wayland_server::DisplayHandle;
-
 use smithay::desktop::PopupManager;
 use smithay::input::SeatState;
+use smithay::reexports::wayland_server::DisplayHandle;
 use smithay::wayland::compositor::CompositorState;
 use smithay::wayland::cursor_shape::CursorShapeManagerState;
 use smithay::wayland::dmabuf::DmabufState;
@@ -40,6 +39,7 @@ use smithay::wayland::virtual_keyboard::VirtualKeyboardManagerState;
 use smithay::wayland::xdg_activation::XdgActivationState;
 use smithay::wayland::xdg_foreign::XdgForeignState;
 
+use super::State;
 use crate::protocols::ext_workspace::ExtWorkspaceManagerState;
 use crate::protocols::foreign_toplevel::ForeignToplevelManagerState;
 use crate::protocols::gamma_control::GammaControlManagerState;
@@ -47,8 +47,6 @@ use crate::protocols::mutter_x11_interop::MutterX11InteropManagerState;
 use crate::protocols::output_management::OutputManagementManagerState;
 use crate::protocols::screencopy::ScreencopyManagerState;
 use crate::protocols::virtual_pointer::VirtualPointerManagerState;
-
-use super::State;
 
 /// Container for all Smithay protocol states.
 ///
@@ -95,7 +93,7 @@ pub struct ProtocolStates {
     pub activation: XdgActivationState,
     pub mutter_x11_interop: MutterX11InteropManagerState,
     pub cursor_shape: CursorShapeManagerState,
-    
+
     #[cfg(test)]
     pub single_pixel_buffer: SinglePixelBufferState,
 }
@@ -108,15 +106,19 @@ impl ProtocolStates {
         config: &niri_config::Config,
         backend: &crate::backend::Backend,
     ) -> Self {
-        use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::WmCapabilities;
-        use smithay::reexports::wayland_server::protocol::wl_shm;
-        use smithay::reexports::wayland_protocols_misc::server_decoration as _server_decoration;
-        use _server_decoration::server::org_kde_kwin_server_decoration_manager::Mode as KdeDecorationsMode;
-        use smithay::utils::{Monotonic, ClockSource};
         use std::time::Duration;
 
+        use _server_decoration::server::org_kde_kwin_server_decoration_manager::Mode as KdeDecorationsMode;
+        use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::WmCapabilities;
+        use smithay::reexports::wayland_protocols_misc::server_decoration as _server_decoration;
+        use smithay::reexports::wayland_server::protocol::wl_shm;
+        use smithay::utils::{ClockSource, Monotonic};
+
         fn client_is_unrestricted(client: &smithay::reexports::wayland_server::Client) -> bool {
-            !client.get_data::<crate::niri::ClientState>().unwrap().restricted
+            !client
+                .get_data::<crate::niri::ClientState>()
+                .unwrap()
+                .restricted
         }
 
         let compositor = CompositorState::new_v6::<State>(display);
@@ -124,13 +126,12 @@ impl ProtocolStates {
             display,
             [WmCapabilities::Fullscreen, WmCapabilities::Maximize],
         );
-        let xdg_decoration =
-            XdgDecorationState::new_with_filter::<State, _>(display, |client| {
-                client
-                    .get_data::<crate::niri::ClientState>()
-                    .unwrap()
-                    .can_view_decoration_globals
-            });
+        let xdg_decoration = XdgDecorationState::new_with_filter::<State, _>(display, |client| {
+            client
+                .get_data::<crate::niri::ClientState>()
+                .unwrap()
+                .can_view_decoration_globals
+        });
         let kde_decoration = KdeDecorationState::new_with_filter::<State, _>(
             display,
             // If we want CSD we will hide the global.
@@ -142,10 +143,8 @@ impl ProtocolStates {
                     .can_view_decoration_globals
             },
         );
-        let layer_shell = WlrLayerShellState::new_with_filter::<State, _>(
-            display,
-            client_is_unrestricted,
-        );
+        let layer_shell =
+            WlrLayerShellState::new_with_filter::<State, _>(display, client_is_unrestricted);
         let session_lock =
             SessionLockManagerState::new::<State, _>(display, client_is_unrestricted);
         let shm = ShmState::new::<State>(
@@ -180,16 +179,14 @@ impl ProtocolStates {
             Some(&primary_selection),
             client_is_unrestricted,
         );
-        let presentation =
-            PresentationState::new::<State>(display, Monotonic::ID as u32);
+        let presentation = PresentationState::new::<State>(display, Monotonic::ID as u32);
         let security_context =
             SecurityContextState::new::<State, _>(display, client_is_unrestricted);
 
         let text_input = TextInputManagerState::new::<State>(display);
         let input_method =
             InputMethodManagerState::new::<State, _>(display, client_is_unrestricted);
-        let keyboard_shortcuts_inhibit =
-            KeyboardShortcutsInhibitState::new::<State>(display);
+        let keyboard_shortcuts_inhibit = KeyboardShortcutsInhibitState::new::<State>(display);
 
         let virtual_keyboard =
             VirtualKeyboardManagerState::new::<State, _>(display, client_is_unrestricted);
@@ -202,16 +199,18 @@ impl ProtocolStates {
         let mut output_management =
             OutputManagementManagerState::new::<State, _>(display, client_is_unrestricted);
         output_management.on_config_changed(config.outputs.clone());
-        let screencopy =
-            ScreencopyManagerState::new::<State, _>(display, client_is_unrestricted);
+        let screencopy = ScreencopyManagerState::new::<State, _>(display, client_is_unrestricted);
         let viewporter = ViewporterState::new::<State>(display);
         let xdg_foreign = XdgForeignState::new::<State>(display);
 
         let is_tty = matches!(backend, crate::backend::Backend::Tty(_));
-        let gamma_control =
-            GammaControlManagerState::new::<State, _>(display, move |client| {
-                is_tty && !client.get_data::<crate::niri::ClientState>().unwrap().restricted
-            });
+        let gamma_control = GammaControlManagerState::new::<State, _>(display, move |client| {
+            is_tty
+                && !client
+                    .get_data::<crate::niri::ClientState>()
+                    .unwrap()
+                    .restricted
+        });
         let activation = XdgActivationState::new::<State>(display);
 
         let mutter_x11_interop =

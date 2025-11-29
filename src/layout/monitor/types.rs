@@ -11,10 +11,9 @@ use crate::animation::Animation;
 use crate::input::swipe_tracker::SwipeTracker;
 // TEAM_060: Using RowId directly instead of WorkspaceId alias
 use crate::layout::row_types::RowId;
-use crate::layout::LayoutElement;
-
 // TEAM_013: Re-export InsertPosition from types module
 pub use crate::layout::types::InsertPosition;
+use crate::layout::LayoutElement;
 
 /// Amount of touchpad movement to scroll the height of one workspace.
 pub const WORKSPACE_GESTURE_MOVEMENT: f64 = 300.;

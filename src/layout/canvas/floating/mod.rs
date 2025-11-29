@@ -20,6 +20,8 @@ use std::iter::zip;
 use std::rc::Rc;
 
 use niri_config::RelativeTo;
+// Re-export render element type
+pub use render::FloatingSpaceRenderElement;
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
 use crate::animation::Clock;
@@ -27,9 +29,6 @@ use crate::layout::elements::closing_window::ClosingWindow;
 use crate::layout::tile::Tile;
 use crate::layout::types::InteractiveResize;
 use crate::layout::{LayoutElement, Options, SizeFrac};
-
-// Re-export render element type
-pub use render::FloatingSpaceRenderElement;
 
 /// By how many logical pixels the directional move commands move floating windows.
 pub const DIRECTIONAL_MOVE_PX: f64 = 50.;
@@ -626,7 +625,9 @@ impl<W: LayoutElement> FloatingSpace<W> {
             .collect();
 
         let active_window_idx = self.active_window_id.as_ref().and_then(|active_id| {
-            self.tiles.iter().position(|tile| tile.window().id() == active_id)
+            self.tiles
+                .iter()
+                .position(|tile| tile.window().id() == active_id)
         });
 
         FloatingSnapshot {

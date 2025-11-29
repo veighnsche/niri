@@ -9,10 +9,9 @@ use smithay::output::Output;
 use smithay::utils::{Logical, Point, Rectangle, Size};
 use smithay::wayland::shell::wlr_layer::Layer;
 
+use super::{Niri, PointContents};
 use crate::layout::HitType;
 use crate::window::Mapped;
-
-use super::{Niri, PointContents};
 
 // =============================================================================
 // Hit Testing Methods
@@ -269,8 +268,18 @@ impl Niri {
                 let layer_geo = layers.layer_geometry(layer_surface).unwrap();
                 rv.layer = Some(layer_surface.clone());
                 rv.surface = layer_surface
-                    .surface_under(pos_within_output - layer_geo.loc.to_f64(), WindowSurfaceType::ALL)
-                    .map(|(s, pos)| (s, (pos.to_f64() + layer_geo.loc.to_f64() + output_pos_in_global_space.to_f64())));
+                    .surface_under(
+                        pos_within_output - layer_geo.loc.to_f64(),
+                        WindowSurfaceType::ALL,
+                    )
+                    .map(|(s, pos)| {
+                        (
+                            s,
+                            (pos.to_f64()
+                                + layer_geo.loc.to_f64()
+                                + output_pos_in_global_space.to_f64()),
+                        )
+                    });
             }
 
             return rv;

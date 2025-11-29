@@ -69,17 +69,23 @@ impl<W: LayoutElement> Row<W> {
                 let col_render_off = col.render_offset();
 
                 // tiles() returns (tile, tile_offset) pairs
-                col.tiles().enumerate().map(move |(tile_idx, (tile, tile_offset))| {
-                    let tile_pos = Point::from((
-                        view_off_x + col_x + col_render_off.x + tile_offset.x + tile.render_offset().x,
-                        y_offset + col_render_off.y + tile_offset.y + tile.render_offset().y,
-                    ));
-                    let is_active = is_active_col && tile_idx == col.active_tile_idx;
-                    (tile, tile_pos, is_active)
-                })
+                col.tiles()
+                    .enumerate()
+                    .map(move |(tile_idx, (tile, tile_offset))| {
+                        let tile_pos = Point::from((
+                            view_off_x
+                                + col_x
+                                + col_render_off.x
+                                + tile_offset.x
+                                + tile.render_offset().x,
+                            y_offset + col_render_off.y + tile_offset.y + tile.render_offset().y,
+                        ));
+                        let is_active = is_active_col && tile_idx == col.active_tile_idx;
+                        (tile, tile_pos, is_active)
+                    })
             })
     }
-    
+
     /// Returns the render location of a specific tile by ID.
     ///
     /// TEAM_044: Added for toggle_floating_window_by_id
@@ -88,7 +94,7 @@ impl<W: LayoutElement> Row<W> {
             .find(|(tile, _, _)| tile.window().id() == id)
             .map(|(_, pos, _)| pos)
     }
-    
+
     /// Returns the render location of the active tile.
     ///
     /// TEAM_044: Added for toggle_floating_window_by_id

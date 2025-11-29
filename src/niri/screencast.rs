@@ -19,14 +19,13 @@ use smithay::output::Output;
 #[cfg(feature = "xdp-gnome-screencast")]
 use smithay::utils::Scale;
 
+use super::{CastTarget, Niri};
 #[cfg(feature = "xdp-gnome-screencast")]
 use crate::dbus::mutter_screen_cast;
 #[cfg(feature = "xdp-gnome-screencast")]
 use crate::pw_utils::CastSizeChange;
 #[cfg(feature = "xdp-gnome-screencast")]
 use crate::render_helpers::RenderTarget;
-
-use super::{CastTarget, Niri};
 
 // =============================================================================
 // Screencast Methods
@@ -66,7 +65,11 @@ impl Niri {
                 return;
             };
 
-            match self.streaming.mapped_cast_outputs_mut().entry(mapped.window.clone()) {
+            match self
+                .streaming
+                .mapped_cast_outputs_mut()
+                .entry(mapped.window.clone())
+            {
                 Entry::Occupied(mut entry) => {
                     if entry.get() != output {
                         entry.insert(output.clone());
@@ -79,13 +82,20 @@ impl Niri {
             }
         });
 
-        self.streaming.mapped_cast_outputs_mut().retain(|win, _| seen.contains(win));
+        self.streaming
+            .mapped_cast_outputs_mut()
+            .retain(|win, _| seen.contains(win));
 
         let mut to_stop = vec![];
         for (id, out) in output_changed {
             let refresh = out.current_mode().unwrap().refresh as u32;
             let target = CastTarget::Window { id: id.get() };
-            for cast in self.streaming.casts_mut().iter_mut().filter(|cast| cast.target == target) {
+            for cast in self
+                .streaming
+                .casts_mut()
+                .iter_mut()
+                .filter(|cast| cast.target == target)
+            {
                 if let Err(err) = cast.set_refresh(refresh) {
                     warn!("error changing cast FPS: {err:?}");
                     to_stop.push(cast.session_id);

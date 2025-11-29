@@ -13,7 +13,10 @@ use smithay::input::keyboard::XkbConfig;
 use smithay::utils::Transform;
 use tracing::{info, trace, warn};
 
-use super::{ipc_transform_to_smithay, guess_monitor_scale, closest_representable_scale, panel_orientation, OutputScale};
+use super::{
+    closest_representable_scale, guess_monitor_scale, ipc_transform_to_smithay, panel_orientation,
+    OutputScale,
+};
 
 /// Extension trait for State to provide configuration reloading methods.
 pub trait StateConfigExt {
@@ -66,7 +69,7 @@ impl StateConfigExt for super::State {
 
         // Collect outputs first to avoid borrow conflicts.
         let outputs: Vec<_> = self.niri.outputs.collect_outputs();
-        
+
         for output in outputs {
             let name = output.user_data().get::<niri_config::OutputName>().unwrap();
             let full_config = self.niri.config.borrow_mut();
@@ -112,7 +115,11 @@ impl StateConfigExt for super::State {
             let backdrop_color = niri_config::Color::from_array_unpremul(backdrop_color);
             let backdrop_color32f: smithay::backend::renderer::Color32F = backdrop_color.into();
 
-            if self.niri.outputs.update_backdrop_color(&output, backdrop_color32f) {
+            if self
+                .niri
+                .outputs
+                .update_backdrop_color(&output, backdrop_color32f)
+            {
                 recolored_outputs.push(output.clone());
             }
 
@@ -154,7 +161,10 @@ impl StateConfigExt for super::State {
         }
 
         let config = self.niri.config.borrow().outputs.clone();
-        self.niri.protocols.output_management.on_config_changed(config);
+        self.niri
+            .protocols
+            .output_management
+            .on_config_changed(config);
     }
 
     /// Loads XKB configuration from file.
@@ -234,7 +244,7 @@ impl super::State {
     /// Applies environment configuration changes.
     fn apply_environment_config(&mut self, config: &mut Config) {
         use crate::utils::spawning::CHILD_ENV;
-        
+
         *CHILD_ENV.write().unwrap() = mem::take(&mut config.environment);
     }
 
@@ -243,7 +253,8 @@ impl super::State {
         let cursor_config = &config.cursor;
         if cursor_config != &self.niri.config.borrow().cursor {
             self.niri
-                .cursor.manager
+                .cursor
+                .manager
                 .reload(&cursor_config.xcursor_theme, cursor_config.xcursor_size);
             self.niri.cursor.texture_cache.clear();
         }
@@ -252,7 +263,7 @@ impl super::State {
     /// Applies keyboard configuration changes.
     fn apply_keyboard_config(&mut self, config: &Config) {
         let old_config = self.niri.config.borrow();
-        
+
         // We need &mut self to reload the xkb config, so just store it here.
         let reload_xkb = if config.input.keyboard.xkb != old_config.input.keyboard.xkb {
             Some(config.input.keyboard.xkb.clone())
@@ -310,9 +321,9 @@ impl super::State {
     /// Applies input device configuration.
     fn apply_input_device_config(&mut self, config: &Config) {
         use crate::input::apply_libinput_settings;
-        
+
         let old_config = self.niri.config.borrow();
-        
+
         let libinput_config_changed = config.input.touchpad != old_config.input.touchpad
             || config.input.mouse != old_config.input.mouse
             || config.input.trackball != old_config.input.trackball
@@ -389,11 +400,9 @@ impl super::State {
         let old_config = self.niri.config.borrow();
         let binds_changed = config.binds != old_config.binds;
         let new_mod_key = self.backend.mod_key(config);
-        
+
         if new_mod_key != self.backend.mod_key(&old_config) || binds_changed {
-            self.niri
-                .ui.hotkey
-                .on_hotkey_config_updated(new_mod_key);
+            self.niri.ui.hotkey.on_hotkey_config_updated(new_mod_key);
             self.niri.input.update_from_config(config);
         }
 
@@ -408,7 +417,7 @@ impl super::State {
     /// Applies window and layer rules.
     fn apply_window_rules(&mut self, config: &Config) {
         let old_config = self.niri.config.borrow();
-        
+
         let window_rules_changed = config.window_rules != old_config.window_rules;
         let layer_rules_changed = config.layer_rules != old_config.layer_rules;
 
@@ -427,7 +436,7 @@ impl super::State {
     /// Applies custom shader configuration.
     fn apply_shader_config(&mut self, config: &Config) {
         use crate::render_helpers::shaders;
-        
+
         let old_config = self.niri.config.borrow();
         let mut shaders_changed = false;
 
@@ -473,10 +482,10 @@ impl super::State {
     fn apply_misc_config(&mut self, config: &Config) {
         use crate::utils::spawning::CHILD_DISPLAY;
         use crate::utils::xwayland::satellite;
-        
+
         let old_config = self.niri.config.borrow();
-        
-        let cursor_inactivity_timeout_changed = 
+
+        let cursor_inactivity_timeout_changed =
             config.cursor.hide_after_inactive_ms != old_config.cursor.hide_after_inactive_ms;
         let recent_windows_changed = config.recent_windows != old_config.recent_windows;
         let xwls_changed = config.xwayland_satellite != old_config.xwayland_satellite;
@@ -531,7 +540,7 @@ impl super::State {
     /// Sets XKB configuration from a file.
     fn set_xkb_file(&mut self, xkb_file: String) -> anyhow::Result<()> {
         use crate::utils::expand_home;
-        
+
         let xkb_file = PathBuf::from(xkb_file);
         let xkb_file = expand_home(&xkb_file)
             .context("failed to expand ~")?

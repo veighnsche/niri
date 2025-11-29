@@ -9,7 +9,9 @@ use super::{Data, FloatingSpace, DIRECTIONAL_MOVE_PX};
 use crate::layout::tile::Tile;
 use crate::layout::types::ColumnWidth;
 use crate::layout::{LayoutElement, RemovedTile};
-use crate::utils::{center_preferring_top_left_in_area, ensure_min_max_size_maybe_zero, ResizeEdge};
+use crate::utils::{
+    center_preferring_top_left_in_area, ensure_min_max_size_maybe_zero, ResizeEdge,
+};
 
 impl<W: LayoutElement> FloatingSpace<W> {
     // =========================================================================
@@ -368,10 +370,7 @@ impl<W: LayoutElement> FloatingSpace<W> {
         self.working_area.intersection(tile_rect)
     }
 
-    pub fn popup_target_rect(
-        &self,
-        id: &W::Id,
-    ) -> Option<Rectangle<f64, Logical>> {
+    pub fn popup_target_rect(&self, id: &W::Id) -> Option<Rectangle<f64, Logical>> {
         for (tile, pos) in self.tiles_with_offsets() {
             if tile.window().id() == id {
                 // Position within the working area.

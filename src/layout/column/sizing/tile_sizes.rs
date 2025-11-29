@@ -256,7 +256,7 @@ impl<W: LayoutElement> Column<W> {
             assert_eq!(auto_tiles_left, 0);
         }
 
-        // TEAM_040: Move animation creation is handled in Column::update_window() 
+        // TEAM_040: Move animation creation is handled in Column::update_window()
         // when the tile responds with its new size. Don't duplicate it here.
         for (tile_idx, (tile, h)) in zip(&mut self.tiles, heights).enumerate() {
             let WindowHeight::Fixed(height) = h else {

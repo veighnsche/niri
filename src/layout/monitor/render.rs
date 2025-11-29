@@ -68,13 +68,13 @@ impl<W: LayoutElement> Monitor<W> {
                     }
                 }
             };
-            
+
             if let Some(area) = hint_area {
                 self.insert_hint_render_loc = Some(InsertHintRenderLoc {
                     workspace: hint.workspace,
                     location: area.loc,
                 });
-                
+
                 // Update the insert hint element size
                 let view_rect = Rectangle::from_loc_and_size((0., 0.), self.view_size);
                 self.insert_hint_element.update_render_elements(
@@ -139,7 +139,7 @@ impl<W: LayoutElement> Monitor<W> {
             // For Canvas2D, each row occupies the full width and has its own height
             let row_height = row.row_height();
             let y_offset = row.y_offset();
-            
+
             Rectangle::new(
                 Point::from((0.0, y_offset)),
                 Size::from((self.view_size.w, row_height)),
@@ -171,7 +171,8 @@ impl<W: LayoutElement> Monitor<W> {
     /// Returns an iterator over rows with their render geometry and indices.
     pub fn workspaces_with_render_geo_idx(
         &self,
-    ) -> impl Iterator<Item = ((i32, &crate::layout::row::Row<W>), Rectangle<f64, Logical>)> + '_ {
+    ) -> impl Iterator<Item = ((i32, &crate::layout::row::Row<W>), Rectangle<f64, Logical>)> + '_
+    {
         let output_geo = Rectangle::from_size(self.view_size);
 
         self.canvas

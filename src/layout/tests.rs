@@ -1,8 +1,8 @@
 use std::cell::{Cell, OnceCell, RefCell};
 
-use niri_config::utils::{Flag, MergeWith as _};
 // TEAM_055: Renamed from workspace to row
 use niri_config::row::RowName;
+use niri_config::utils::{Flag, MergeWith as _};
 use niri_config::RowConfig;
 // TEAM_012: Removed WorkspaceReference import (no longer used)
 use niri_config::{
@@ -1202,17 +1202,12 @@ impl Op {
             Op::FocusRowDown => layout.focus_row_down(),
             Op::FocusRowUp => layout.focus_row_up(),
             Op::FocusRow(idx) => layout.focus_row(idx),
-            Op::FocusRowAutoBackAndForth(idx) => {
-                layout.focus_row_auto_back_and_forth(idx)
-            }
+            Op::FocusRowAutoBackAndForth(idx) => layout.focus_row_auto_back_and_forth(idx),
             Op::FocusPreviousPosition => layout.focus_previous_position(),
             // TEAM_014: Renamed from MoveWindowToWorkspace* to MoveWindowToRow*
             Op::MoveWindowToRowDown(focus) => layout.move_to_row_down(focus),
             Op::MoveWindowToRowUp(focus) => layout.move_to_row_up(focus),
-            Op::MoveWindowToRow {
-                window_id,
-                row_idx,
-            } => {
+            Op::MoveWindowToRow { window_id, row_idx } => {
                 let window_id = window_id.filter(|id| layout.has_window(id));
                 layout.move_to_row(window_id.as_ref(), row_idx, ActivateWindow::Smart);
             }
@@ -1266,17 +1261,13 @@ impl Op {
 
                 // TEAM_035: Updated for Canvas2D architecture
                 let Some((old_idx, old_output)) = monitors.iter().find_map(|monitor| {
-                    monitor
-                        .canvas
-                        .rows()
-                        .enumerate()
-                        .find_map(|(i, (_, ws))| {
-                            if ws.name() == Some(&format!("ws{ws_name}")) {
-                                Some((i, monitor.output.clone()))
-                            } else {
-                                None
-                            }
-                        })
+                    monitor.canvas.rows().enumerate().find_map(|(i, (_, ws))| {
+                        if ws.name() == Some(&format!("ws{ws_name}")) {
+                            Some((i, monitor.output.clone()))
+                        } else {
+                            None
+                        }
+                    })
                 }) else {
                     return;
                 };
@@ -1583,7 +1574,10 @@ impl Op {
             }
             // DEPRECATED(overview): Overview gestures are now no-ops
             Op::OverviewGestureBegin => {}
-            Op::OverviewGestureUpdate { _delta: _, _timestamp: _ } => {}
+            Op::OverviewGestureUpdate {
+                _delta: _,
+                _timestamp: _,
+            } => {}
             Op::OverviewGestureEnd => {}
             Op::InteractiveMoveBegin {
                 window,

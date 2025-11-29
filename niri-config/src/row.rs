@@ -33,8 +33,8 @@ impl<S: knuffel::traits::ErrorSpan> knuffel::Decode<S> for RowLayoutPart {
             //
             // TEAM_055: Updated terminology from workspace to row
             // - empty-row-above-first is a monitor-level concept.
-            // - insert-hint customization could make sense for rows, however currently it is
-            //   also handled at the monitor level (since insert hints in-between rows are a
+            // - insert-hint customization could make sense for rows, however currently it is also
+            //   handled at the monitor level (since insert hints in-between rows are a
             //   monitor-level concept), so for now this config option would do nothing.
             if matches!(name, "empty-row-above-first" | "insert-hint") {
                 ctx.emit_error(DecodeError::unexpected(
@@ -91,10 +91,7 @@ impl<S: knuffel::traits::ErrorSpan> knuffel::DecodeScalar<S> for RowName {
                 Ok(Self(s.clone().into()))
             }
             _ => {
-                ctx.emit_error(DecodeError::unsupported(
-                    val,
-                    "row names must be strings",
-                ));
+                ctx.emit_error(DecodeError::unsupported(val, "row names must be strings"));
                 Ok(Self(String::new()))
             }
         }

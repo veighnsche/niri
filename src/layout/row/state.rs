@@ -98,7 +98,9 @@ impl<W: LayoutElement> Row<W> {
     pub fn active_window_mut(&mut self) -> Option<&mut W> {
         if let Some(col) = self.active_column_mut() {
             let active_tile_idx = col.active_tile_idx;
-            col.tiles_iter_mut().nth(active_tile_idx).map(|tile| tile.window_mut())
+            col.tiles_iter_mut()
+                .nth(active_tile_idx)
+                .map(|tile| tile.window_mut())
         } else {
             None
         }

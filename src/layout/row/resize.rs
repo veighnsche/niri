@@ -21,10 +21,7 @@ impl<W: LayoutElement> Row<W> {
             return false;
         }
 
-        let col = self
-            .columns
-            .iter_mut()
-            .find(|col| col.contains(&window));
+        let col = self.columns.iter_mut().find(|col| col.contains(&window));
 
         let Some(col) = col else {
             return false;
@@ -70,10 +67,7 @@ impl<W: LayoutElement> Row<W> {
 
         let is_centering = self.is_centering_focused_column();
 
-        let col = self
-            .columns
-            .iter_mut()
-            .find(|col| col.contains(window));
+        let col = self.columns.iter_mut().find(|col| col.contains(window));
 
         let Some(col) = col else {
             return false;

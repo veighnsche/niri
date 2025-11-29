@@ -827,7 +827,8 @@ impl Tty {
                     .build()
                     .context("error building default dmabuf feedback")?;
             let dmabuf_global = niri
-                .protocols.dmabuf
+                .protocols
+                .dmabuf
                 .create_global_with_default_feedback::<State>(
                     &niri.display_handle,
                     &default_feedback,
@@ -1025,7 +1026,8 @@ impl Tty {
             let device = self.devices.get(&node).unwrap();
 
             // Follow the logic in on_output_config_changed().
-            let disable_laptop_panels = self.should_disable_laptop_panels(niri.outputs.lid_closed());
+            let disable_laptop_panels =
+                self.should_disable_laptop_panels(niri.outputs.lid_closed());
             let should_disable = |conn: &str| disable_laptop_panels && is_laptop_panel(conn);
 
             let config = self.config.borrow();
@@ -1122,7 +1124,8 @@ impl Tty {
 
                 // Disable and destroy the dmabuf global.
                 if let Some(global) = self.dmabuf_global.take() {
-                    niri.protocols.dmabuf
+                    niri.protocols
+                        .dmabuf
                         .disable_global::<State>(&niri.display_handle, &global);
                     niri.event_loop
                         .insert_source(
@@ -1130,7 +1133,8 @@ impl Tty {
                             move |_, _, state| {
                                 state
                                     .niri
-                                    .protocols.dmabuf
+                                    .protocols
+                                    .dmabuf
                                     .destroy_global::<State>(&state.niri.display_handle, global);
                                 TimeoutAction::Drop
                             },
@@ -1536,7 +1540,8 @@ impl Tty {
         debug!("disconnecting connector: {:?}", surface.name.connector);
 
         let output = niri
-            .outputs.space()
+            .outputs
+            .space()
             .outputs()
             .find(|output| {
                 let tty_state: &TtyOutputState = output.user_data().get().unwrap();
@@ -2123,7 +2128,8 @@ impl Tty {
                 let vrr_enabled = surface.is_some_and(|surface| surface.compositor.vrr_enabled());
 
                 let logical = niri
-                    .outputs.space()
+                    .outputs
+                    .space()
                     .outputs()
                     .find(|output| {
                         let tty_state: &TtyOutputState = output.user_data().get().unwrap();
@@ -2373,7 +2379,8 @@ impl Tty {
                 }
 
                 let output = niri
-                    .outputs.space()
+                    .outputs
+                    .space()
                     .outputs()
                     .find(|output| {
                         let tty_state: &TtyOutputState = output.user_data().get().unwrap();

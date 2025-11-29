@@ -339,7 +339,7 @@ impl Animation {
     }
 
     // TEAM_010: Methods for animation golden testing
-    
+
     /// Returns true if this is an easing animation.
     #[cfg(test)]
     pub fn is_easing(&self) -> bool {

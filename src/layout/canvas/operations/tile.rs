@@ -6,8 +6,7 @@ use smithay::utils::{Logical, Point};
 
 use crate::layout::canvas::Canvas2D;
 use crate::layout::tile::Tile;
-use crate::layout::ColumnWidth;
-use crate::layout::LayoutElement;
+use crate::layout::{ColumnWidth, LayoutElement};
 
 impl<W: LayoutElement> Canvas2D<W> {
     // =========================================================================
@@ -77,8 +76,7 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Returns all tiles with their render positions.
     pub fn tiles_with_render_positions(
         &self,
-    ) -> impl Iterator<Item = (&Tile<W>, Point<f64, Logical>, bool)> + '_
-    {
+    ) -> impl Iterator<Item = (&Tile<W>, Point<f64, Logical>, bool)> + '_ {
         let camera_offset = self.camera_position();
         self.rows.values().flat_map(move |row| {
             row.tiles_with_render_positions()

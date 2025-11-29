@@ -5,20 +5,19 @@
 use std::mem;
 
 use niri_config::debug::PreviewRender;
+use niri_config::OutputName;
 use smithay::backend::renderer::damage::OutputDamageTracker;
 use smithay::backend::renderer::element::memory::MemoryRenderBufferRenderElement;
 use smithay::backend::renderer::element::surface::render_elements_from_surface_tree;
+use smithay::backend::renderer::element::utils::select_dmabuf_feedback;
 use smithay::backend::renderer::element::{
     default_primary_scanout_output_compare, Kind, RenderElementStates,
 };
-use smithay::desktop::layer_map_for_output;
-use smithay::backend::renderer::element::utils::select_dmabuf_feedback;
 use smithay::desktop::utils::{
-    bbox_from_surface_tree, output_update,
-    send_dmabuf_feedback_surface_tree, surface_primary_scanout_output,
-    update_surface_primary_scanout_output,
+    bbox_from_surface_tree, output_update, send_dmabuf_feedback_surface_tree,
+    surface_primary_scanout_output, update_surface_primary_scanout_output,
 };
-use smithay::desktop::{LayerMap, Space};
+use smithay::desktop::{layer_map_for_output, LayerMap, Space};
 use smithay::input::pointer::{CursorImageStatus, CursorImageSurfaceData};
 use smithay::output::Output;
 use smithay::reexports::wayland_server::Resource;
@@ -27,22 +26,20 @@ use smithay::wayland::compositor::{with_states, with_surface_tree_downward, Trav
 use smithay::wayland::shell::wlr_layer::Layer;
 use tracing::trace;
 
-use crate::backend::{Backend, RenderResult};
-use crate::backend::tty::SurfaceDmabufFeedback;
-use crate::cursor::{RenderCursor, XCursor};
-use crate::layer::mapped::LayerSurfaceRenderElement;
-use crate::render_helpers::debug::draw_opaque_regions;
-use niri_config::OutputName;
-use crate::render_helpers::solid_color::SolidColorRenderElement;
-use crate::render_helpers::{RenderTarget, SplitElements};
-use crate::utils::send_scale_transform;
-
 use super::{
     KeyboardFocus, LockRenderState, LockState, Niri, OutputRenderElements, OutputState,
     RedrawState, State,
 };
+use crate::backend::tty::SurfaceDmabufFeedback;
+use crate::backend::{Backend, RenderResult};
+use crate::cursor::{RenderCursor, XCursor};
+use crate::layer::mapped::LayerSurfaceRenderElement;
 use crate::layout::LayoutElement as _;
+use crate::render_helpers::debug::draw_opaque_regions;
 use crate::render_helpers::renderer::NiriRenderer;
+use crate::render_helpers::solid_color::SolidColorRenderElement;
+use crate::render_helpers::{RenderTarget, SplitElements};
+use crate::utils::send_scale_transform;
 
 // =============================================================================
 // Pointer Rendering
@@ -174,7 +171,8 @@ impl Niri {
                 let bbox = bbox_from_surface_tree(surface, surface_pos);
 
                 let dnd = self
-                    .cursor.dnd_icon
+                    .cursor
+                    .dnd_icon
                     .as_ref()
                     .map(|icon| &icon.surface)
                     .map(|surface| (surface, bbox_from_surface_tree(surface, surface_pos)));
@@ -257,7 +255,8 @@ impl Niri {
                     // means that it may have a different hotspot for each output.
                     let output_scale = output.current_scale().integer_scale();
                     let cursor = self
-                        .cursor.manager()
+                        .cursor
+                        .manager()
                         .get_cursor_with_name(icon, output_scale)
                         .unwrap_or_else(|| self.cursor.manager().get_default_cursor(output_scale));
 
@@ -321,8 +320,9 @@ impl Niri {
 
     /// Refreshes idle inhibit state.
     pub fn refresh_idle_inhibit(&mut self) {
-        use smithay::desktop::utils::surface_primary_scanout_output;
         use std::sync::atomic::Ordering;
+
+        use smithay::desktop::utils::surface_primary_scanout_output;
 
         let _span = tracy_client::span!("Niri::refresh_idle_inhibit");
 
@@ -510,7 +510,8 @@ impl Niri {
 
         // Next, the exit confirm dialog.
         elements.extend(
-            self.ui.exit_dialog
+            self.ui
+                .exit_dialog
                 .render(renderer, output)
                 .into_iter()
                 .map(OutputRenderElements::from),
@@ -565,7 +566,8 @@ impl Niri {
         // If the screenshot UI is open, draw it.
         if self.ui.screenshot.is_open() {
             elements.extend(
-                self.ui.screenshot
+                self.ui
+                    .screenshot
                     .render_output(output, target)
                     .into_iter()
                     .map(OutputRenderElements::from),
@@ -587,7 +589,8 @@ impl Niri {
 
         // Then, the Alt-Tab switcher.
         let mru_elements = self
-            .ui.mru
+            .ui
+            .mru
             .render_output(self, output, renderer, target)
             .into_iter()
             .flatten()
@@ -649,11 +652,7 @@ impl Niri {
             let mut ws_background: Option<SolidColorRenderElement> = None;
             // TODO: TEAM_023: Update render elements handling for Canvas2D
             // The old workspace-based render elements need to be adapted
-            elements.extend(
-                monitor_elements
-                    .into_iter()
-                    .map(OutputRenderElements::from),
-            );
+            elements.extend(monitor_elements.into_iter().map(OutputRenderElements::from));
 
             elements.extend(top_layer.into_iter().map(OutputRenderElements::from));
             elements.extend(layer_elems.into_iter().map(OutputRenderElements::from));
@@ -693,11 +692,7 @@ impl Niri {
             );
 
             // Add the monitor/canvas elements (contains window tiles)
-            elements.extend(
-                monitor_elements
-                    .into_iter()
-                    .map(OutputRenderElements::from),
-            );
+            elements.extend(monitor_elements.into_iter().map(OutputRenderElements::from));
 
             // Add normal layer-shell elements (background layers)
             elements.extend(
@@ -769,8 +764,7 @@ impl Niri {
         if self.outputs.monitors_active() {
             let state = self.outputs.state_mut(output).unwrap();
             state.unfinished_animations_remain = self.layout.are_animations_ongoing(Some(output));
-            state.unfinished_animations_remain |=
-                self.ui.config_error.are_animations_ongoing();
+            state.unfinished_animations_remain |= self.ui.config_error.are_animations_ongoing();
             state.unfinished_animations_remain |= self.ui.exit_dialog.are_animations_ongoing();
             state.unfinished_animations_remain |= self.ui.screenshot.are_animations_ongoing();
             state.unfinished_animations_remain |= self.ui.mru.are_animations_ongoing();
@@ -778,7 +772,8 @@ impl Niri {
 
             // Also keep redrawing if the current cursor is animated.
             state.unfinished_animations_remain |= self
-                .cursor.manager
+                .cursor
+                .manager
                 .is_current_cursor_animated(output.current_scale().integer_scale());
 
             // Also check layer surfaces.

@@ -69,8 +69,10 @@ impl<W: LayoutElement> Column<W> {
         }
 
         if display == ColumnDisplay::Tabbed {
-            self.tab_indicator
-                .start_open_animation(self.clock.clone(), self.options.animations.window_movement.0);
+            self.tab_indicator.start_open_animation(
+                self.clock.clone(),
+                self.options.animations.window_movement.0,
+            );
         }
 
         self.display_mode = display;

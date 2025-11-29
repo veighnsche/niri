@@ -101,7 +101,7 @@ impl<W: LayoutElement> Canvas2D<W> {
     // =========================================================================
 
     /// Focuses the row above the current row.
-    /// 
+    ///
     /// This is the method that Layout.focus_row_up() should call.
     pub fn focus_row_up(&mut self) -> bool {
         if self.active_row_idx > 0 {
@@ -112,7 +112,7 @@ impl<W: LayoutElement> Canvas2D<W> {
     }
 
     /// Focuses the row below the current row.
-    /// 
+    ///
     /// This is the method that Layout.focus_row_down() should call.
     pub fn focus_row_down(&mut self) -> bool {
         let max_row = self.rows.keys().max().copied().unwrap_or(0);
@@ -180,15 +180,9 @@ impl<W: LayoutElement> Canvas2D<W> {
             let is_full_width = removed_tile.is_full_width();
             let width = removed_tile.width();
             let is_maximized = removed_tile.is_maximized();
-            
-            target_row.add_tile(
-                None, 
-                removed_tile.tile(), 
-                is_full_width,
-                width,
-                true
-            );
-            
+
+            target_row.add_tile(None, removed_tile.tile(), is_full_width, width, true);
+
             // Restore maximize state directly on the column if the window was maximized
             // We set this directly instead of calling set_maximized() to avoid early return checks
             if is_maximized {
@@ -198,13 +192,13 @@ impl<W: LayoutElement> Canvas2D<W> {
                     target_row.set_maximized(&window_id, true);
                 }
             }
-            
+
             // Switch focus to target row
             self.focus_row(target_row_idx);
-            
+
             // TEAM_059: Clean up empty rows and renumber to maintain contiguous workspace indices
             self.cleanup_and_renumber_rows();
-            
+
             true
         } else {
             false
@@ -255,10 +249,10 @@ impl<W: LayoutElement> Canvas2D<W> {
             if activate {
                 self.focus_row(target_row_idx);
             }
-            
+
             // TEAM_059: Clean up empty rows and renumber to maintain contiguous workspace indices
             self.cleanup_and_renumber_rows();
-            
+
             true
         } else {
             false
@@ -339,7 +333,7 @@ impl<W: LayoutElement> Canvas2D<W> {
                 }
             }
         }
-        
+
         if let Some(row) = self.active_row_mut() {
             row.set_name(name);
         }
@@ -367,7 +361,9 @@ impl<W: LayoutElement> Canvas2D<W> {
         // If switching to the same row that's currently active, go back to previous
         if idx == self.active_row_idx {
             // Switch back to previous row if it exists and is different
-            if self.previous_row_idx != self.active_row_idx && self.rows.contains_key(&self.previous_row_idx) {
+            if self.previous_row_idx != self.active_row_idx
+                && self.rows.contains_key(&self.previous_row_idx)
+            {
                 return self.switch_to_row(self.previous_row_idx);
             }
         }
@@ -379,7 +375,9 @@ impl<W: LayoutElement> Canvas2D<W> {
     pub fn switch_to_previous_row(&mut self) -> bool {
         // TEAM_018: Implement previous row tracking
         // Switch to previous row if it exists and is different from current
-        if self.previous_row_idx != self.active_row_idx && self.rows.contains_key(&self.previous_row_idx) {
+        if self.previous_row_idx != self.active_row_idx
+            && self.rows.contains_key(&self.previous_row_idx)
+        {
             self.switch_to_row(self.previous_row_idx)
         } else {
             false
@@ -390,33 +388,39 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Replaces monitor.move_to_workspace(window, idx, activate)
     pub fn move_window_to_row(&mut self, window: &W::Id, idx: i32, activate: bool) -> bool {
         // Find which row contains the window
-        let (current_row_idx, column_idx, tile_idx) = if let Some((row_idx, row, _tile)) = self.find_window(window) {
-            // Find column and tile indices within the row
-            let mut found = None;
-            for (col_idx, column) in row.columns().enumerate() {
-                for (tile_idx, tile_check) in column.tiles_iter().enumerate() {
-                    if tile_check.window().id() == window {
-                        found = Some((col_idx, tile_idx));
+        let (current_row_idx, column_idx, tile_idx) =
+            if let Some((row_idx, row, _tile)) = self.find_window(window) {
+                // Find column and tile indices within the row
+                let mut found = None;
+                for (col_idx, column) in row.columns().enumerate() {
+                    for (tile_idx, tile_check) in column.tiles_iter().enumerate() {
+                        if tile_check.window().id() == window {
+                            found = Some((col_idx, tile_idx));
+                            break;
+                        }
+                    }
+                    if found.is_some() {
                         break;
                     }
                 }
-                if found.is_some() {
-                    break;
+
+                if let Some((col_idx, tile_idx)) = found {
+                    (row_idx, col_idx, tile_idx)
+                } else {
+                    return false;
                 }
-            }
-            
-            if let Some((col_idx, tile_idx)) = found {
-                (row_idx, col_idx, tile_idx)
             } else {
                 return false;
-            }
-        } else {
-            return false;
-        };
+            };
 
         // Remove window from current row
         let removed_tile = if let Some(row) = self.rows.get_mut(&current_row_idx) {
-            row.remove_tile_by_idx(column_idx, tile_idx, crate::utils::transaction::Transaction::new(), None)
+            row.remove_tile_by_idx(
+                column_idx,
+                tile_idx,
+                crate::utils::transaction::Transaction::new(),
+                None,
+            )
         } else {
             return false;
         };
@@ -429,15 +433,9 @@ impl<W: LayoutElement> Canvas2D<W> {
             let is_full_width = removed_tile.is_full_width();
             let width = removed_tile.width();
             let is_maximized = removed_tile.is_maximized();
-            
-            target_row.add_tile(
-                None,
-                removed_tile.tile(),
-                is_full_width,
-                width,
-                activate
-            );
-            
+
+            target_row.add_tile(None, removed_tile.tile(), is_full_width, width, activate);
+
             // Restore maximize state directly on the column if the window was maximized
             // We set this directly instead of calling set_maximized() to avoid early return checks
             if is_maximized {
@@ -447,14 +445,14 @@ impl<W: LayoutElement> Canvas2D<W> {
                     target_row.set_maximized(&window_id, true);
                 }
             }
-            
+
             if activate {
                 self.focus_row(idx);
             }
-            
+
             // TEAM_059: Clean up empty rows and renumber to maintain contiguous workspace indices
             self.cleanup_and_renumber_rows();
-            
+
             true
         } else {
             false
@@ -470,7 +468,7 @@ impl<W: LayoutElement> Canvas2D<W> {
                 return row.focus_left();
             }
         }
-        
+
         // If at first column, try to move to row above
         self.move_window_to_row_up()
     }
@@ -485,7 +483,7 @@ impl<W: LayoutElement> Canvas2D<W> {
                 return row.focus_right();
             }
         }
-        
+
         // If at last column, try to move to row below
         self.move_window_to_row_down()
     }
@@ -499,7 +497,7 @@ impl<W: LayoutElement> Canvas2D<W> {
                 return true;
             }
         }
-        
+
         // If no focus change, try to move to row below
         self.focus_row_down()
     }
@@ -513,7 +511,7 @@ impl<W: LayoutElement> Canvas2D<W> {
                 return true;
             }
         }
-        
+
         // If no focus change, try to move to row above
         self.focus_row_up()
     }

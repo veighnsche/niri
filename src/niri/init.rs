@@ -6,10 +6,10 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
-use std::sync::mpsc;
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
+use _server_decoration::server::org_kde_kwin_server_decoration_manager::Mode as KdeDecorationsMode;
 use calloop::timer::{TimeoutAction, Timer};
 use calloop::LoopHandle;
 use smithay::backend::renderer::gles::GlesRenderer;
@@ -18,10 +18,9 @@ use smithay::input::SeatState;
 use smithay::reexports::calloop::generic::Generic;
 use smithay::reexports::calloop::{Interest, LoopSignal, Mode, PostAction};
 use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::WmCapabilities;
+use smithay::reexports::wayland_protocols_misc::server_decoration as _server_decoration;
 use smithay::reexports::wayland_server::protocol::wl_shm;
 use smithay::reexports::wayland_server::{Client, Display};
-
-use super::{CursorSubsystem, FocusState, OutputSubsystem, StreamingSubsystem, UiOverlays};
 use smithay::utils::{ClockSource, Monotonic};
 use smithay::wayland::compositor::CompositorState;
 use smithay::wayland::cursor_shape::CursorShapeManagerState;
@@ -57,9 +56,10 @@ use smithay::wayland::virtual_keyboard::VirtualKeyboardManagerState;
 use smithay::wayland::xdg_activation::XdgActivationState;
 use smithay::wayland::xdg_foreign::XdgForeignState;
 
-use _server_decoration::server::org_kde_kwin_server_decoration_manager::Mode as KdeDecorationsMode;
-use smithay::reexports::wayland_protocols_misc::server_decoration as _server_decoration;
-
+use super::{
+    CursorSubsystem, FocusState, KeyboardFocus, NewClient, OutputSubsystem, PointContents,
+    PointerVisibility, State, StreamingSubsystem, UiOverlays,
+};
 #[cfg(feature = "dbus")]
 use crate::a11y::A11y;
 use crate::animation::Clock;
@@ -68,10 +68,10 @@ use crate::cursor::CursorManager;
 use crate::handlers::XDG_ACTIVATION_TOKEN_TIMEOUT;
 use crate::input::scroll_swipe_gesture::ScrollSwipeGesture;
 use crate::input::scroll_tracker::ScrollTracker;
-use crate::niri::{LockState, Niri, ClientState, ProtocolStates};
-use crate::niri::subsystems::InputTracking;
 use crate::ipc::server::IpcServer;
 use crate::layout::Layout;
+use crate::niri::subsystems::InputTracking;
+use crate::niri::{ClientState, LockState, Niri, ProtocolStates};
 use crate::protocols::ext_workspace::ExtWorkspaceManagerState;
 use crate::protocols::foreign_toplevel::ForeignToplevelManagerState;
 use crate::protocols::gamma_control::GammaControlManagerState;
@@ -80,9 +80,6 @@ use crate::protocols::output_management::OutputManagementManagerState;
 use crate::protocols::screencopy::ScreencopyManagerState;
 use crate::protocols::virtual_pointer::VirtualPointerManagerState;
 use crate::window::mapped::MappedId;
-use super::{State,
-    KeyboardFocus, NewClient, PointContents, PointerVisibility,
-};
 
 // =============================================================================
 // Niri Constructor
@@ -131,15 +128,21 @@ impl Niri {
             .insert_source(
                 Timer::from_duration(XDG_ACTIVATION_TOKEN_TIMEOUT),
                 |_, _, state| {
-                    state.niri.protocols.activation.retain_tokens(|_, token_data| {
-                        token_data.timestamp.elapsed() < XDG_ACTIVATION_TOKEN_TIMEOUT
-                    });
+                    state
+                        .niri
+                        .protocols
+                        .activation
+                        .retain_tokens(|_, token_data| {
+                            token_data.timestamp.elapsed() < XDG_ACTIVATION_TOKEN_TIMEOUT
+                        });
                     TimeoutAction::ToDuration(XDG_ACTIVATION_TOKEN_TIMEOUT)
                 },
             )
             .unwrap();
 
-        let mut seat = protocols.seat.new_wl_seat(&display_handle, backend.seat_name());
+        let mut seat = protocols
+            .seat
+            .new_wl_seat(&display_handle, backend.seat_name());
         let mod_key = backend.mod_key(&config_);
         let keyboard = match seat.add_keyboard(
             config_.input.keyboard.xkb.to_xkb_config(),

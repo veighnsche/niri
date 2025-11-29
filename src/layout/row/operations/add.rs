@@ -135,12 +135,18 @@ impl<W: LayoutElement> Row<W> {
             self.options.clone(),
         );
 
-        self.data.insert(idx, ColumnData { width: column.width() });
+        self.data.insert(
+            idx,
+            ColumnData {
+                width: column.width(),
+            },
+        );
         self.columns.insert(idx, column);
 
         if activate {
-            // If this is the first window on an empty row, skip animation and set view offset directly.
-            // TEAM_039: Match original ScrollingSpace behavior - set static offset immediately
+            // If this is the first window on an empty row, skip animation and set view offset
+            // directly. TEAM_039: Match original ScrollingSpace behavior - set static
+            // offset immediately
             if was_empty {
                 self.view_offset_x = AnimatedValue::new(0.);
                 // Compute and set the correct view offset immediately (no animation)
@@ -153,14 +159,14 @@ impl<W: LayoutElement> Row<W> {
 
             // TEAM_039: Save old active column index before updating
             let prev_active_idx = self.active_column_idx;
-            
+
             // Only animate if not the first window (was_empty case already set static offset)
             if !was_empty {
                 // TEAM_039: Pass prev_active_idx to animate_view_offset_to_column
                 // This is needed for proper view offset calculation
                 self.animate_view_offset_to_column(None, idx, Some(prev_active_idx));
             }
-            
+
             self.active_column_idx = idx;
             self.activate_prev_column_on_removal = prev_offset;
         } else if !was_empty && idx <= self.active_column_idx {

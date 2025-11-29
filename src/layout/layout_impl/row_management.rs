@@ -2,33 +2,25 @@
 //!
 //! Methods for finding and managing rows.
 
-use niri_config::WorkspaceReference;
 // TEAM_055: Renamed from Workspace to RowConfig
 use niri_config::RowConfig as WorkspaceConfig;
+use niri_config::WorkspaceReference;
 
-use super::super::{
-    Layout, LayoutElement, MonitorSet,
-    output_matches_name, row_types::RowId,
-};
+use super::super::row_types::RowId;
+use super::super::{output_matches_name, Layout, LayoutElement, MonitorSet};
 
 impl<W: LayoutElement> Layout<W> {
     pub fn find_workspace_by_id(&self, id: RowId) -> Option<(i32, &crate::layout::row::Row<W>)> {
         match &self.monitor_set {
             MonitorSet::Normal { ref monitors, .. } => {
                 for mon in monitors {
-                    if let Some((row_idx, row)) = mon
-                        .canvas
-                        .rows()
-                        .find(|(_, w)| w.id() == id)
-                    {
+                    if let Some((row_idx, row)) = mon.canvas.rows().find(|(_, w)| w.id() == id) {
                         return Some((row_idx, row));
                     }
                 }
             }
             MonitorSet::NoOutputs { canvas } => {
-                if let Some((row_idx, row)) =
-                    canvas.rows().find(|(_, w)| w.id() == id)
-                {
+                if let Some((row_idx, row)) = canvas.rows().find(|(_, w)| w.id() == id) {
                     return Some((row_idx, row));
                 }
             }
@@ -47,12 +39,10 @@ impl<W: LayoutElement> Layout<W> {
         match &self.monitor_set {
             MonitorSet::Normal { ref monitors, .. } => {
                 for mon in monitors {
-                    if let Some((row_idx, row)) =
-                        mon.canvas.rows().find(|(_, w)| {
-                            w.name()
-                                .is_some_and(|name| name.eq_ignore_ascii_case(row_name))
-                        })
-                    {
+                    if let Some((row_idx, row)) = mon.canvas.rows().find(|(_, w)| {
+                        w.name()
+                            .is_some_and(|name| name.eq_ignore_ascii_case(row_name))
+                    }) {
                         return Some((row_idx, row));
                     }
                 }
@@ -77,21 +67,24 @@ impl<W: LayoutElement> Layout<W> {
         if let WorkspaceReference::Index(index) = reference {
             self.active_monitor_mut().and_then(|m| {
                 let row_idx = index.saturating_sub(1) as i32;
-                m.canvas.rows_mut().find(|(idx, _)| *idx == row_idx).map(|(_, row)| row)
+                m.canvas
+                    .rows_mut()
+                    .find(|(idx, _)| *idx == row_idx)
+                    .map(|(_, row)| row)
             })
         } else {
             // Find the workspace by name or id across all monitors
             for monitor in self.monitors_mut() {
-                if let Some((_, row)) = monitor.canvas.rows_mut().find(|(_, row)| {
-                    match &reference {
+                if let Some((_, row)) =
+                    monitor.canvas.rows_mut().find(|(_, row)| match &reference {
                         WorkspaceReference::Name(ref_name) => row
                             .name()
                             .as_ref()
                             .is_some_and(|name| name.eq_ignore_ascii_case(ref_name)),
                         WorkspaceReference::Id(id) => row.id().get() == *id,
                         WorkspaceReference::Index(_) => unreachable!(),
-                    }
-                }) {
+                    })
+                {
                     return Some(row);
                 }
             }
@@ -173,10 +166,12 @@ impl<W: LayoutElement> Layout<W> {
                 let insert_key = mon.canvas.rows().map(|(idx, _)| idx).min().unwrap_or(0) - 1;
                 let row = mon.canvas.ensure_row(insert_key);
                 row.set_name(Some(row_config.name.0.clone()));
-                
+
                 // TEAM_055: Clean up empty unnamed rows (like original clean_up_workspaces)
                 let active_key = mon.canvas.active_row_idx;
-                let rows_to_remove: Vec<i32> = mon.canvas.rows()
+                let rows_to_remove: Vec<i32> = mon
+                    .canvas
+                    .rows()
                     .filter(|(idx, row)| {
                         *idx != active_key && !row.has_windows() && row.name().is_none()
                     })
@@ -192,10 +187,11 @@ impl<W: LayoutElement> Layout<W> {
                 let insert_key = canvas.rows().map(|(idx, _)| idx).min().unwrap_or(0) - 1;
                 let row = canvas.ensure_row(insert_key);
                 row.set_name(Some(row_config.name.0.clone()));
-                
+
                 // TEAM_055: Clean up empty unnamed rows
                 let active_key = canvas.active_row_idx;
-                let rows_to_remove: Vec<i32> = canvas.rows()
+                let rows_to_remove: Vec<i32> = canvas
+                    .rows()
                     .filter(|(idx, row)| {
                         *idx != active_key && !row.has_windows() && row.name().is_none()
                     })

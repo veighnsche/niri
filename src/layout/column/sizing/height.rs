@@ -132,8 +132,7 @@ impl<W: LayoutElement> Column<W> {
                     });
 
                 if forwards {
-                    it.position(|resolved| current + 1. < resolved)
-                        .unwrap_or(0)
+                    it.position(|resolved| current + 1. < resolved).unwrap_or(0)
                 } else {
                     it.rposition(|resolved| resolved + 1. < current)
                         .unwrap_or(len - 1)

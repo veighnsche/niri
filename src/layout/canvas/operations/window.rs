@@ -7,8 +7,7 @@ use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use crate::layout::canvas::Canvas2D;
 use crate::layout::row::Row;
 use crate::layout::tile::Tile;
-use crate::layout::LayoutElement;
-use crate::layout::SizeChange;
+use crate::layout::{LayoutElement, SizeChange};
 
 impl<W: LayoutElement> Canvas2D<W> {
     // =========================================================================
@@ -115,10 +114,12 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Finds the row containing the window and calls set_window_height on it.
     pub fn set_window_height(&mut self, window_id: &W::Id, change: SizeChange) {
         // Find which row contains this window
-        let row_idx = self.rows.iter()
+        let row_idx = self
+            .rows
+            .iter()
             .find(|(_, row)| row.contains(window_id))
             .map(|(&idx, _)| idx);
-        
+
         if let Some(idx) = row_idx {
             if let Some(row) = self.rows.get_mut(&idx) {
                 row.set_window_height(Some(window_id), change);
@@ -134,15 +135,17 @@ impl<W: LayoutElement> Canvas2D<W> {
     // TEAM_054: Fixed to also search floating space
     pub fn find_wl_surface(&self, wl_surface: &WlSurface) -> Option<&W> {
         // Check tiled windows
-        if let Some(window) = self.tiled_tiles()
+        if let Some(window) = self
+            .tiled_tiles()
             .find(|tile| tile.window().is_wl_surface(wl_surface))
-            .map(|tile| tile.window()) 
+            .map(|tile| tile.window())
         {
             return Some(window);
         }
-        
+
         // Check floating windows
-        self.floating.tiles()
+        self.floating
+            .tiles()
             .find(|tile| tile.window().is_wl_surface(wl_surface))
             .map(|tile| tile.window())
     }
@@ -158,14 +161,14 @@ impl<W: LayoutElement> Canvas2D<W> {
                 }
             }
         }
-        
+
         // Check floating windows
         for tile in self.floating.tiles_mut() {
             if tile.window().is_wl_surface(wl_surface) {
                 return Some(tile.window_mut());
             }
         }
-        
+
         None
     }
 
@@ -249,9 +252,7 @@ impl<W: LayoutElement> Canvas2D<W> {
                 0.0
             } else {
                 // Calculate scroll distance using actual row positions
-                let active_row_y = self.active_row()
-                    .map(|row| row.y_offset())
-                    .unwrap_or(0.0);
+                let active_row_y = self.active_row().map(|row| row.y_offset()).unwrap_or(0.0);
                 let target_row_y = row.y_offset();
                 target_row_y - active_row_y
             }

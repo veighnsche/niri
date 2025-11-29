@@ -516,10 +516,7 @@ pub enum Action {
         index: usize,
     },
     /// Set the name of the focused row.
-    #[cfg_attr(
-        feature = "clap",
-        clap(about = "Set the name of the focused row")
-    )]
+    #[cfg_attr(feature = "clap", clap(about = "Set the name of the focused row"))]
     SetRowName {
         /// New name for the row.
         #[cfg_attr(feature = "clap", arg())]

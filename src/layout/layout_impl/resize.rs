@@ -71,7 +71,11 @@ impl<W: LayoutElement> Layout<W> {
     pub fn set_column_width(&mut self, change: SizeChange) {
         // TEAM_043: Handle floating windows
         match &mut self.monitor_set {
-            MonitorSet::Normal { monitors, active_monitor_idx, .. } => {
+            MonitorSet::Normal {
+                monitors,
+                active_monitor_idx,
+                ..
+            } => {
                 let mon = &mut monitors[*active_monitor_idx];
                 if mon.canvas.floating_is_active {
                     mon.canvas.floating.set_window_width(None, change, true);
@@ -98,12 +102,18 @@ impl<W: LayoutElement> Layout<W> {
 
         // TEAM_054: Handle floating windows properly
         match &mut self.monitor_set {
-            MonitorSet::Normal { monitors, active_monitor_idx, .. } => {
+            MonitorSet::Normal {
+                monitors,
+                active_monitor_idx,
+                ..
+            } => {
                 // If a specific window is given, find it
                 if let Some(win_id) = window {
                     for mon in monitors.iter_mut() {
                         if mon.canvas.floating.has_window(win_id) {
-                            mon.canvas.floating.set_window_width(Some(win_id), change, true);
+                            mon.canvas
+                                .floating
+                                .set_window_width(Some(win_id), change, true);
                             return;
                         }
                         for (_, row) in mon.canvas.rows_mut() {
@@ -155,12 +165,18 @@ impl<W: LayoutElement> Layout<W> {
 
         // TEAM_054: Handle floating windows properly
         match &mut self.monitor_set {
-            MonitorSet::Normal { monitors, active_monitor_idx, .. } => {
+            MonitorSet::Normal {
+                monitors,
+                active_monitor_idx,
+                ..
+            } => {
                 // If a specific window is given, find it
                 if let Some(win_id) = window {
                     for mon in monitors.iter_mut() {
                         if mon.canvas.floating.has_window(win_id) {
-                            mon.canvas.floating.set_window_height(Some(win_id), change, true);
+                            mon.canvas
+                                .floating
+                                .set_window_height(Some(win_id), change, true);
                             return;
                         }
                         for (_, row) in mon.canvas.rows_mut() {
@@ -183,7 +199,9 @@ impl<W: LayoutElement> Layout<W> {
             MonitorSet::NoOutputs { canvas, .. } => {
                 if let Some(win_id) = window {
                     if canvas.floating.has_window(win_id) {
-                        canvas.floating.set_window_height(Some(win_id), change, true);
+                        canvas
+                            .floating
+                            .set_window_height(Some(win_id), change, true);
                         return;
                     }
                     for (_, row) in canvas.rows_mut() {

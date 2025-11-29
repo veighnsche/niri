@@ -36,6 +36,7 @@ use std::mem;
 use std::rc::Rc;
 use std::time::Duration;
 
+use column::Column;
 use monitor::{InsertHint, InsertPosition, InsertWorkspace, MonitorAddWindowTarget};
 use niri_config::utils::MergeWith as _;
 // TEAM_055: Renamed from Workspace to RowConfig
@@ -43,8 +44,9 @@ use niri_config::{
     Config, CornerRadius, LayoutPart, PresetSize, RowConfig as WorkspaceConfig, WorkspaceReference,
 };
 use niri_ipc::{ColumnDisplay, PositionChange, SizeChange, WindowLayout};
-use column::Column;
-use types::{ColumnWidth, ScrollDirection};
+// TEAM_021: Use minimal row types after Canvas2D migration
+// TEAM_055: Renamed from workspace_types to row_types
+use row_types::{compute_working_area, OutputId, RowAddWindowTarget, RowId};
 use smithay::backend::renderer::element::surface::WaylandSurfaceRenderElement;
 use smithay::backend::renderer::element::utils::RescaleRenderElement;
 use smithay::backend::renderer::gles::{GlesRenderer, GlesTexture};
@@ -52,11 +54,9 @@ use smithay::output::{self, Output};
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point, Rectangle, Scale, Serial, Size, Transform};
 use tile::{Tile, TileRenderElement};
-// TEAM_021: Use minimal row types after Canvas2D migration
-// TEAM_055: Renamed from workspace_types to row_types
-use row_types::{RowAddWindowTarget, RowId, OutputId, compute_working_area};
-// TEAM_060: Removed WorkspaceId type alias - using RowId directly
+use types::{ColumnWidth, ScrollDirection};
 
+// TEAM_060: Removed WorkspaceId type alias - using RowId directly
 pub use self::monitor::MonitorRenderElement;
 use self::monitor::{Monitor, WorkspaceSwitch};
 // DEPRECATED(overview): Removed Animation and SwipeTracker imports (no longer needed)
@@ -96,14 +96,14 @@ pub mod row;
 // TEAM_006: Canvas2D module for 2D tiling layout
 pub mod canvas;
 // TEAM_055: Renamed from workspace_types to row_types
-pub mod row_types;  // TEAM_021: Minimal row types for external compatibility
-// TEAM_063: Layout implementation split into submodules
-// TEAM_064: Interactive move and DnD types moved to layout_impl/types.rs
+pub mod row_types; // TEAM_021: Minimal row types for external compatibility
+                   // TEAM_063: Layout implementation split into submodules
+                   // TEAM_064: Interactive move and DnD types moved to layout_impl/types.rs
 mod layout_impl;
 // Re-export internal types for use in this module
-use layout_impl::types::{InteractiveMoveState, InteractiveMoveData, DndHold, DndHoldTarget};
 // Re-export public types
 pub use layout_impl::types::DndData;
+use layout_impl::types::{DndHold, DndHoldTarget, InteractiveMoveData, InteractiveMoveState};
 // DEPRECATED: workspace module removed - functionality migrated to Canvas2D
 
 // TEAM_004: Golden snapshot infrastructure
@@ -318,7 +318,6 @@ pub struct Layout<W: LayoutElement> {
     ///
     /// This data is stored upon monitor removal and is used to restore the active workspace when
     /// the monitor is reconnected.
-    ///
     // TEAM_055: Renamed from last_active_workspace_id to last_active_row_id
     /// The row id does not necessarily point to a valid row. If it doesn't, then it is
     /// simply ignored.
@@ -452,7 +451,13 @@ impl<W: LayoutElement> RemovedTile<W> {
 
     /// Destructures into components.
     pub fn into_parts(self) -> (Tile<W>, ColumnWidth, bool, bool, bool) {
-        (self.tile, self.width, self.is_full_width, self.is_floating, self.is_maximized)
+        (
+            self.tile,
+            self.width,
+            self.is_full_width,
+            self.is_floating,
+            self.is_maximized,
+        )
     }
 }
 
@@ -610,7 +615,7 @@ impl<W: LayoutElement> Layout<W> {
 
         // Generate unique workspace ID for the initial row
         let initial_workspace_id = RowId(1);
-        
+
         let canvas = crate::layout::canvas::Canvas2D::new(
             None,
             view_size,
@@ -627,7 +632,7 @@ impl<W: LayoutElement> Layout<W> {
             is_active: true,
             // TEAM_055: Renamed from last_active_workspace_id to last_active_row_id
             last_active_row_id: HashMap::new(),
-            row_id_counter: 1,  // TEAM_039: Start at 1 since we used ID 1 for initial row
+            row_id_counter: 1, // TEAM_039: Start at 1 since we used ID 1 for initial row
             interactive_move: None,
             dnd: None,
             clock,
@@ -649,7 +654,7 @@ impl<W: LayoutElement> Layout<W> {
 
         // Generate unique workspace ID for the initial row
         let initial_workspace_id = RowId(1);
-        
+
         let canvas = crate::layout::canvas::Canvas2D::new(
             None,
             view_size,
@@ -669,7 +674,7 @@ impl<W: LayoutElement> Layout<W> {
             is_active: true,
             // TEAM_055: Renamed from last_active_workspace_id to last_active_row_id
             last_active_row_id: HashMap::new(),
-            row_id_counter: 1,  // TEAM_039: Start at 1 since we used ID 1 for initial row
+            row_id_counter: 1, // TEAM_039: Start at 1 since we used ID 1 for initial row
             interactive_move: None,
             dnd: None,
             clock,
@@ -914,7 +919,10 @@ impl<W: LayoutElement> Layout<W> {
                 let ws_id = workspace.id();
                 // TEAM_039: Debug workspace ID uniqueness
                 if seen_workspace_id.contains(&ws_id) {
-                    panic!("workspace id must be unique: duplicate ID {:?} found", ws_id);
+                    panic!(
+                        "workspace id must be unique: duplicate ID {:?} found",
+                        ws_id
+                    );
                 }
                 seen_workspace_id.insert(ws_id);
 
@@ -1017,7 +1025,11 @@ impl<W: LayoutElement> Layout<W> {
         // TEAM_040: Use Canvas2D's toggle_floating_window_by_id instead of Row method
         // Floating is handled at the Canvas2D level, not the Row level
         match &mut self.monitor_set {
-            MonitorSet::Normal { monitors, active_monitor_idx, .. } => {
+            MonitorSet::Normal {
+                monitors,
+                active_monitor_idx,
+                ..
+            } => {
                 if let Some(window) = window {
                     // Find the monitor containing this window
                     for mon in monitors.iter_mut() {
@@ -1028,7 +1040,9 @@ impl<W: LayoutElement> Layout<W> {
                     }
                 } else {
                     // Toggle active window on active monitor
-                    monitors[*active_monitor_idx].canvas.toggle_floating_window_by_id(None);
+                    monitors[*active_monitor_idx]
+                        .canvas
+                        .toggle_floating_window_by_id(None);
                 }
             }
             MonitorSet::NoOutputs { canvas, .. } => {
@@ -1104,14 +1118,18 @@ impl<W: LayoutElement> Layout<W> {
         if let Some(id) = id {
             for monitor in self.monitors_mut() {
                 if monitor.canvas().has_window(id) {
-                    monitor.canvas_mut().move_floating_window(Some(id), x, y, animate);
+                    monitor
+                        .canvas_mut()
+                        .move_floating_window(Some(id), x, y, animate);
                     break;
                 }
             }
         } else {
             // Move active floating window on active monitor
             if let Some(monitor) = self.active_monitor() {
-                monitor.canvas_mut().move_floating_window(None, x, y, animate);
+                monitor
+                    .canvas_mut()
+                    .move_floating_window(None, x, y, animate);
             }
         }
     }
@@ -1161,7 +1179,8 @@ impl<W: LayoutElement> Layout<W> {
                     .iter()
                     .enumerate()
                     .find_map(|(mon_idx, mon)| {
-                        mon.canvas.rows()
+                        mon.canvas
+                            .rows()
                             .position(|(_, ws)| ws.has_window(window))
                             .map(|ws_idx| (mon_idx, ws_idx))
                     })
@@ -1198,7 +1217,10 @@ impl<W: LayoutElement> Layout<W> {
             };
 
             // TEAM_033: Use row_mut for mutable access instead of workspaces() iterator
-            let ws = mon.canvas.row_mut(ws_idx as i32).expect("workspace should exist");
+            let ws = mon
+                .canvas
+                .row_mut(ws_idx as i32)
+                .expect("workspace should exist");
             let transaction = Transaction::new();
             let mut removed = if let Some(window) = window {
                 ws.remove_tile(window, transaction)
@@ -1325,33 +1347,33 @@ impl<W: LayoutElement> Layout<W> {
         // Do not do anything if the output is already correct
         if current_idx == target_idx {
             // Just update the original output since this is an explicit movement action.
-            // current.canvas.rows().nth(old_idx).unwrap().original_output = OutputId::new(&current.output);
+            // current.canvas.rows().nth(old_idx).unwrap().original_output =
+            // OutputId::new(&current.output);
 
             return false;
         }
 
         // Only switch active monitor if the workspace to be moved is the currently focused one on
         // the current monitor.
-        let activate =
-            current_idx == *active_monitor_idx && old_idx == current.active_row_idx();
+        let activate = current_idx == *active_monitor_idx && old_idx == current.active_row_idx();
 
         // TEAM_055: Transfer row from source to target monitor
         // Remove the row from source and get it back
         let removed_row = current.remove_workspace_by_idx(old_idx);
-        
+
         // TEAM_055: Ensure source canvas has at least one empty row
         if current.canvas.rows().count() == 0 {
             current.canvas.ensure_row(0);
         }
 
         let target = &mut monitors[target_idx];
-        
+
         // TEAM_055: Original insert_workspace has "Don't insert past the last empty workspace"
         // logic that adjusts idx to insert BEFORE the last workspace when idx == len.
         // In BTreeMap terms, we want to insert at a key that comes BEFORE existing empty rows.
         // Use key -1 so it sorts before key 0 in BTreeMap iteration order.
         let insert_key = -1i32;
-        
+
         // Insert the removed row into the target
         if let Some(row) = removed_row {
             target.canvas.insert_row(insert_key, row);
@@ -1359,7 +1381,7 @@ impl<W: LayoutElement> Layout<W> {
             // If no row was removed (shouldn't happen), just ensure a row exists
             target.canvas.ensure_row(insert_key);
         }
-        
+
         // If activating, set the inserted row as active
         if activate {
             target.canvas.focus_row(insert_key);
@@ -1445,7 +1467,7 @@ impl<W: LayoutElement> Layout<W> {
             // TEAM_033: Get active index before mutable iteration to avoid borrow conflicts
             let active_idx = monitor.active_row_idx();
             let is_target_output = &monitor.output == output;
-            
+
             // TEAM_035: Extract row from tuple
             for (idx, (_, ws)) in monitor.canvas.rows_mut().enumerate() {
                 // Cancel the gesture on other workspaces.
@@ -1506,8 +1528,8 @@ impl<W: LayoutElement> Layout<W> {
         None
     }
 
-    // TEAM_014: Removed overview_gesture_begin, overview_gesture_update, overview_gesture_end (Part 3)
-    // These methods are no longer needed as overview mode is removed.
+    // TEAM_014: Removed overview_gesture_begin, overview_gesture_update, overview_gesture_end (Part
+    // 3) These methods are no longer needed as overview mode is removed.
 
     // TEAM_064: interactive_move_begin, interactive_move_update, interactive_move_end,
     // interactive_move_is_moving_above_output, dnd_update, dnd_end
@@ -1760,9 +1782,7 @@ impl<W: LayoutElement> Layout<W> {
                 iter_no_outputs = None;
             }
             MonitorSet::NoOutputs { canvas } => {
-                let it = canvas
-                    .rows()
-                    .map(|(row_idx, row)| (None, row_idx, row));
+                let it = canvas.rows().map(|(row_idx, row)| (None, row_idx, row));
 
                 iter_normal = None;
                 iter_no_outputs = Some(it);
@@ -1814,13 +1834,15 @@ impl<W: LayoutElement> Layout<W> {
         let tiled = self
             .workspaces()
             .flat_map(|(mon, _, ws)| ws.windows().map(move |win| (mon, win)));
-        
-        let floating: Box<dyn Iterator<Item = (Option<&Monitor<W>>, &W)>> = match &self.monitor_set {
-            MonitorSet::Normal { monitors, .. } => {
-                Box::new(monitors.iter().flat_map(|mon| {
-                    mon.canvas.floating.tiles().map(move |tile| (Some(mon), tile.window()))
-                }))
-            }
+
+        let floating: Box<dyn Iterator<Item = (Option<&Monitor<W>>, &W)>> = match &self.monitor_set
+        {
+            MonitorSet::Normal { monitors, .. } => Box::new(monitors.iter().flat_map(|mon| {
+                mon.canvas
+                    .floating
+                    .tiles()
+                    .map(move |tile| (Some(mon), tile.window()))
+            })),
             MonitorSet::NoOutputs { canvas, .. } => {
                 Box::new(canvas.floating.tiles().map(|tile| (None, tile.window())))
             }
@@ -1842,7 +1864,7 @@ impl<W: LayoutElement> Default for MonitorSet<W> {
         let working_area = parent_area;
         let clock = Clock::with_time(Duration::ZERO);
         let options = Rc::new(Options::default());
-        
+
         let canvas = crate::layout::canvas::Canvas2D::new(
             None,
             view_size,
@@ -1853,8 +1875,7 @@ impl<W: LayoutElement> Default for MonitorSet<W> {
             options,
             RowId(1),
         );
-        
+
         Self::NoOutputs { canvas }
     }
 }
-

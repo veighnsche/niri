@@ -433,9 +433,7 @@ impl From<niri_ipc::Action> for Action {
             }
             niri_ipc::Action::MoveWindowDown {} => Self::MoveWindowDown,
             niri_ipc::Action::MoveWindowUp {} => Self::MoveWindowUp,
-            niri_ipc::Action::MoveWindowDownOrToRowDown {} => {
-                Self::MoveWindowDownOrToRowDown
-            }
+            niri_ipc::Action::MoveWindowDownOrToRowDown {} => Self::MoveWindowDownOrToRowDown,
             niri_ipc::Action::MoveWindowUpOrToRowUp {} => Self::MoveWindowUpOrToRowUp,
             niri_ipc::Action::ConsumeOrExpelWindowLeft { id: None } => {
                 Self::ConsumeOrExpelWindowLeft
@@ -462,18 +460,10 @@ impl From<niri_ipc::Action> for Action {
             niri_ipc::Action::FocusRowDown {} => Self::FocusRowDown,
             niri_ipc::Action::FocusRowUp {} => Self::FocusRowUp,
             niri_ipc::Action::FocusPreviousPosition {} => Self::FocusPreviousPosition,
-            niri_ipc::Action::MoveWindowToRowDown { focus } => {
-                Self::MoveWindowToRowDown(focus)
-            }
-            niri_ipc::Action::MoveWindowToRowUp { focus } => {
-                Self::MoveWindowToRowUp(focus)
-            }
-            niri_ipc::Action::MoveColumnToRowDown { focus } => {
-                Self::MoveColumnToRowDown(focus)
-            }
-            niri_ipc::Action::MoveColumnToRowUp { focus } => {
-                Self::MoveColumnToRowUp(focus)
-            }
+            niri_ipc::Action::MoveWindowToRowDown { focus } => Self::MoveWindowToRowDown(focus),
+            niri_ipc::Action::MoveWindowToRowUp { focus } => Self::MoveWindowToRowUp(focus),
+            niri_ipc::Action::MoveColumnToRowDown { focus } => Self::MoveColumnToRowDown(focus),
+            niri_ipc::Action::MoveColumnToRowUp { focus } => Self::MoveColumnToRowUp(focus),
             niri_ipc::Action::MoveRowDown {} => Self::MoveRowDown,
             niri_ipc::Action::MoveRowUp {} => Self::MoveRowUp,
             niri_ipc::Action::MoveRowToIndex { index } => Self::MoveRowToIndex(index),
@@ -555,9 +545,7 @@ impl From<niri_ipc::Action> for Action {
             niri_ipc::Action::MoveRowToMonitorRight {} => Self::MoveRowToMonitorRight,
             niri_ipc::Action::MoveRowToMonitorDown {} => Self::MoveRowToMonitorDown,
             niri_ipc::Action::MoveRowToMonitorUp {} => Self::MoveRowToMonitorUp,
-            niri_ipc::Action::MoveRowToMonitorPrevious {} => {
-                Self::MoveRowToMonitorPrevious
-            }
+            niri_ipc::Action::MoveRowToMonitorPrevious {} => Self::MoveRowToMonitorPrevious,
             niri_ipc::Action::MoveRowToMonitorNext {} => Self::MoveRowToMonitorNext,
             niri_ipc::Action::MoveRowToMonitor { output } => Self::MoveRowToMonitor(output),
             niri_ipc::Action::ToggleDebugTint {} => Self::ToggleDebugTint,
@@ -595,7 +583,9 @@ impl From<niri_ipc::Action> for Action {
                 Self::SetDynamicCastMonitor(output)
             }
             niri_ipc::Action::ClearDynamicCastTarget {} => Self::ClearDynamicCastTarget,
-            niri_ipc::Action::ToggleOverview { .. } | niri_ipc::Action::OpenOverview { .. } | niri_ipc::Action::CloseOverview { .. } => {
+            niri_ipc::Action::ToggleOverview { .. }
+            | niri_ipc::Action::OpenOverview { .. }
+            | niri_ipc::Action::CloseOverview { .. } => {
                 unreachable!("overview actions should have been removed from IPC")
             }
             niri_ipc::Action::ToggleWindowUrgent { id } => Self::ToggleWindowUrgent(id),

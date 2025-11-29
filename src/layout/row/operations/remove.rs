@@ -7,8 +7,7 @@ use std::cmp::min;
 use niri_ipc::ColumnDisplay;
 
 use crate::layout::animated_value::AnimatedValue;
-use crate::layout::column::Column;
-use crate::layout::column::WindowHeight;
+use crate::layout::column::{Column, WindowHeight};
 use crate::layout::row::Row;
 use crate::layout::{LayoutElement, RemovedTile};
 use crate::utils::transaction::Transaction;
@@ -143,11 +142,11 @@ impl<W: LayoutElement> Row<W> {
         if self.columns.is_empty() {
             return None;
         }
-        
+
         let column_idx = self.active_column_idx;
         let column = &self.columns[column_idx];
         let tile_idx = column.active_tile_idx;
-        
+
         Some(self.remove_tile_by_idx(column_idx, tile_idx, transaction, None))
     }
 
@@ -237,11 +236,7 @@ impl<W: LayoutElement> Row<W> {
                     prev_offset,
                     view_config,
                 );
-                self.animate_view_offset_to_column(
-                    None,
-                    self.active_column_idx,
-                    None,
-                );
+                self.animate_view_offset_to_column(None, self.active_column_idx, None);
             }
         } else {
             self.activate_column(min(self.active_column_idx, self.columns.len() - 1));

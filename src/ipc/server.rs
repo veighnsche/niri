@@ -357,7 +357,8 @@ async fn process(ctx: &ClientCtx, request: Request) -> Reply {
                 state.niri.ui.pick_window = Some(tx);
                 state
                     .niri
-                    .cursor.manager
+                    .cursor
+                    .manager
                     .set_cursor_image(CursorImageStatus::Named(CursorIcon::Crosshair));
                 // Redraw to update the cursor.
                 state.niri.queue_redraw_all();

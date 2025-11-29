@@ -41,37 +41,36 @@ mod sizing;
 mod state;
 mod view_offset;
 
-use column_data::ColumnData;
-
-pub use render::RowRenderElement;
-
 use std::cmp::max;
 use std::rc::Rc;
 
-use niri_config::{Struts, Border, PresetSize};
+use column_data::ColumnData;
 use niri_config::utils::MergeWith;
+use niri_config::{Border, PresetSize, Struts};
 use niri_ipc::{ColumnDisplay, SizeChange};
-// TEAM_060: Using RowId directly instead of WorkspaceId alias
-use crate::layout::row_types::RowId;
-use smithay::utils::{Logical, Point, Rectangle, Size, Serial};
+pub use render::RowRenderElement;
+use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
-use smithay::backend::renderer::gles::GlesRenderer;
-
-use crate::utils::{ResizeEdge, ensure_min_max_size, ensure_min_max_size_maybe_zero, send_scale_transform};
-use crate::window::ResolvedWindowRules;
-
-use super::animated_value::AnimatedValue;
-use super::elements::closing_window::ClosingWindow;
-use super::column::{Column, resolve_preset_size};
-use super::tile::Tile;
-use super::types::{InteractiveResize, ResolvedSize};
-use super::elements::tab_indicator::TabIndicator;
-use super::{LayoutElement, Options, ConfigureIntent};
-use crate::animation::Clock;
-use crate::utils::transaction::TransactionBlocker;
+use smithay::utils::{Logical, Point, Rectangle, Serial, Size};
 use smithay::wayland::compositor::with_states;
 use smithay::wayland::shell::xdg::SurfaceCachedState;
+
+use super::animated_value::AnimatedValue;
+use super::column::{resolve_preset_size, Column};
+use super::elements::closing_window::ClosingWindow;
+use super::elements::tab_indicator::TabIndicator;
+use super::tile::Tile;
+use super::types::{InteractiveResize, ResolvedSize};
+use super::{ConfigureIntent, LayoutElement, Options};
+use crate::animation::Clock;
+// TEAM_060: Using RowId directly instead of WorkspaceId alias
+use crate::layout::row_types::RowId;
+use crate::utils::transaction::TransactionBlocker;
+use crate::utils::{
+    ensure_min_max_size, ensure_min_max_size_maybe_zero, send_scale_transform, ResizeEdge,
+};
+use crate::window::ResolvedWindowRules;
 
 // TEAM_064: ColumnData moved to column_data.rs
 
@@ -84,7 +83,6 @@ pub struct Row<W: LayoutElement> {
     // =========================================================================
     // Row-specific fields (not in ScrollingSpace)
     // =========================================================================
-    
     /// Row index in the canvas.
     ///
     /// - `0` = origin row (where windows open by default)
@@ -96,7 +94,7 @@ pub struct Row<W: LayoutElement> {
     y_offset: f64,
 
     /// Optional name for this row (replaces workspace naming).
-    /// 
+    ///
     /// Used for user-identifiable rows in the 2D canvas.
     name: Option<String>,
 
@@ -106,7 +104,6 @@ pub struct Row<W: LayoutElement> {
     // =========================================================================
     // Column management (from ScrollingSpace)
     // =========================================================================
-    
     /// Columns of windows in this row.
     columns: Vec<Column<W>>,
 
@@ -122,7 +119,6 @@ pub struct Row<W: LayoutElement> {
     // =========================================================================
     // View/scroll state (from ScrollingSpace, renamed for clarity)
     // =========================================================================
-    
     /// Horizontal view offset from the active column.
     view_offset_x: AnimatedValue,
 
@@ -138,7 +134,6 @@ pub struct Row<W: LayoutElement> {
     // =========================================================================
     // Layout configuration (from ScrollingSpace)
     // =========================================================================
-    
     /// View size for this row.
     view_size: Size<f64, Logical>,
 
@@ -207,7 +202,7 @@ impl<W: LayoutElement> Row<W> {
     pub fn idx(&self) -> i32 {
         self.row_index
     }
-    
+
     /// Set the row index.
     /// TEAM_059: Added for renumbering rows after cleanup
     pub fn set_idx(&mut self, idx: i32) {
@@ -304,7 +299,8 @@ impl<W: LayoutElement> Row<W> {
         for win in &mut self.closing_windows {
             win.advance_animations();
         }
-        self.closing_windows.retain(|win| win.are_animations_ongoing());
+        self.closing_windows
+            .retain(|win| win.are_animations_ongoing());
     }
 
     /// Returns whether any animations are ongoing.
@@ -412,11 +408,11 @@ impl<W: LayoutElement> Row<W> {
     // =========================================================================
 
     /// Returns self for test compatibility.
-    /// 
+    ///
     /// In the old architecture, Workspace had a scrolling() method that returned
     /// the ScrollingSpace. In Canvas2D, Row IS the scrolling space, so this just
     /// returns self.
-    /// 
+    ///
     /// TEAM_035: Added for test compatibility
     #[cfg(test)]
     pub fn scrolling(&self) -> &Self {
@@ -606,7 +602,9 @@ impl<W: LayoutElement> Row<W> {
 
     // TEAM_010: Helper to extract animation kind for snapshots
     #[cfg(test)]
-    fn extract_animation_kind(anim: &crate::animation::Animation) -> crate::layout::snapshot::AnimationKindSnapshot {
+    fn extract_animation_kind(
+        anim: &crate::animation::Animation,
+    ) -> crate::layout::snapshot::AnimationKindSnapshot {
         use crate::layout::snapshot::AnimationKindSnapshot;
 
         if let Some(curve_name) = anim.easing_curve_name() {
@@ -651,14 +649,14 @@ pub(crate) fn compute_working_area(
     struts: Struts,
 ) -> Rectangle<f64, Logical> {
     let mut area = parent_area;
-    
+
     let round = |x: f64| (x * scale).round() / scale;
-    
+
     area.loc.x += round(struts.left.0 as f64);
     area.loc.y += round(struts.top.0 as f64);
     area.size.w -= round(struts.left.0 as f64) + round(struts.right.0 as f64);
     area.size.h -= round(struts.top.0 as f64) + round(struts.bottom.0 as f64);
-    
+
     area
 }
 
@@ -691,16 +689,17 @@ impl<W: LayoutElement> Row<W> {
             let current = guard.current();
             (current.min_size, current.max_size)
         });
-        
+
         toplevel.with_pending_state(|state| {
             use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel;
-            
+
             if state.states.contains(xdg_toplevel::State::Fullscreen) {
                 state.size = Some(self.view_size.to_i32_round());
             } else if state.states.contains(xdg_toplevel::State::Maximized) {
                 state.size = Some(self.working_area.size.to_i32_round());
             } else {
-                let size = self.new_window_size(width, height, is_floating, rules, (min_size, max_size));
+                let size =
+                    self.new_window_size(width, height, is_floating, rules, (min_size, max_size));
                 state.size = Some(size);
             }
 
@@ -725,7 +724,7 @@ impl<W: LayoutElement> Row<W> {
         // Apply min/max size constraints
         let (min_size, max_size) = rules.apply_min_max_size(min_size, max_size);
         size.w = ensure_min_max_size_maybe_zero(size.w, min_size.w, max_size.w);
-        
+
         // For scrolling (where height is > 0) only ensure fixed height
         if min_size.h == max_size.h {
             size.h = ensure_min_max_size(size.h, min_size.h, max_size.h);
@@ -899,7 +898,7 @@ impl<W: LayoutElement> Row<W> {
 
     // TEAM_024: Workspace compatibility methods - these are mostly no-ops for rows
     // since floating windows are handled at the Canvas2D level
-    
+
     pub fn set_window_height(&mut self, window: Option<&W::Id>, change: super::SizeChange) {
         if self.columns.is_empty() {
             return;
@@ -909,7 +908,11 @@ impl<W: LayoutElement> Row<W> {
             // Find the window across all columns
             let mut found = None;
             for (col_idx, col) in self.columns.iter_mut().enumerate() {
-                if let Some(tile_idx) = col.tiles.iter().position(|tile| tile.window().id() == window) {
+                if let Some(tile_idx) = col
+                    .tiles
+                    .iter()
+                    .position(|tile| tile.window().id() == window)
+                {
                     found = Some((col_idx, Some(tile_idx)));
                     break;
                 }
@@ -924,24 +927,24 @@ impl<W: LayoutElement> Row<W> {
             col.set_window_height(change, tile_idx, true);
         }
     }
-    
+
     // TEAM_064: reset_window_height and expand_column_to_available_width moved to sizing.rs
-    
+
     // TEAM_035: Updated signature to accept Option<&W::Id>
     pub fn toggle_window_floating(&mut self, _window: Option<&W::Id>) {
         // Floating is handled at Canvas2D level - this is a no-op for rows
     }
-    
+
     // TEAM_035: Updated signature to accept Option<&W::Id>
     pub fn set_window_floating(&mut self, _window: Option<&W::Id>, _floating: bool) {
         // Floating is handled at Canvas2D level - this is a no-op for rows
     }
-    
+
     pub fn focus_floating(&mut self) -> bool {
         // Rows don't contain floating windows - always false
         false
     }
-    
+
     pub fn focus_tiling(&mut self) -> bool {
         // Focus the first tiled window in the active column
         if let Some(column) = self.active_column_mut() {
@@ -956,24 +959,25 @@ impl<W: LayoutElement> Row<W> {
             false
         }
     }
-    
+
     pub fn switch_focus_floating_tiling(&mut self) -> bool {
         // Rows only have tiled windows - just focus tiling
         self.focus_tiling()
     }
-    
+
     // TEAM_064: Fullscreen/maximize methods moved to fullscreen.rs:
-    // set_fullscreen, toggle_fullscreen, set_maximized, toggle_maximized, get_fullscreen_size_for_window
-    
+    // set_fullscreen, toggle_fullscreen, set_maximized, toggle_maximized,
+    // get_fullscreen_size_for_window
+
     // TEAM_064: activate_window moved to navigation.rs
-    
+
     // TEAM_035: Updated signature to accept window ID and return bool
     pub fn start_open_animation(&mut self, window: &W::Id) -> bool {
         self.columns
             .iter_mut()
             .any(|col| col.start_open_animation(window))
     }
-    
+
     pub fn layout_config(&self) -> Option<niri_config::LayoutPart> {
         // Rows don't have individual layout configs - this comes from the monitor/canvas
         None
@@ -1035,15 +1039,18 @@ impl<W: LayoutElement> Row<W> {
         if let Some(serial) = serial {
             tile.window_mut().on_commit(serial);
         }
-        
+
         let prev_width = self.data[col_idx].width;
         // TEAM_050: Track sizing mode before update for view offset save/restore
         let was_normal = column.sizing_mode().is_normal();
-        
+
         // TEAM_053: Capture fullscreen size BEFORE update_window if transitioning to normal
         let fullscreen_size_to_preserve = if !was_normal {
             // Check if this window will transition to normal (unfullscreen)
-            column.tiles.iter().find(|tile| tile.window().id() == window)
+            column
+                .tiles
+                .iter()
+                .find(|tile| tile.window().id() == window)
                 .and_then(|tile| tile.window().expected_size())
         } else {
             None
@@ -1081,7 +1088,7 @@ impl<W: LayoutElement> Row<W> {
         // TEAM_050: View offset save/restore for fullscreen transitions
         if col_idx == self.active_column_idx {
             let is_normal = self.columns[col_idx].sizing_mode().is_normal();
-            
+
             // When the active column goes fullscreen, store the view offset to restore later.
             if was_normal && !is_normal {
                 self.view_offset_to_restore = Some(self.view_offset_x.stationary());
@@ -1091,12 +1098,15 @@ impl<W: LayoutElement> Row<W> {
             let unfullscreen_offset = if !was_normal && is_normal {
                 // TEAM_053: Set the captured fullscreen size to the tile
                 if let Some(fullscreen_size) = fullscreen_size_to_preserve {
-                    if let Some(tile) = self.columns[col_idx].tiles.iter_mut()
-                        .find(|tile| tile.window().id() == window) {
+                    if let Some(tile) = self.columns[col_idx]
+                        .tiles
+                        .iter_mut()
+                        .find(|tile| tile.window().id() == window)
+                    {
                         tile.floating_window_size = Some(fullscreen_size);
                     }
                 }
-                
+
                 self.view_offset_to_restore.take()
             } else {
                 None
@@ -1128,7 +1138,11 @@ impl<W: LayoutElement> Row<W> {
 
     /// Resolve scrolling width for a window.
     /// TEAM_039: Properly implemented - returns ColumnWidth based on preset or window size
-    pub fn resolve_scrolling_width(&self, window: &W, width: Option<PresetSize>) -> crate::layout::types::ColumnWidth {
+    pub fn resolve_scrolling_width(
+        &self,
+        window: &W,
+        width: Option<PresetSize>,
+    ) -> crate::layout::types::ColumnWidth {
         let width = width.unwrap_or_else(|| PresetSize::Fixed(window.size().w));
         match width {
             PresetSize::Fixed(fixed) => {
@@ -1194,7 +1208,9 @@ impl<W: LayoutElement> Row<W> {
     /// Get tiles with IPC layouts.
     /// TEAM_025: Stub implementation
     /// TEAM_035: Updated return type to iterator of (tile, layout) tuples
-    pub fn tiles_with_ipc_layouts(&self) -> impl Iterator<Item = (&Tile<W>, niri_ipc::WindowLayout)> {
+    pub fn tiles_with_ipc_layouts(
+        &self,
+    ) -> impl Iterator<Item = (&Tile<W>, niri_ipc::WindowLayout)> {
         // TEAM_025: TODO - implement IPC layout generation
         // For now, return tiles with empty layouts
         self.tiles().map(|tile| {
@@ -1299,7 +1315,10 @@ impl<W: LayoutElement> Row<W> {
     /// Get scrolling insert position.
     /// TEAM_028: Stub implementation
     /// TEAM_035: Updated return type to InsertPosition
-    pub fn scrolling_insert_position(&self, _pos: Point<f64, Logical>) -> super::types::InsertPosition {
+    pub fn scrolling_insert_position(
+        &self,
+        _pos: Point<f64, Logical>,
+    ) -> super::types::InsertPosition {
         // TEAM_028: TODO - implement insert position calculation
         super::types::InsertPosition::NewColumn(0)
     }
@@ -1321,7 +1340,12 @@ impl<W: LayoutElement> Row<W> {
     /// Start close animation for window.
     /// TEAM_028: Stub implementation
     /// TEAM_035: Updated signature to accept &W::Id
-    pub fn start_close_animation_for_window(&mut self, _renderer: &mut GlesRenderer, _window: &W::Id, _blocker: TransactionBlocker) {
+    pub fn start_close_animation_for_window(
+        &mut self,
+        _renderer: &mut GlesRenderer,
+        _window: &W::Id,
+        _blocker: TransactionBlocker,
+    ) {
         // TEAM_028: TODO - implement close animation
     }
 
@@ -1337,7 +1361,7 @@ impl<W: LayoutElement> Row<W> {
     ) {
         // TEAM_033: Implemented proper close animation with snapshot
         // Based on ScrollingSpace::start_close_animation_for_tile
-        
+
         let anim = crate::animation::Animation::new(
             self.clock.clone(),
             0.,
@@ -1368,7 +1392,10 @@ impl<W: LayoutElement> Row<W> {
 
     /// Convert logical position to size fraction for floating windows.
     /// TEAM_057: Implemented proper conversion using working area
-    pub fn floating_logical_to_size_frac(&self, pos: Point<f64, Logical>) -> Point<f64, super::SizeFrac> {
+    pub fn floating_logical_to_size_frac(
+        &self,
+        pos: Point<f64, Logical>,
+    ) -> Point<f64, super::SizeFrac> {
         // Convert from logical coordinates to size fraction (0.0 to 1.0 relative to working area)
         let relative_pos = pos - self.working_area.loc;
         Point::from((
@@ -1384,7 +1411,7 @@ impl<W: LayoutElement> Row<W> {
         position: super::InsertPosition,
     ) -> Option<Rectangle<f64, Logical>> {
         use super::InsertPosition;
-        
+
         let hint_area = match position {
             InsertPosition::NewColumn(column_index) => {
                 if column_index == 0 || column_index == self.columns.len() {

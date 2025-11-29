@@ -34,11 +34,11 @@ impl<W: LayoutElement> Canvas2D<W> {
                 // Move from floating to tiled
                 let removed = self.floating.remove_tile(id);
                 let mut tile = removed.tile;
-                
+
                 // TEAM_059: Capture the current floating size before moving to tiled
                 let current_size = tile.window().size();
                 tile.set_floating_window_size(Some(current_size));
-                
+
                 // TEAM_045: Start move animation when returning from floating to tiled
                 // so golden snapshots capture tile edge animations like the original
                 // Workspace-based implementation.
@@ -61,10 +61,11 @@ impl<W: LayoutElement> Canvas2D<W> {
                     let render_pos = row.tile_render_location(id);
                     let mut removed = row.remove_tile(id, Transaction::new());
                     removed.tile.stop_move_animations();
-                    
-                    // TEAM_044: Set floating position based on render position (like original Workspace)
+
+                    // TEAM_044: Set floating position based on render position (like original
+                    // Workspace)
                     self.set_floating_position_from_render_pos(&mut removed.tile, render_pos);
-                    
+
                     self.floating.add_tile(removed.tile, true);
                     self.floating_is_active = true;
                     return;
@@ -78,11 +79,11 @@ impl<W: LayoutElement> Canvas2D<W> {
             // Move window from floating to tiled
             if let Some(removed) = self.floating.remove_active_tile() {
                 let mut tile = removed.tile;
-                
+
                 // TEAM_059: Capture the current floating size before moving to tiled
                 let current_size = tile.window().size();
                 tile.set_floating_window_size(Some(current_size));
-                
+
                 // TEAM_045: Start move animation when returning from floating to tiled
                 // so golden snapshots capture tile edge animations like the original
                 // Workspace-based implementation.
@@ -103,37 +104,42 @@ impl<W: LayoutElement> Canvas2D<W> {
                 let render_pos = row.active_tile_render_location();
                 if let Some(mut removed) = row.remove_active_tile(Transaction::new()) {
                     removed.tile.stop_move_animations();
-                    
-                    // TEAM_044: Set floating position based on render position (like original Workspace)
+
+                    // TEAM_044: Set floating position based on render position (like original
+                    // Workspace)
                     self.set_floating_position_from_render_pos(&mut removed.tile, render_pos);
-                    
+
                     self.floating.add_tile(removed.tile, true);
                     self.floating_is_active = true;
                 }
             }
         }
     }
-    
+
     /// Sets the floating position for a tile based on its render position.
     ///
     /// This matches the original Workspace::toggle_window_floating behavior.
-    fn set_floating_position_from_render_pos(&self, tile: &mut Tile<W>, render_pos: Option<Point<f64, Logical>>) {
+    fn set_floating_position_from_render_pos(
+        &self,
+        tile: &mut Tile<W>,
+        render_pos: Option<Point<f64, Logical>>,
+    ) {
         // Only set position if there's no stored position
         if self.floating.stored_or_default_tile_pos(tile).is_some() {
             return;
         }
-        
+
         let Some(render_pos) = render_pos else {
             return;
         };
-        
+
         // Calculate offset based on center_focused_column setting
         let offset = if self.options.layout.center_focused_column == CenterFocusedColumn::Always {
             Point::from((0., 0.))
         } else {
             Point::from((50., 50.))
         };
-        
+
         let pos = render_pos + offset;
         let size = tile.tile_size();
         let pos = self.floating.clamp_within_working_area(pos, size);
@@ -266,11 +272,13 @@ impl<W: LayoutElement> Canvas2D<W> {
                         break;
                     }
                 }
-                
+
                 // Now call start_close_animation_for_tile after the iterator borrow ends
                 if let Some((snapshot, tile_size)) = tile_data {
                     let tile_pos = Point::new(0.0, 0.0);
-                    row.start_close_animation_for_tile(renderer, snapshot, tile_size, tile_pos, blocker);
+                    row.start_close_animation_for_tile(
+                        renderer, snapshot, tile_size, tile_pos, blocker,
+                    );
                     return;
                 }
             }

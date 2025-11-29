@@ -275,7 +275,7 @@ fn refresh_workspace(
     if mon.is_some_and(|mon| mon.active_row_idx() == ws_idx) {
         state |= ext_workspace_handle_v1::State::Active;
     }
-    
+
     // Check if any window in the row is urgent
     let is_urgent = ws.tiles().any(|tile| tile.window().is_urgent());
     if is_urgent {

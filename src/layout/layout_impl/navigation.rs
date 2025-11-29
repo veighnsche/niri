@@ -7,8 +7,8 @@ use smithay::output::Output;
 use smithay::utils::{Logical, Point};
 
 use super::super::{
-    ActivateWindow, InteractiveMoveState, Layout, LayoutElement, MonitorSet,
-    ResizeEdge, ScrollDirection, HitType,
+    ActivateWindow, HitType, InteractiveMoveState, Layout, LayoutElement, MonitorSet, ResizeEdge,
+    ScrollDirection,
 };
 
 impl<W: LayoutElement> Layout<W> {
@@ -344,12 +344,7 @@ impl<W: LayoutElement> Layout<W> {
         monitor.move_to_workspace_down(focus);
     }
 
-    pub fn move_to_row(
-        &mut self,
-        window: Option<&W::Id>,
-        idx: usize,
-        activate: ActivateWindow,
-    ) {
+    pub fn move_to_row(&mut self, window: Option<&W::Id>, idx: usize, activate: ActivateWindow) {
         if let Some(InteractiveMoveState::Moving(move_)) = &mut self.interactive_move {
             if window.is_none() || window == Some(move_.tile.window().id()) {
                 return;

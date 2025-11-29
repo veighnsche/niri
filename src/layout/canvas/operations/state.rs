@@ -4,13 +4,12 @@
 
 use std::rc::Rc;
 
-use smithay::utils::{Logical, Point, Rectangle};
 use niri_ipc::PositionChange;
+use smithay::utils::{Logical, Point, Rectangle};
 
 use crate::layout::canvas::Canvas2D;
 use crate::layout::row::Row;
-use crate::layout::LayoutElement;
-use crate::layout::Options;
+use crate::layout::{LayoutElement, Options};
 
 impl<W: LayoutElement> Canvas2D<W> {
     // =========================================================================
@@ -20,7 +19,7 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Update canvas configuration for all rows.
     pub fn update_config(&mut self, options: Rc<Options>) {
         self.options = options.clone();
-        
+
         // Update all rows with correct parameters
         for row in self.rows.values_mut() {
             row.update_config(
@@ -30,18 +29,18 @@ impl<W: LayoutElement> Canvas2D<W> {
                 options.clone(),
             );
         }
-        
+
         // Update floating space
-        self.floating.update_config(
-            self.view_size,
-            self.working_area,
-            self.scale,
-            options,
-        );
+        self.floating
+            .update_config(self.view_size, self.working_area, self.scale, options);
     }
 
     /// Update layout configuration for a specific row (by name).
-    pub fn update_row_layout_config(&mut self, row_name: &str, _layout_config: Option<niri_config::LayoutPart>) {
+    pub fn update_row_layout_config(
+        &mut self,
+        row_name: &str,
+        _layout_config: Option<niri_config::LayoutPart>,
+    ) {
         // Find row by name and update its config
         for row in self.rows.values_mut() {
             if let Some(name) = row.name() {
@@ -69,7 +68,7 @@ impl<W: LayoutElement> Canvas2D<W> {
         if self.floating.start_open_animation(id) {
             return true;
         }
-        
+
         // Check tiled windows
         for row in self.rows.values_mut() {
             // TEAM_019: Implemented start_open_animation for Row
@@ -78,7 +77,7 @@ impl<W: LayoutElement> Canvas2D<W> {
                 return true;
             }
         }
-        
+
         false
     }
 
@@ -130,10 +129,10 @@ impl<W: LayoutElement> Canvas2D<W> {
         if self.floating_is_active {
             return; // No effect on floating windows
         }
-        
+
         if let Some(row) = self.active_row_mut() {
             if row.active_column_idx() > 0 {
-                // TEAM_019: Implemented actual column reordering 
+                // TEAM_019: Implemented actual column reordering
                 // Move active column to first position
                 row.move_column_to_index(0);
             }
@@ -145,7 +144,7 @@ impl<W: LayoutElement> Canvas2D<W> {
         if self.floating_is_active {
             return; // No effect on floating windows
         }
-        
+
         if let Some(row) = self.active_row_mut() {
             let last_idx = row.column_count().saturating_sub(1);
             if row.active_column_idx() < last_idx {
@@ -221,24 +220,25 @@ impl<W: LayoutElement> Canvas2D<W> {
         if self.floating.has_window(id) {
             if is_fullscreen {
                 // Move from floating to tiled, then fullscreen
-                // Note: floating.remove_tile() already stores floating_window_size via expected_size()
+                // Note: floating.remove_tile() already stores floating_window_size via
+                // expected_size()
                 let removed = self.floating.remove_tile(id);
                 let mut tile = removed.tile;
-                
+
                 tile.animate_move_from(Point::from((0., 0.)));
-                
+
                 // TEAM_059: Mark this tile to restore to floating when unfullscreened
                 tile.set_restore_to_floating(true);
-                
+
                 let width = removed.width;
                 let is_full_width = removed.is_full_width;
                 self.add_tile(tile, true, width, is_full_width);
-                
+
                 // TEAM_054: Switch to tiled mode since window is no longer floating
                 if self.floating.is_empty() {
                     self.floating_is_active = false;
                 }
-                
+
                 // Now fullscreen the window in its new tiled location
                 for row in self.rows.values_mut() {
                     if row.has_window(id) {
@@ -250,13 +250,14 @@ impl<W: LayoutElement> Canvas2D<W> {
             // If unsetting fullscreen on a floating window, nothing to do
             return;
         }
-        
+
         // Find the row containing this window and delegate
         for row in self.rows.values_mut() {
             if row.has_window(id) {
                 let should_restore_to_floating = row.set_fullscreen(id, is_fullscreen);
-                
-                // TEAM_059: If the row indicates we should restore to floating, move the window back
+
+                // TEAM_059: If the row indicates we should restore to floating, move the window
+                // back
                 if should_restore_to_floating {
                     self.toggle_floating_window_by_id(Some(id));
                 }
@@ -276,21 +277,21 @@ impl<W: LayoutElement> Canvas2D<W> {
             // Note: floating.remove_tile() already stores floating_window_size via expected_size()
             let removed = self.floating.remove_tile(id);
             let mut tile = removed.tile;
-            
+
             tile.animate_move_from(Point::from((0., 0.)));
-            
+
             // TEAM_059: Mark this tile to restore to floating when unfullscreened
             tile.set_restore_to_floating(true);
-            
+
             let width = removed.width;
             let is_full_width = removed.is_full_width;
             self.add_tile(tile, true, width, is_full_width);
-            
+
             // TEAM_054: Switch to tiled mode since window is no longer floating
             if self.floating.is_empty() {
                 self.floating_is_active = false;
             }
-            
+
             // Now fullscreen the window in its new tiled location
             for row in self.rows.values_mut() {
                 if row.has_window(id) {
@@ -300,13 +301,14 @@ impl<W: LayoutElement> Canvas2D<W> {
             }
             return;
         }
-        
+
         // Find the row containing this window and delegate
         for row in self.rows.values_mut() {
             if row.has_window(id) {
                 let should_restore_to_floating = row.toggle_fullscreen(id);
-                
-                // TEAM_059: If the row indicates we should restore to floating, move the window back
+
+                // TEAM_059: If the row indicates we should restore to floating, move the window
+                // back
                 if should_restore_to_floating {
                     self.toggle_floating_window_by_id(Some(id));
                 }
@@ -324,24 +326,25 @@ impl<W: LayoutElement> Canvas2D<W> {
         if self.floating.has_window(id) {
             if maximize {
                 // Move from floating to tiled, then maximize
-                // Note: floating.remove_tile() already stores floating_window_size via expected_size()
+                // Note: floating.remove_tile() already stores floating_window_size via
+                // expected_size()
                 let removed = self.floating.remove_tile(id);
                 let mut tile = removed.tile;
-                
+
                 tile.animate_move_from(Point::from((0., 0.)));
-                
+
                 // TEAM_059: Mark this tile to restore to floating when unmaximized
                 tile.set_restore_to_floating(true);
-                
+
                 let width = removed.width;
                 let is_full_width = removed.is_full_width;
                 self.add_tile(tile, true, width, is_full_width);
-                
+
                 // TEAM_054: Switch to tiled mode since window is no longer floating
                 if self.floating.is_empty() {
                     self.floating_is_active = false;
                 }
-                
+
                 // Now maximize the window in its new tiled location
                 for row in self.rows.values_mut() {
                     if row.has_window(id) {
@@ -353,13 +356,14 @@ impl<W: LayoutElement> Canvas2D<W> {
             // If unsetting maximized on a floating window, nothing to do
             return;
         }
-        
+
         // Find the row containing this window and delegate
         for row in self.rows.values_mut() {
             if row.has_window(id) {
                 let should_restore_to_floating = row.set_maximized(id, maximize);
-                
-                // TEAM_059: If the row indicates we should restore to floating, move the window back
+
+                // TEAM_059: If the row indicates we should restore to floating, move the window
+                // back
                 if should_restore_to_floating {
                     self.toggle_floating_window_by_id(Some(id));
                 }
@@ -379,21 +383,21 @@ impl<W: LayoutElement> Canvas2D<W> {
             // Note: floating.remove_tile() already stores floating_window_size via expected_size()
             let removed = self.floating.remove_tile(id);
             let mut tile = removed.tile;
-            
+
             tile.animate_move_from(Point::from((0., 0.)));
-            
+
             // TEAM_059: Mark this tile to restore to floating when unmaximized
             tile.set_restore_to_floating(true);
-            
+
             let width = removed.width;
             let is_full_width = removed.is_full_width;
             self.add_tile(tile, true, width, is_full_width);
-            
+
             // TEAM_054: Switch to tiled mode since window is no longer floating
             if self.floating.is_empty() {
                 self.floating_is_active = false;
             }
-            
+
             // Now maximize the window in its new tiled location
             for row in self.rows.values_mut() {
                 if row.has_window(id) {
@@ -403,13 +407,14 @@ impl<W: LayoutElement> Canvas2D<W> {
             }
             return;
         }
-        
+
         // Find the row containing this window and delegate
         for row in self.rows.values_mut() {
             if row.has_window(id) {
                 let should_restore_to_floating = row.toggle_maximized(id);
-                
-                // TEAM_059: If the row indicates we should restore to floating, move the window back
+
+                // TEAM_059: If the row indicates we should restore to floating, move the window
+                // back
                 if should_restore_to_floating {
                     self.toggle_floating_window_by_id(Some(id));
                 }

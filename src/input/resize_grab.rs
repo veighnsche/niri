@@ -24,7 +24,8 @@ impl ResizeGrab {
         state.niri.layout.interactive_resize_end(&self.window);
         state
             .niri
-            .cursor.manager
+            .cursor
+            .manager
             .set_cursor_image(CursorImageStatus::default_named());
     }
 }

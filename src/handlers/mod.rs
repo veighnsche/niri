@@ -2,7 +2,6 @@ mod compositor;
 mod layer_shell;
 mod xdg_shell;
 
-use crate::niri::config::StateConfigExt;
 use std::fs::File;
 use std::io::Write;
 use std::os::fd::OwnedFd;
@@ -77,6 +76,7 @@ pub use crate::handlers::xdg_shell::KdeDecorationsModeState;
 // TEAM_060: Using RowId directly instead of WorkspaceId alias
 use crate::layout::row_types::RowId as WorkspaceId;
 use crate::layout::ActivateWindow;
+use crate::niri::config::StateConfigExt;
 use crate::niri::{DndIcon, NewClient, State};
 use crate::protocols::ext_workspace::{self, ExtWorkspaceHandler, ExtWorkspaceManagerState};
 use crate::protocols::foreign_toplevel::{
@@ -269,13 +269,15 @@ impl KeyboardShortcutsInhibitHandler for State {
         // FIXME: show a confirmation dialog with a "remember for this application" kind of toggle.
         inhibitor.activate();
         self.niri
-            .focus.shortcut_inhibitors
+            .focus
+            .shortcut_inhibitors
             .insert(inhibitor.wl_surface().clone(), inhibitor);
     }
 
     fn inhibitor_destroyed(&mut self, inhibitor: KeyboardShortcutsInhibitor) {
         self.niri
-            .focus.shortcut_inhibitors
+            .focus
+            .shortcut_inhibitors
             .remove(&inhibitor.wl_surface().clone());
     }
 }

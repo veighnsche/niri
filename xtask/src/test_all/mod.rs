@@ -33,17 +33,11 @@ use clap::Subcommand;
 
 /// Paths that may contain snapshot files
 // TEAM_040: Added src/tests/snapshots which was missing
-const SNAPSHOT_PATHS: &[&str] = &[
-    "src/layout/tests/snapshots",
-    "src/tests/snapshots",
-];
+const SNAPSHOT_PATHS: &[&str] = &["src/layout/tests/snapshots", "src/tests/snapshots"];
 
 /// Paths that may contain .pending-snap files (test source directories)
 // TEAM_040: Added to clean up pending-snap files
-const PENDING_SNAP_PATHS: &[&str] = &[
-    "src/layout/tests",
-    "src/tests",
-];
+const PENDING_SNAP_PATHS: &[&str] = &["src/layout/tests", "src/tests"];
 
 /// Primary snapshot directory
 const SNAPSHOT_DIR: &str = "src/layout/tests/snapshots";
@@ -129,7 +123,7 @@ fn verify_golden() -> Result<()> {
 
     // Run golden tests
     println!("\nRunning golden tests...");
-    
+
     let output = Command::new("cargo")
         .args(["test", "--lib", "--", "golden"])
         .output()
@@ -138,9 +132,16 @@ fn verify_golden() -> Result<()> {
     // Show last few lines of output
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    
+
     // Print test output
-    for line in stdout.lines().rev().take(10).collect::<Vec<_>>().into_iter().rev() {
+    for line in stdout
+        .lines()
+        .rev()
+        .take(10)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+    {
         println!("{line}");
     }
 
@@ -165,7 +166,7 @@ fn verify_golden() -> Result<()> {
         println!();
         println!("Golden snapshots come from: golden-snapshots branch");
         println!("Sync command: cargo xtask golden-sync pull");
-        
+
         std::process::exit(1);
     }
 }
@@ -193,7 +194,7 @@ fn run_tests(
 
     // Build test command
     let mut args = vec!["test", "--lib"];
-    
+
     if release {
         args.push("--release");
     }
@@ -235,7 +236,7 @@ fn run_tests(
         if new_count > 0 {
             println!("\n📝 Found {new_count} .snap.new files (test output diffs)");
             println!("   These show what your code produced vs expected.");
-            
+
             if post_clean {
                 println!("\n🧹 Cleaning up .snap.new files (--post-clean)...");
                 let cleaned = clean_snap_new_files()?;
@@ -317,7 +318,7 @@ fn show_status() -> Result<()> {
             for entry in entries.filter_map(|e| e.ok()) {
                 let name = entry.file_name();
                 let name_str = name.to_string_lossy();
-                
+
                 if name_str.ends_with(".snap") && !name_str.ends_with(".snap.new") {
                     total_snaps += 1;
                 }

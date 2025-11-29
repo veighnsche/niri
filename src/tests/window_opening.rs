@@ -405,7 +405,10 @@ window-rule {{
     let win = mapped.window.clone();
     let mon = mon.unwrap().output_name().clone();
     // TEAM_035: name() returns Option<&str>, use .map(|s| s.to_string()) instead of .cloned()
-    let ws = ws.name().map(|s| s.to_string()).unwrap_or(String::from("unnamed"));
+    let ws = ws
+        .name()
+        .map(|s| s.to_string())
+        .unwrap_or(String::from("unnamed"));
 
     let window = f.client(id).window(&surface);
     let post_map = window.format_recent_configures();

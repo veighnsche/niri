@@ -5,8 +5,7 @@
 use smithay::utils::{Logical, Rectangle, Size};
 
 use super::super::{
-    InteractiveMoveState, Layout, LayoutElement, MonitorSet, WorkspaceSwitch,
-    output_size,
+    output_size, InteractiveMoveState, Layout, LayoutElement, MonitorSet, WorkspaceSwitch,
 };
 
 impl<W: LayoutElement> Layout<W> {
@@ -80,7 +79,8 @@ impl<W: LayoutElement> Layout<W> {
         let (mon, ws_idx) = monitors
             .iter()
             .find_map(|mon| {
-                mon.canvas.rows()
+                mon.canvas
+                    .rows()
                     .position(|(_, ws)| ws.has_window(window))
                     .map(|ws_idx| (mon, ws_idx))
             })

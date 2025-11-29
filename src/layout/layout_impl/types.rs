@@ -7,10 +7,9 @@ use std::time::Duration;
 use smithay::output::Output;
 use smithay::utils::{Logical, Point, Scale};
 
-use crate::layout::tile::Tile;
 use crate::layout::row_types::RowId;
-use crate::layout::ColumnWidth;
-use crate::layout::LayoutElement;
+use crate::layout::tile::Tile;
+use crate::layout::{ColumnWidth, LayoutElement};
 
 /// State of an ongoing interactive window move.
 #[allow(clippy::large_enum_variant)]
@@ -157,7 +156,11 @@ impl<W: LayoutElement> DndData<W> {
     }
 
     /// Updates the DnD data with new position.
-    pub(crate) fn update(&mut self, output: Output, pointer_pos_within_output: Point<f64, Logical>) {
+    pub(crate) fn update(
+        &mut self,
+        output: Output,
+        pointer_pos_within_output: Point<f64, Logical>,
+    ) {
         self.output = output;
         self.pointer_pos_within_output = pointer_pos_within_output;
     }
