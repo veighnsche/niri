@@ -1123,13 +1123,13 @@ cargo test
 
 | Phase | Effort | Risk | Status | Notes |
 |-------|--------|------|--------|-------|
-| 0. Cleanup | 1h | None | ⏳ Pending | Delete dead code |
-| 1. Create elements/ | 2h | Low | ⏳ Pending | Move render elements |
+| 0. Cleanup | 1h | None | ✅ **DONE** | TEAM_062 |
+| 1. Create elements/ | 2h | Low | ✅ **DONE** | TEAM_062 |
 | 2. Consolidate floating | 4h | Medium | ✅ **DONE** | TEAM_063 |
 | 3. Split tile | 3h | Medium | ✅ **DONE** | TEAM_063 |
-| 4. Split row/mod.rs | 4h | Medium | 🔄 **DEFERRED** | Too risky, well-organized |
-| 5. Create layout_impl/ | 10h | High | ⏳ Pending | Split into 10 sub-phases |
-| 6. Split canvas/ops | 3h | Medium | ⏳ Pending | After Phase 5 |
+| 4. Split row/mod.rs | 4h | Medium | 📋 **PLANNED** | See Deferred Item 1 |
+| 5. Create layout_impl/ | 10h | High | ✅ **DONE** | TEAM_063 + TEAM_064 |
+| 6. Split canvas/ops | 3h | Medium | 📋 **PLANNED** | See Deferred Item 2 |
 | **Total** | **~27h** | | | |
 
 ### Phase 5 Sub-phases
@@ -1145,8 +1145,8 @@ cargo test
 | 5.6 output_ops.rs | 45min | Medium | ✅ DONE |
 | 5.7 window_ops.rs | 1h | High | ✅ DONE |
 | 5.8 navigation.rs | 1.5h | High | ✅ DONE |
-| 5.9 interactive_move.rs | 45min | High | ⏳ DEFERRED (700+ LOC, complex) |
-| 5.10 render.rs | 45min | Medium | ⏳ DEFERRED |
+| 5.9 interactive_move.rs | 45min | High | ✅ DONE (TEAM_064) |
+| 5.10 render.rs | 45min | Medium | ✅ DONE (TEAM_064) |
 
 ## Success Metrics
 
@@ -1506,7 +1506,782 @@ The test failure was caused by TWO separate issues:
 
 ---
 
-*Last Updated: TEAM_062 on Nov 29, 2025*
+*Last Updated: TEAM_064 on Nov 29, 2025*
+
+---
+
+# 🔴 DEFERRED ITEMS BREAKDOWN (TEAM_064)
+
+> **Philosophy**: Nothing is "too risky" if broken down enough.
+> Each item below is split into atomic, independently-verifiable steps.
+
+---
+
+## 🏗️ DEFERRED ITEM 1: Split `row/mod.rs` (2161 LOC)
+
+> **Previous Status**: "HIGH RISK - DEFERRED"
+> **New Status**: Ready for incremental extraction
+
+### Why It Was Deferred
+- 80+ methods with complex interdependencies
+- Many methods access private fields
+- Previous split attempt caused file corruption
+- Workspace compatibility layer adds complexity
+
+### The Safe Approach: Extract One Category at a Time
+
+#### Step 1.1: Extract `ColumnData` struct (15 min, NO RISK)
+**Goal**: Move the internal `ColumnData` struct to its own file.
+
+```rust
+// row/column_data.rs
+pub(super) struct ColumnData {
+    pub(super) column: Column<W>,
+    pub(super) width: ColumnWidth,
+    pub(super) is_full_width: bool,
+}
+```
+
+**Verification**: `cargo check`
+
+#### Step 1.2: Extract State Query Methods (30 min, LOW RISK)
+**Goal**: Move read-only `is_*`, `has_*`, `count_*` methods.
+
+**Methods to extract → `row/state.rs`** (~20 methods):
+- `is_empty()`, `is_floating()`, `has_window()`
+- `column_count()`, `tile_count()`, `active_column_idx()`
+- `active_window()`, `active_tile()`, `active_tile_mut()`
+- `is_fullscreen()`, `is_maximized()`
+- `has_fullscreen()`, `has_maximized()`
+
+**Pattern**:
+```rust
+// row/state.rs
+use super::*;
+
+impl<W: LayoutElement> Row<W> {
+    pub fn is_empty(&self) -> bool {
+        self.columns.is_empty()
+    }
+    // ... move method bodies
+}
+```
+
+**Verification**: `cargo check && cargo test layout::`
+
+#### Step 1.3: Extract Tile Accessors (30 min, LOW RISK)
+**Goal**: Move tile iteration methods.
+
+**Methods to extract → `row/tiles.rs`** (~15 methods):
+- `tiles()`, `tiles_mut()`
+- `tiles_with_offsets()`, `tiles_with_render_positions()`
+- `find_tile()`, `find_tile_mut()`
+- `find_wl_surface()`, `find_wl_surface_mut()`
+- `window_under()`, `resize_edges_under()`
+
+**Verification**: `cargo check && cargo test layout::`
+
+#### Step 1.4: Extract Column Accessors (20 min, LOW RISK)
+**Goal**: Move column iteration methods.
+
+**Methods to extract → `row/columns.rs`** (~10 methods):
+- `columns()`, `columns_mut()`
+- `column_at()`, `column_at_mut()`
+- `active_column()`, `active_column_mut()`
+- `column_x()`, `column_width()`
+
+**Verification**: `cargo check && cargo test layout::`
+
+#### Step 1.5: Extract Fullscreen/Maximize (30 min, MEDIUM RISK)
+**Goal**: Move fullscreen/maximize operations.
+
+**Methods to extract → `row/fullscreen.rs`** (~10 methods):
+- `set_fullscreen()`, `toggle_fullscreen()`
+- `set_maximized()`, `toggle_maximized()`
+- `unset_fullscreen()`, `unset_maximized()`
+
+**Verification**: `cargo check && cargo test layout:: && cargo xtask test-all golden`
+
+#### Step 1.6: Extract Width/Height Operations (30 min, MEDIUM RISK)
+**Goal**: Move resize operations.
+
+**Methods to extract → `row/sizing.rs`** (~15 methods):
+- `set_column_width()`, `toggle_width()`, `toggle_full_width()`
+- `set_window_width()`, `set_window_height()`
+- `toggle_window_width()`, `toggle_window_height()`
+- `reset_window_height()`
+- `expand_column_to_available_width()`
+
+**Verification**: `cargo check && cargo test layout:: && cargo xtask test-all golden`
+
+#### Step 1.7: Extract Activation Methods (20 min, LOW RISK)
+**Goal**: Move focus/activation methods.
+
+**Methods to extract → `row/activation.rs`** (~8 methods):
+- `activate_window()`, `activate_column()`
+- `activate_prev_column()`, `activate_next_column()`
+- `set_active_column_idx()`
+
+**Verification**: `cargo check && cargo test layout::`
+
+#### Step 1.8: Extract DnD/Gesture Methods (20 min, LOW RISK)
+**Goal**: Move DnD scroll gesture methods.
+
+**Methods to extract → `row/dnd.rs`** (~5 methods):
+- `dnd_scroll_gesture_begin()`, `dnd_scroll_gesture_end()`
+- `dnd_scroll_gesture_scroll()`
+- `view_offset_gesture_end()`
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Summary: row/mod.rs Split
+
+| Step | File | Methods | Risk | Time |
+|------|------|---------|------|------|
+| 1.1 | column_data.rs | 1 struct | None | 15min |
+| 1.2 | state.rs | ~20 | Low | 30min |
+| 1.3 | tiles.rs | ~15 | Low | 30min |
+| 1.4 | columns.rs | ~10 | Low | 20min |
+| 1.5 | fullscreen.rs | ~10 | Medium | 30min |
+| 1.6 | sizing.rs | ~15 | Medium | 30min |
+| 1.7 | activation.rs | ~8 | Low | 20min |
+| 1.8 | dnd.rs | ~5 | Low | 20min |
+| **Total** | | **~84** | | **~3h** |
+
+**Target**: `row/mod.rs` from 2161 LOC → ~600 LOC
+
+---
+
+## 🏗️ DEFERRED ITEM 2: Split `canvas/operations.rs` (869 LOC)
+
+> **Previous Status**: "Phase 6 - After Phase 5"
+> **New Status**: Ready for incremental extraction
+
+### Step 2.1: Extract Row Management (30 min, LOW RISK)
+**Methods → `canvas/operations/row.rs`** (~200 LOC):
+- `ensure_row()`, `row()`, `row_mut()`
+- `rows()`, `rows_mut()`
+- `cleanup_empty_rows()`, `renumber_rows()`
+- `move_row_up()`, `move_row_down()`
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Step 2.2: Extract Window Operations (30 min, LOW RISK)
+**Methods → `canvas/operations/window.rs`** (~200 LOC):
+- `add_window()`, `remove_window()`
+- `find_window()`, `find_window_mut()`
+- `has_window()`, `window_count()`
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Step 2.3: Extract Tile Operations (30 min, LOW RISK)
+**Methods → `canvas/operations/tile.rs`** (~200 LOC):
+- `add_tile()`, `remove_tile()`
+- `move_tile_to_row()`
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Step 2.4: Extract State Updates (20 min, LOW RISK)
+**Methods → `canvas/operations/state.rs`** (~150 LOC):
+- `update_config()`, `update_shaders()`
+- `advance_animations()`, `are_animations_ongoing()`
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Summary: canvas/operations.rs Split
+
+| Step | File | LOC | Risk | Time |
+|------|------|-----|------|------|
+| 2.1 | row.rs | ~200 | Low | 30min |
+| 2.2 | window.rs | ~200 | Low | 30min |
+| 2.3 | tile.rs | ~200 | Low | 30min |
+| 2.4 | state.rs | ~150 | Low | 20min |
+| **Total** | | **~750** | | **~2h** |
+
+**Target**: `canvas/operations.rs` from 869 LOC → ~120 LOC (re-exports only)
+
+---
+
+## 🎥 DEFERRED ITEM 3: Camera Zoom System
+
+> **Previous Status**: "Phase 4 - THE DIFFERENTIATOR"
+> **New Status**: Ready for incremental implementation
+
+### Why It's Critical
+Without zoom, Canvas2D is functionally identical to workspaces!
+
+### Step 3.1: Add Camera Struct (30 min, LOW RISK)
+**Goal**: Create Camera struct with x, y, zoom.
+
+```rust
+// canvas/camera.rs
+pub struct Camera {
+    x: AnimatedValue,
+    y: AnimatedValue,
+    zoom: AnimatedValue,  // 1.0 = normal, 0.5 = see 2x area
+}
+
+impl Camera {
+    pub fn new(clock: Clock) -> Self {
+        Self {
+            x: AnimatedValue::new(clock.clone(), 0.0, 0.0, None),
+            y: AnimatedValue::new(clock.clone(), 0.0, 0.0, None),
+            zoom: AnimatedValue::new(clock, 1.0, 1.0, None),
+        }
+    }
+    
+    pub fn x(&self) -> f64 { self.x.value() }
+    pub fn y(&self) -> f64 { self.y.value() }
+    pub fn zoom(&self) -> f64 { self.zoom.value() }
+    
+    pub fn set_zoom(&mut self, zoom: f64, config: Option<Animation>) {
+        self.zoom.set_target(zoom.clamp(0.1, 2.0), config);
+    }
+}
+```
+
+**Verification**: `cargo check`
+
+### Step 3.2: Integrate Camera into Canvas2D (30 min, LOW RISK)
+**Goal**: Replace separate `camera_x`, `camera_y` with Camera struct.
+
+```rust
+// canvas/mod.rs
+pub struct Canvas2D<W> {
+    // Remove:
+    // camera_x: AnimatedValue,
+    // camera_y: AnimatedValue,
+    
+    // Add:
+    camera: Camera,
+    // ...
+}
+```
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Step 3.3: Add visible_area() Method (20 min, LOW RISK)
+**Goal**: Calculate what area of canvas is visible at current zoom.
+
+```rust
+impl<W: LayoutElement> Canvas2D<W> {
+    pub fn visible_area(&self) -> Rectangle<f64, Logical> {
+        let zoom = self.camera.zoom();
+        let w = self.view_size.w / zoom;
+        let h = self.view_size.h / zoom;
+        Rectangle::from_loc_and_size(
+            (self.camera.x() - w / 2.0, self.camera.y() - h / 2.0),
+            (w, h)
+        )
+    }
+}
+```
+
+**Verification**: `cargo check`
+
+### Step 3.4: Add visible_rows() Method (30 min, LOW RISK)
+**Goal**: Determine which rows are visible at current zoom.
+
+```rust
+impl<W: LayoutElement> Canvas2D<W> {
+    pub fn visible_rows(&self) -> impl Iterator<Item = (i32, &Row<W>)> {
+        let visible = self.visible_area();
+        self.rows().filter(move |(idx, row)| {
+            let row_y = row.y_offset();
+            let row_h = row.row_height();
+            // Row intersects visible area
+            row_y < visible.loc.y + visible.size.h &&
+            row_y + row_h > visible.loc.y
+        })
+    }
+}
+```
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Step 3.5: Add Zoom Rendering (1 hour, MEDIUM RISK)
+**Goal**: Scale all render elements by zoom factor.
+
+**Changes needed in `canvas/render.rs`**:
+```rust
+impl<W: LayoutElement> Canvas2D<W> {
+    pub fn render_elements<R: NiriRenderer>(
+        &self,
+        renderer: &mut R,
+        // ...
+    ) -> impl Iterator<Item = ...> {
+        let zoom = self.camera.zoom();
+        let scale = Scale::from(zoom);
+        
+        // Only render visible rows
+        self.visible_rows().flat_map(|(_, row)| {
+            row.render_elements(renderer, ...)
+                .map(move |elem| {
+                    // Scale element by zoom
+                    RescaleRenderElement::from_element(elem, ..., zoom)
+                })
+        })
+    }
+}
+```
+
+**Verification**: `cargo check && cargo test layout:: && cargo xtask test-all golden`
+
+### Step 3.6: Add Input Transform (30 min, MEDIUM RISK)
+**Goal**: Convert screen coordinates to canvas coordinates at any zoom.
+
+```rust
+impl<W: LayoutElement> Canvas2D<W> {
+    /// Convert screen position to canvas position
+    pub fn screen_to_canvas(&self, screen_pos: Point<f64, Logical>) -> Point<f64, Logical> {
+        let zoom = self.camera.zoom();
+        let visible = self.visible_area();
+        Point::from((
+            visible.loc.x + screen_pos.x / zoom,
+            visible.loc.y + screen_pos.y / zoom,
+        ))
+    }
+    
+    /// Convert canvas position to screen position
+    pub fn canvas_to_screen(&self, canvas_pos: Point<f64, Logical>) -> Point<f64, Logical> {
+        let zoom = self.camera.zoom();
+        let visible = self.visible_area();
+        Point::from((
+            (canvas_pos.x - visible.loc.x) * zoom,
+            (canvas_pos.y - visible.loc.y) * zoom,
+        ))
+    }
+}
+```
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Step 3.7: Add Zoom Actions (30 min, LOW RISK)
+**Goal**: Add zoom control methods.
+
+```rust
+impl<W: LayoutElement> Canvas2D<W> {
+    pub fn zoom_in(&mut self, config: Option<Animation>) {
+        let current = self.camera.zoom();
+        self.camera.set_zoom(current * 1.25, config);
+    }
+    
+    pub fn zoom_out(&mut self, config: Option<Animation>) {
+        let current = self.camera.zoom();
+        self.camera.set_zoom(current / 1.25, config);
+    }
+    
+    pub fn zoom_reset(&mut self, config: Option<Animation>) {
+        self.camera.set_zoom(1.0, config);
+    }
+    
+    pub fn zoom_to_fit_row(&mut self, row_idx: i32, config: Option<Animation>) {
+        if let Some(row) = self.row(row_idx) {
+            let row_height = row.row_height();
+            let zoom = self.view_size.h / row_height;
+            self.camera.set_zoom(zoom.min(1.0), config);
+        }
+    }
+}
+```
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Step 3.8: Add Layout Methods (20 min, LOW RISK)
+**Goal**: Expose zoom controls through Layout.
+
+```rust
+// layout_impl/navigation.rs (add)
+impl<W: LayoutElement> Layout<W> {
+    pub fn zoom_in(&mut self) {
+        if let Some(mon) = self.active_monitor() {
+            mon.canvas_mut().zoom_in(self.options.animations.camera_zoom.0);
+        }
+    }
+    
+    pub fn zoom_out(&mut self) { ... }
+    pub fn zoom_reset(&mut self) { ... }
+}
+```
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Step 3.9: Add Config Options (20 min, LOW RISK)
+**Goal**: Add animation config for camera zoom.
+
+```rust
+// niri-config/src/animations.rs
+pub struct Animations {
+    // ... existing
+    pub camera_zoom: Animation,
+    pub camera_movement: Animation,
+}
+```
+
+**Verification**: `cargo check`
+
+### Step 3.10: Add Keybindings (30 min, LOW RISK)
+**Goal**: Wire up zoom keybindings.
+
+```rust
+// src/input/mod.rs (add to handle_action)
+Action::ZoomIn => self.layout.zoom_in(),
+Action::ZoomOut => self.layout.zoom_out(),
+Action::ZoomReset => self.layout.zoom_reset(),
+```
+
+**Verification**: Manual testing
+
+### Summary: Camera Zoom System
+
+| Step | Description | Risk | Time |
+|------|-------------|------|------|
+| 3.1 | Camera struct | Low | 30min |
+| 3.2 | Integrate into Canvas2D | Low | 30min |
+| 3.3 | visible_area() | Low | 20min |
+| 3.4 | visible_rows() | Low | 30min |
+| 3.5 | Zoom rendering | Medium | 1h |
+| 3.6 | Input transform | Medium | 30min |
+| 3.7 | Zoom actions | Low | 30min |
+| 3.8 | Layout methods | Low | 20min |
+| 3.9 | Config options | Low | 20min |
+| 3.10 | Keybindings | Low | 30min |
+| **Total** | | | **~5h** |
+
+---
+
+## 📚 DEFERRED ITEM 4: Camera Bookmarks
+
+> **Previous Status**: "Phase 5 - Replaces workspace switching"
+> **New Status**: Ready after Camera Zoom (Item 3)
+
+### Step 4.1: Create CameraBookmark Struct (15 min, LOW RISK)
+```rust
+// canvas/bookmark.rs
+#[derive(Debug, Clone)]
+pub struct CameraBookmark {
+    pub x: f64,
+    pub y: f64,
+    pub zoom: f64,
+    pub name: Option<String>,
+}
+
+impl CameraBookmark {
+    pub fn from_camera(camera: &Camera, name: Option<String>) -> Self {
+        Self {
+            x: camera.x(),
+            y: camera.y(),
+            zoom: camera.zoom(),
+            name,
+        }
+    }
+}
+```
+
+**Verification**: `cargo check`
+
+### Step 4.2: Add Bookmark Storage to Canvas2D (20 min, LOW RISK)
+```rust
+// canvas/mod.rs
+pub struct Canvas2D<W> {
+    // ... existing
+    bookmarks: [Option<CameraBookmark>; 10],  // 10 bookmark slots
+}
+```
+
+**Verification**: `cargo check`
+
+### Step 4.3: Implement save_bookmark() (20 min, LOW RISK)
+```rust
+impl<W: LayoutElement> Canvas2D<W> {
+    pub fn save_bookmark(&mut self, slot: usize) {
+        if slot < 10 {
+            self.bookmarks[slot] = Some(CameraBookmark::from_camera(&self.camera, None));
+        }
+    }
+}
+```
+
+**Verification**: `cargo check`
+
+### Step 4.4: Implement goto_bookmark() (30 min, LOW RISK)
+```rust
+impl<W: LayoutElement> Canvas2D<W> {
+    pub fn goto_bookmark(&mut self, slot: usize, config: Option<Animation>) {
+        if let Some(bookmark) = &self.bookmarks[slot] {
+            self.camera.set_x(bookmark.x, config.clone());
+            self.camera.set_y(bookmark.y, config.clone());
+            self.camera.set_zoom(bookmark.zoom, config);
+        }
+    }
+}
+```
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Step 4.5: Add Layout Methods (20 min, LOW RISK)
+```rust
+// layout_impl/navigation.rs
+impl<W: LayoutElement> Layout<W> {
+    pub fn save_bookmark(&mut self, slot: usize) {
+        if let Some(mon) = self.active_monitor() {
+            mon.canvas_mut().save_bookmark(slot);
+        }
+    }
+    
+    pub fn goto_bookmark(&mut self, slot: usize) {
+        if let Some(mon) = self.active_monitor() {
+            mon.canvas_mut().goto_bookmark(slot, self.options.animations.camera_movement.0);
+        }
+    }
+}
+```
+
+**Verification**: `cargo check`
+
+### Step 4.6: Add Keybindings (30 min, LOW RISK)
+```rust
+// src/input/mod.rs
+Action::SaveBookmark(slot) => self.layout.save_bookmark(slot),
+Action::GotoBookmark(slot) => self.layout.goto_bookmark(slot),
+```
+
+**Verification**: Manual testing
+
+### Step 4.7: Add IPC Commands (30 min, LOW RISK)
+```rust
+// niri-ipc/src/lib.rs
+pub enum Request {
+    // ... existing
+    SaveBookmark { slot: u8 },
+    GotoBookmark { slot: u8 },
+    ListBookmarks,
+}
+```
+
+**Verification**: `cargo check`
+
+### Summary: Camera Bookmarks
+
+| Step | Description | Risk | Time |
+|------|-------------|------|------|
+| 4.1 | CameraBookmark struct | Low | 15min |
+| 4.2 | Storage in Canvas2D | Low | 20min |
+| 4.3 | save_bookmark() | Low | 20min |
+| 4.4 | goto_bookmark() | Low | 30min |
+| 4.5 | Layout methods | Low | 20min |
+| 4.6 | Keybindings | Low | 30min |
+| 4.7 | IPC commands | Low | 30min |
+| **Total** | | | **~3h** |
+
+---
+
+## 📐 DEFERRED ITEM 5: Row Spanning
+
+> **Previous Status**: "Phase 3 - Advanced feature"
+> **New Status**: Ready after Camera Zoom (Item 3)
+
+### Step 5.1: Add row_span Field to Tile (15 min, LOW RISK)
+```rust
+// tile/mod.rs
+pub struct Tile<W> {
+    // ... existing
+    pub row_span: u8,  // 1 = normal, 2+ = spans multiple rows
+}
+```
+
+**Verification**: `cargo check`
+
+### Step 5.2: Update Tile Height Calculation (30 min, MEDIUM RISK)
+```rust
+impl<W: LayoutElement> Tile<W> {
+    pub fn effective_height(&self, row_height: f64) -> f64 {
+        row_height * self.row_span as f64
+    }
+}
+```
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Step 5.3: Track Cross-Row Occupancy (45 min, MEDIUM RISK)
+```rust
+// canvas/mod.rs
+impl<W: LayoutElement> Canvas2D<W> {
+    /// Returns rows that a spanning tile occupies
+    fn rows_occupied_by_tile(&self, row_idx: i32, tile: &Tile<W>) -> Range<i32> {
+        row_idx..(row_idx + tile.row_span as i32)
+    }
+    
+    /// Check if position is blocked by a spanning tile from above
+    fn is_blocked_by_spanning_tile(&self, row_idx: i32, col_idx: usize) -> bool {
+        // Check rows above for tiles that span into this row
+        for check_row in (row_idx - 10)..row_idx {
+            if let Some(row) = self.row(check_row) {
+                // Check if any tile in that row spans into row_idx
+                // ...
+            }
+        }
+        false
+    }
+}
+```
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Step 5.4: Update Navigation for Spanning (30 min, MEDIUM RISK)
+```rust
+// Navigation should skip over spanned positions
+impl<W: LayoutElement> Canvas2D<W> {
+    pub fn focus_down(&mut self) {
+        let current_row = self.active_row_idx();
+        let mut target_row = current_row + 1;
+        
+        // Skip rows that are occupied by spanning tiles
+        while self.is_blocked_by_spanning_tile(target_row, self.active_column_idx()) {
+            target_row += 1;
+        }
+        
+        self.focus_row(target_row);
+    }
+}
+```
+
+**Verification**: `cargo check && cargo test layout::`
+
+### Step 5.5: Add Row Span Actions (20 min, LOW RISK)
+```rust
+impl<W: LayoutElement> Layout<W> {
+    pub fn increase_row_span(&mut self) {
+        // Increase row_span of active tile
+    }
+    
+    pub fn decrease_row_span(&mut self) {
+        // Decrease row_span of active tile (min 1)
+    }
+    
+    pub fn set_row_span(&mut self, span: u8) {
+        // Set specific row_span
+    }
+}
+```
+
+**Verification**: `cargo check`
+
+### Summary: Row Spanning
+
+| Step | Description | Risk | Time |
+|------|-------------|------|------|
+| 5.1 | row_span field | Low | 15min |
+| 5.2 | Height calculation | Medium | 30min |
+| 5.3 | Cross-row occupancy | Medium | 45min |
+| 5.4 | Navigation update | Medium | 30min |
+| 5.5 | Row span actions | Low | 20min |
+| **Total** | | | **~2.5h** |
+
+---
+
+## 📡 DEFERRED ITEM 6: IPC/Protocol Migration
+
+> **Previous Status**: "DEFERRED until zoom/bookmarks exist"
+> **New Status**: Ready after Items 3 & 4
+
+### Step 6.1: Rename IPC Events (30 min, LOW RISK)
+```rust
+// niri-ipc/src/lib.rs
+pub enum Event {
+    // Old:
+    // WorkspacesChanged,
+    // WorkspaceActivated { ... },
+    
+    // New:
+    RowsChanged,
+    RowActivated { output: String, row_idx: i32 },
+    CameraChanged { output: String, x: f64, y: f64, zoom: f64 },
+    BookmarkSaved { output: String, slot: u8 },
+}
+```
+
+**Verification**: `cargo check`
+
+### Step 6.2: Rename IPC State Structures (30 min, LOW RISK)
+```rust
+// niri-ipc/src/state.rs
+pub struct RowState {
+    pub idx: i32,
+    pub name: Option<String>,
+    pub is_active: bool,
+    pub window_count: usize,
+}
+
+pub struct CameraState {
+    pub x: f64,
+    pub y: f64,
+    pub zoom: f64,
+}
+
+pub struct OutputState {
+    pub name: String,
+    pub rows: Vec<RowState>,
+    pub camera: CameraState,
+    pub bookmarks: Vec<Option<CameraBookmark>>,
+}
+```
+
+**Verification**: `cargo check`
+
+### Step 6.3: Update IPC Handlers (45 min, MEDIUM RISK)
+Update `src/niri.rs` to emit new events.
+
+**Verification**: `cargo check && cargo test`
+
+### Step 6.4: Update niri-msg (30 min, LOW RISK)
+Update CLI to use new terminology.
+
+**Verification**: Manual testing
+
+### Summary: IPC/Protocol Migration
+
+| Step | Description | Risk | Time |
+|------|-------------|------|------|
+| 6.1 | Rename events | Low | 30min |
+| 6.2 | Rename state structs | Low | 30min |
+| 6.3 | Update handlers | Medium | 45min |
+| 6.4 | Update niri-msg | Low | 30min |
+| **Total** | | | **~2.5h** |
+
+---
+
+## 📊 COMPLETE DEFERRED ITEMS SUMMARY
+
+| Item | Description | Steps | Total Time | Dependencies |
+|------|-------------|-------|------------|--------------|
+| **1** | Split row/mod.rs | 8 | ~3h | None |
+| **2** | Split canvas/operations.rs | 4 | ~2h | None |
+| **3** | Camera Zoom System | 10 | ~5h | None |
+| **4** | Camera Bookmarks | 7 | ~3h | Item 3 |
+| **5** | Row Spanning | 5 | ~2.5h | Item 3 |
+| **6** | IPC Migration | 4 | ~2.5h | Items 3 & 4 |
+| **TOTAL** | | **38 steps** | **~18h** | |
+
+### Recommended Execution Order
+
+1. **Items 1 & 2** (parallel, no dependencies) - Code organization
+2. **Item 3** (Camera Zoom) - THE differentiator
+3. **Item 4** (Bookmarks) - Replaces workspace switching
+4. **Item 5** (Row Spanning) - Advanced feature
+5. **Item 6** (IPC) - External API update
+
+### Success Criteria
+
+After all items complete:
+- [ ] `row/mod.rs` < 700 LOC
+- [ ] `canvas/operations.rs` < 200 LOC
+- [ ] Camera zoom works (0.1x to 2.0x)
+- [ ] 10 camera bookmarks per output
+- [ ] Row spanning (1-4 rows)
+- [ ] IPC uses row/camera terminology
+- [ ] All tests passing
+- [ ] Golden tests passing
 
 ---
 
