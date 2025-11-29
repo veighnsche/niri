@@ -20,15 +20,13 @@ use std::iter::zip;
 use std::rc::Rc;
 
 use niri_config::RelativeTo;
-use smithay::utils::{Logical, Point, Rectangle, Scale, Size};
+use smithay::utils::{Logical, Point, Rectangle, Size};
 
 use crate::animation::Clock;
 use crate::layout::elements::closing_window::ClosingWindow;
 use crate::layout::tile::Tile;
 use crate::layout::types::InteractiveResize;
 use crate::layout::{LayoutElement, Options, SizeFrac};
-use crate::niri_render_elements;
-use crate::render_helpers::renderer::NiriRenderer;
 
 // Re-export render element type
 pub use render::FloatingSpaceRenderElement;

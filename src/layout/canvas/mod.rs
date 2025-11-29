@@ -24,17 +24,26 @@
 //!
 //! ```text
 //! canvas/
-//! ├── mod.rs        - Core struct and accessors
-//! ├── navigation.rs - Row/column focus navigation
-//! ├── operations.rs - Add/remove/find windows
-//! ├── render.rs     - Rendering
-//! └── floating.rs   - Floating window operations
+//! ├── mod.rs              - Core struct and accessors
+//! ├── canvas_floating.rs  - Canvas2D floating integration methods
+//! ├── navigation.rs       - Row/column focus navigation
+//! ├── operations.rs       - Add/remove/find windows
+//! ├── render.rs           - Rendering
+//! └── floating/           - FloatingSpace module (TEAM_063)
+//!     ├── mod.rs          - FloatingSpace struct, Data, core impl
+//!     ├── operations.rs   - add/remove tile, movement
+//!     ├── render.rs       - render elements, close animations
+//!     └── resize.rs       - resize handling, presets
 //! ```
 
-mod floating;
+// TEAM_063: Renamed canvas_floating to avoid conflict with floating/ submodule
+mod canvas_floating;
 mod navigation;
 mod operations;
 mod render;
+
+// TEAM_063: FloatingSpace consolidated into canvas/floating/
+pub mod floating;
 
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -43,8 +52,9 @@ use smithay::output::Output;
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
 use super::animated_value::AnimatedValue;
-use super::floating::{FloatingSpace, FloatingSpaceRenderElement};
 use super::row::{Row, RowRenderElement};
+// TEAM_063: Import from new location
+use floating::{FloatingSpace, FloatingSpaceRenderElement};
 use super::tile::Tile;
 use super::LayoutElement;
 use super::Options;

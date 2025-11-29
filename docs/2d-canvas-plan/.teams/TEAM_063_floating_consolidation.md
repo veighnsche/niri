@@ -1,6 +1,6 @@
 # TEAM_063: FloatingSpace Consolidation into canvas/
 
-## Status: IN PROGRESS
+## Status: ✅ COMPLETE
 
 ## Task
 Phase 2: Consolidate FloatingSpace into `canvas/` directory structure.
@@ -105,19 +105,35 @@ canvas/floating/
 ## Progress
 
 - [x] Investigation complete
-- [ ] Create `canvas/floating/` directory
-- [ ] Create `canvas/floating/mod.rs` with struct and core impl
-- [ ] Create `canvas/floating/operations.rs`
-- [ ] Create `canvas/floating/render.rs`
-- [ ] Create `canvas/floating/resize.rs`
-- [ ] Merge Canvas2D floating methods
-- [ ] Update imports
-- [ ] Delete old `floating.rs`
-- [ ] Verify compilation
-- [ ] Run tests
+- [x] Create `canvas/floating/` directory
+- [x] Create `canvas/floating/mod.rs` with struct and core impl (~500 LOC)
+- [x] Create `canvas/floating/operations.rs` (~390 LOC)
+- [x] Create `canvas/floating/render.rs` (~210 LOC)
+- [x] Create `canvas/floating/resize.rs` (~300 LOC)
+- [x] Rename `canvas/floating.rs` → `canvas/canvas_floating.rs` (Canvas2D floating methods)
+- [x] Update imports in `canvas/mod.rs` and `layout/mod.rs`
+- [x] Delete old `floating.rs`
+- [x] Verify compilation
+- [x] Run tests
+
+## Final Structure
+
+```
+canvas/
+├── mod.rs              - Canvas2D struct (imports from floating/)
+├── canvas_floating.rs  - Canvas2D floating integration methods
+├── navigation.rs       - Row/column focus navigation
+├── operations.rs       - Add/remove/find windows
+├── render.rs           - Rendering
+└── floating/           - FloatingSpace module (NEW)
+    ├── mod.rs          - FloatingSpace struct, Data, core impl
+    ├── operations.rs   - add/remove tile, movement
+    ├── render.rs       - render elements, close animations
+    └── resize.rs       - resize handling, presets
+```
 
 ## Handoff
-- [ ] Code compiles (`cargo check`)
-- [ ] Tests pass (`cargo test`)
-- [ ] Golden tests pass (`cargo xtask test-all golden`)
-- [ ] Team file complete
+- [x] Code compiles (`cargo check`)
+- [x] Tests pass (`cargo test`) - 28 floating tests, 187 layout tests
+- [x] Golden tests pass (`cargo xtask test-all golden`) - 88 golden tests
+- [x] Team file complete

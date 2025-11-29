@@ -8,7 +8,6 @@ use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::Point;
 use crate::layout::canvas::Canvas2D;
 use crate::layout::row::Row;
-use super::super::floating::FloatingSpace;
 use super::super::tile::Tile;
 use super::super::LayoutElement;
 use super::super::Options;

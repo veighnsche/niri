@@ -81,7 +81,9 @@ use crate::window::ResolvedWindowRules;
 pub mod column;
 // TEAM_062: Render elements grouped into elements/ module
 pub mod elements;
-pub mod floating;
+// TEAM_063: FloatingSpace consolidated into canvas/floating/
+// Re-export for backwards compatibility
+pub use canvas::floating;
 pub mod monitor;
 // TEAM_062: scrolling.rs moved to deprecated/ - replaced by Row
 pub mod tile;
