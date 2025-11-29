@@ -25,3 +25,4 @@ mod focus;
 mod output_ops;
 mod window_ops;
 mod navigation;
+mod interactive_move;
