@@ -1,7 +1,7 @@
 # Phase A2: Extract niri/output.rs
 
-> **Status**: ⏳ PENDING
-> **Estimated Time**: 1 hour
+> **Status**: ✅ COMPLETE
+> **Actual Time**: 15 minutes
 > **Risk Level**: 🟡 Medium (mutations, but well-contained)
 > **Prerequisite**: Phase A1 complete
 
@@ -11,7 +11,7 @@
 
 Extract all output management methods from `niri.rs` into `src/niri/output.rs`.
 
-User: Remember that when a item is too big of a refactor than planned. that I want you to make it smaller and do it in multiple steps. Write it down in this folder as broken down steps in the phase file...
+> **Note**: If any step is too big, break it down further in this file.
 
 ---
 
@@ -219,11 +219,20 @@ Delete all the extracted methods from `niri.rs`.
 
 ## Verification Checklist
 
-- [ ] `src/niri/output.rs` exists (~500 LOC)
-- [ ] All output methods work correctly
-- [ ] `cargo check` passes
-- [ ] `cargo test` passes
-- [ ] No duplicate method definitions
+- [x] `src/niri/output.rs` exists (287 LOC)
+- [x] All output methods work correctly
+- [x] `cargo check` passes
+- [x] `cargo test` passes (270 tests)
+- [x] No duplicate method definitions
+
+### Key Issue Resolved
+
+**Name conflict**: `mod output` conflicts with `use smithay::output`. Fixed by:
+```rust
+use smithay::output::{self as smithay_output, ..., Scale as OutputScale, ...};
+```
+
+Then replaced `output::Scale::Fractional` → `OutputScale::Fractional` throughout.
 
 ---
 
