@@ -1,9 +1,9 @@
-# Phase G: Extract InputTracking
+# Phase P7.5: Extract InputTracking
 
 > **Status**: ⏳ PENDING  
 > **Time Estimate**: ~1 hour  
 > **Risk Level**: 🟡 Medium (scroll state)  
-> **Prerequisite**: Phase F complete  
+> **Prerequisite**: Phase P7 complete  
 > **Creates**: `InputTracking` struct
 
 ---
@@ -20,7 +20,7 @@ Extract scroll/gesture tracking state into an `InputTracking` subsystem that:
 ## Fields to Move from Niri
 
 ```rust
-// Input tracking (mod.rs lines ~389-397)
+// Input tracking (mod.rs)
 pub gesture_swipe_3f_cumulative: Option<(f64, f64)>,
 pub overview_scroll_swipe_gesture: ScrollSwipeGesture,
 pub vertical_wheel_tracker: ScrollTracker,
@@ -207,6 +207,11 @@ impl InputTracking {
 
 ### Unit 1: Add to subsystems/mod.rs
 
+```rust
+mod input;
+pub use input::InputTracking;
+```
+
 ### Unit 2: Create InputTracking struct
 
 ### Unit 3: Move fields from Niri
@@ -251,4 +256,4 @@ self.input.mods_with_mouse_binds().contains(&mods)
 
 ## Next Phase
 
-After completing this phase, proceed to [Phase H: Config Refactor](phase-H-config-refactor.md).
+After completing this phase, proceed to [Phase P9: Final Cleanup](phase-P9-cleanup.md).

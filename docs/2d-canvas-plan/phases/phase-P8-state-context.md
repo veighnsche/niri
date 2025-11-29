@@ -1,10 +1,29 @@
-# Phase P8: State Context Pattern (Optional)
+# Phase P8: State Context Pattern — SKIPPED
 
-> **Status**: ⏳ PENDING (Optional)  
-> **Time Estimate**: ~2 hours  
-> **Risk Level**: 🟡 Medium (API changes)  
-> **Prerequisite**: Phase P7 complete  
-> **Note**: This phase is optional and can be deferred
+> **Status**: ❌ **SKIPPED**  
+> **Reason**: Over-engineering with questionable benefit  
+> **Decision**: Made by consolidation review (see README.md note)
+
+---
+
+## Why Skipped
+
+This phase was removed from the plan because:
+1. **Over-engineering**: Adds complexity without clear benefit
+2. **Invasive**: Requires updating many call sites
+3. **Incremental**: Can be done later if ever needed
+4. **Subsystems sufficient**: P1-P7.5 already achieve the main goals
+
+The subsystem extraction (P1-P7.5) provides:
+- Encapsulation
+- Testability
+- Clear ownership
+
+The Context pattern can be added incrementally later if a specific need arises.
+
+---
+
+## Original Goal (for reference)
 
 ---
 
