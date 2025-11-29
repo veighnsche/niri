@@ -1,7 +1,14 @@
-# 2D Canvas Refactor — Clean TODO
+# niri Refactor — TODO
 
-> **Last Updated**: Nov 29, 2025 (TEAM_066 Audit)
-> **Status**: Core refactor complete, feature work remaining
+> **Last Updated**: Nov 29, 2025 (TEAM_067 phase restructure)
+> **Status**: 🔴 Refactor in progress — NO NEW FEATURES until modularization complete
+> **Masterplan**: See [`phases/README.md`](phases/README.md) for detailed phase breakdown
+
+---
+
+## 🚨 START HERE
+
+**New to the codebase?** Go to [`phases/README.md`](phases/README.md) first.
 
 ---
 
@@ -55,145 +62,86 @@ src/layout/  (79 files)
 
 ## 🎯 REMAINING WORK
 
-### Priority 1: Camera Zoom System (Critical - THE DIFFERENTIATOR)
-
-Without zoom, Canvas2D is functionally identical to workspaces!
-
-#### Step 1: Add Camera Struct (30 min)
-Create `canvas/camera.rs` with `x`, `y`, `zoom` fields.
-
-```rust
-pub struct Camera {
-    x: AnimatedValue,
-    y: AnimatedValue,
-    zoom: AnimatedValue,  // 1.0 = normal, 0.5 = see 2x area
-}
-```
-
-#### Step 2: Integrate Camera (30 min)
-Replace `camera_x`, `camera_y` fields in Canvas2D with Camera struct.
-
-#### Step 3: Add visible_area() (20 min)
-Calculate what area of canvas is visible at current zoom.
-
-#### Step 4: Add visible_rows() (30 min)
-Filter rows to only those visible at current zoom.
-
-#### Step 5: Update Rendering (1 hour)
-Scale render elements by zoom factor.
-
-#### Step 6: Add Input Transform (30 min)
-Convert screen coordinates to canvas coordinates at any zoom.
-
-**Total**: ~3.5 hours
+> ⚠️ **REFACTOR FIRST**: No new features until modularization is complete.
+> Clean architecture enables sustainable feature development.
 
 ---
 
-### Priority 2: Camera Bookmarks (After Zoom)
+### Part A: niri.rs Modular Refactor 🔴 BLOCKING
 
-Camera bookmarks replace workspace switching.
+Split `src/niri.rs` (6604 LOC) into focused modules (<500 LOC each).
 
-#### Step 1: Add CameraBookmark Struct (15 min)
-```rust
-pub struct CameraBookmark {
-    x: f64,
-    y: f64,
-    zoom: f64,
-    name: Option<String>,
-}
-```
+| Phase | File | Description | Status |
+|-------|------|-------------|--------|
+| [**A1**](phases/phase-A1-niri-types.md) | niri/types.rs | Extract pure data types | 🔄 CURRENT |
+| [A2](phases/phase-A2-niri-output.md) | niri/output.rs | Output management | ⏳ Pending |
+| [A3](phases/phase-A3-niri-hit-test.md) | niri/hit_test.rs | Hit testing queries | ⏳ Pending |
+| [A4](phases/phase-A4-niri-lock.md) | niri/lock.rs | Session lock | ⏳ Pending |
+| [A5](phases/phase-A5-niri-render.md) | niri/render.rs | Rendering + frame callbacks | ⏳ Pending |
+| [A6](phases/phase-A6-niri-capture.md) | screenshot/screencopy/screencast | Screen capture | ⏳ Pending |
+| [A7](phases/phase-A7-niri-input.md) | niri/pointer.rs + rules.rs | Input & rules | ⏳ Pending |
+| [A8](phases/phase-A8-niri-init.md) | niri/init.rs | Constructor extraction | ⏳ Pending |
 
-#### Step 2: Add Storage to Canvas2D (20 min)
-```rust
-bookmarks: HashMap<u8, CameraBookmark>,  // 0-9 for quick access
-```
-
-#### Step 3: Implement save_bookmark() (20 min)
-#### Step 4: Implement goto_bookmark() (30 min)
-#### Step 5: Add Layout Methods (20 min)
-#### Step 6: Add Keybindings (30 min)
-- `Mod+1-9` → goto bookmark
-- `Mod+Shift+1-9` → save bookmark
-
-#### Step 7: Add IPC Commands (30 min)
-- `camera-bookmark-save <index>`
-- `camera-bookmark-goto <index>`
-
-**Total**: ~3 hours
+**Estimated Time**: ~8 hours total
 
 ---
 
-### Priority 3: IPC/Protocol Migration (After Bookmarks)
+### Priority 2: Minor Cleanup Tasks (During Refactor)
 
-Update IPC to reflect Canvas2D semantics.
-
-#### Step 1: Rename IPC Events (30 min)
-- `WorkspacesChanged` → `RowsChanged`
-- `WorkspaceActivated` → `RowActivated`
-- etc.
-
-#### Step 2: Rename IPC Structures (30 min)
-- `Workspace` → `Row`
-- `WorkspacesState` → `RowsState`
-
-#### Step 3: Update IPC Handlers (45 min)
-#### Step 4: Update niri-msg (30 min)
-
-**Total**: ~2.5 hours
-
----
-
-### Priority 4: Row Spanning (Future)
-
-Allow windows to span multiple rows.
-
-#### Step 1: Add row_span to Tile (15 min)
-#### Step 2: Update Tile Height Calculation (30 min)
-#### Step 3: Track Cross-Row Occupancy (45 min)
-#### Step 4: Update Navigation (30 min)
-#### Step 5: Add Row Span Actions (20 min)
-
-**Total**: ~2.5 hours
-
----
-
-## 📋 Minor Cleanup Tasks
-
-### Code Quality (30 min)
 - [ ] Remove 48 unused import warnings
 - [ ] Clean up internal `seen_workspace_*` variable names → `seen_row_*`
+- [ ] Delete `deprecated/scrolling.rs` after confirming no references
 
-### Documentation (1 hour)
+**Total**: ~1 hour
+
+---
+
+## 🚀 Part B: FEATURES (After Refactor Complete)
+
+> These features are **BLOCKED** until Part A is complete.
+
+| Phase | Description | Time | Status |
+|-------|-------------|------|--------|
+| B1 | Camera Zoom System | ~3.5h | ⏸️ Blocked |
+| B2 | Camera Bookmarks | ~3h | ⏸️ Blocked |
+| B3 | IPC/Protocol Migration | ~2.5h | ⏸️ Blocked |
+| B4 | Row Spanning | ~2.5h | ⏸️ Blocked |
+
+Phase files will be created when Part A is complete.
+
+---
+
+## 📋 Documentation Tasks (After Features)
+
 - [ ] Update README.md with Canvas2D architecture
 - [ ] Update wiki examples for new row syntax
-
-### Deprecated Code (After merge to main)
-- [ ] Delete `deprecated/scrolling.rs` (currently kept for reference)
 
 ---
 
 ## 📊 Total Remaining Effort
 
-| Area | Estimated Time |
-|------|----------------|
-| Camera Zoom | ~3.5 hours |
-| Camera Bookmarks | ~3 hours |
-| IPC Migration | ~2.5 hours |
-| Row Spanning | ~2.5 hours |
-| Cleanup | ~1.5 hours |
-| **Total** | **~13 hours** |
+| Part | Phases | Time | Status |
+|------|--------|------|--------|
+| **Part A** | A1-A8 (niri.rs refactor) | ~8h | 🔴 CURRENT |
+| Cleanup | During Part A | ~1h | Pending |
+| **Part B** | B1-B4 (features) | ~11.5h | ⏸️ Blocked |
+| **Total** | | **~20.5h** | |
 
 ---
 
 ## ✅ Success Criteria
 
-The Canvas2D refactor is complete when:
+### Part A Complete (Refactor) ✓
+- [ ] niri.rs < 700 LOC
+- [ ] Each module < 500 LOC
+- [ ] No `pub(super)`
+- [ ] All tests pass
+- [ ] No unused imports
 
-1. **Zoom works**: User can zoom in/out to see more/fewer rows
-2. **Bookmarks work**: User can save and restore camera positions
-3. **IPC reflects reality**: Protocol exposes rows, not workspaces
-4. **All tests pass**: No regressions from workspace behavior
-5. **Code is clean**: No unused imports, clear module structure
+### Part B Complete (Features) ✓
+- [ ] Zoom works
+- [ ] Bookmarks work
+- [ ] IPC reflects rows
 
 ---
 
@@ -207,7 +155,8 @@ See `docs/2d-canvas-plan/.teams/TEAM_0XX_*.md` for detailed history.
 - TEAM_063: FloatingSpace + tile + layout_impl extraction
 - TEAM_064: Interactive move + render + row state extraction
 - TEAM_065: canvas/operations split
-- TEAM_066: This audit/cleanup
+- TEAM_066: TODO audit/cleanup
+- TEAM_067: niri.rs refactor masterplan
 
 ### Original Docs
 - `docs/2d-canvas-plan/README.md` - Original vision
