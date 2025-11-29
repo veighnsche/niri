@@ -6,9 +6,7 @@ use std::time::Duration;
 
 use calloop::timer::{TimeoutAction, Timer};
 use input::event::gesture::GestureEventCoordinates as _;
-use niri_config::{
-    Action, Bind, Binds, Config, Key, ModKey, Modifiers, MruDirection, SwitchBinds, Trigger,
-};
+use niri_config::{Action, Bind, Config, Key, ModKey, Modifiers, MruDirection, Trigger};
 use niri_ipc::LayoutSwitchTarget;
 use smithay::backend::input::{
     AbsolutePositionEvent, Axis, AxisSource, ButtonState, Device, DeviceCapability, Event,
@@ -19,7 +17,7 @@ use smithay::backend::input::{
     TabletToolTipState, TouchEvent,
 };
 use smithay::backend::libinput::LibinputInputBackend;
-use smithay::input::keyboard::{keysyms, FilterResult, Keysym, Layout, ModifiersState};
+use smithay::input::keyboard::{FilterResult, Keysym, Layout, ModifiersState};
 use smithay::input::pointer::{
     AxisFrame, ButtonEvent, CursorIcon, CursorImageStatus, Focus, GestureHoldBeginEvent,
     GestureHoldEndEvent, GesturePinchBeginEvent, GesturePinchEndEvent, GesturePinchUpdateEvent,
@@ -51,6 +49,7 @@ use crate::utils::spawning::{spawn, spawn_sh};
 use crate::utils::{center, get_monotonic_time, ResizeEdge};
 
 pub mod backend_ext;
+pub mod binds;
 pub mod move_grab;
 pub mod pick_color_grab;
 pub mod pick_window_grab;
@@ -60,6 +59,13 @@ pub mod scroll_tracker;
 pub mod spatial_movement_grab;
 pub mod swipe_tracker;
 pub mod touch_resize_grab;
+
+// TEAM_085: Re-export bind functions for backwards compatibility
+pub use binds::{
+    find_bind, find_configured_bind, find_configured_switch_action, mods_with_binds,
+    mods_with_finger_scroll_binds, mods_with_mouse_binds, mods_with_wheel_binds,
+    modifiers_from_state,
+};
 
 use backend_ext::{NiriInputBackend as InputBackend, NiriInputDevice as _};
 
@@ -4102,125 +4108,8 @@ fn should_intercept_key<'a>(
     }
 }
 
-fn find_bind<'a>(
-    bindings: impl IntoIterator<Item = &'a Bind>,
-    mod_key: ModKey,
-    modified: Keysym,
-    raw: Option<Keysym>,
-    mods: ModifiersState,
-    disable_power_key_handling: bool,
-) -> Option<Bind> {
-    use keysyms::*;
-
-    // Handle hardcoded binds.
-    #[allow(non_upper_case_globals)] // wat
-    let hardcoded_action = match modified.raw() {
-        modified @ KEY_XF86Switch_VT_1..=KEY_XF86Switch_VT_12 => {
-            let vt = (modified - KEY_XF86Switch_VT_1 + 1) as i32;
-            Some(Action::ChangeVt(vt))
-        }
-        KEY_XF86PowerOff if !disable_power_key_handling => Some(Action::Suspend),
-        _ => None,
-    };
-
-    if let Some(action) = hardcoded_action {
-        return Some(Bind {
-            key: Key {
-                // Not entirely correct but it doesn't matter in how we currently use it.
-                trigger: Trigger::Keysym(modified),
-                modifiers: Modifiers::empty(),
-            },
-            action,
-            repeat: true,
-            cooldown: None,
-            allow_when_locked: false,
-            // In a worst-case scenario, the user has no way to unlock the compositor and a
-            // misbehaving client has a keyboard shortcuts inhibitor, "jailing" the user.
-            // The user must always be able to change VTs to recover from such a situation.
-            // It also makes no sense to inhibit the default power key handling.
-            // Hardcoded binds must never be inhibited.
-            allow_inhibiting: false,
-            hotkey_overlay_title: None,
-        });
-    }
-
-    let trigger = Trigger::Keysym(raw?);
-    find_configured_bind(bindings, mod_key, trigger, mods)
-}
-
-fn find_configured_bind<'a>(
-    bindings: impl IntoIterator<Item = &'a Bind>,
-    mod_key: ModKey,
-    trigger: Trigger,
-    mods: ModifiersState,
-) -> Option<Bind> {
-    // Handle configured binds.
-    let mut modifiers = modifiers_from_state(mods);
-
-    let mod_down = modifiers_from_state(mods).contains(mod_key.to_modifiers());
-    if mod_down {
-        modifiers |= Modifiers::COMPOSITOR;
-    }
-
-    for bind in bindings {
-        if bind.key.trigger != trigger {
-            continue;
-        }
-
-        let mut bind_modifiers = bind.key.modifiers;
-        if bind_modifiers.contains(Modifiers::COMPOSITOR) {
-            bind_modifiers |= mod_key.to_modifiers();
-        } else if bind_modifiers.contains(mod_key.to_modifiers()) {
-            bind_modifiers |= Modifiers::COMPOSITOR;
-        }
-
-        if bind_modifiers == modifiers {
-            return Some(bind.clone());
-        }
-    }
-
-    None
-}
-
-fn find_configured_switch_action(
-    bindings: &SwitchBinds,
-    switch: Switch,
-    state: SwitchState,
-) -> Option<Action> {
-    let switch_action = match (switch, state) {
-        (Switch::Lid, SwitchState::Off) => &bindings.lid_open,
-        (Switch::Lid, SwitchState::On) => &bindings.lid_close,
-        (Switch::TabletMode, SwitchState::Off) => &bindings.tablet_mode_off,
-        (Switch::TabletMode, SwitchState::On) => &bindings.tablet_mode_on,
-        _ => unreachable!(),
-    };
-    switch_action
-        .as_ref()
-        .map(|switch_action| Action::Spawn(switch_action.spawn.clone()))
-}
-
-fn modifiers_from_state(mods: ModifiersState) -> Modifiers {
-    let mut modifiers = Modifiers::empty();
-    if mods.ctrl {
-        modifiers |= Modifiers::CTRL;
-    }
-    if mods.shift {
-        modifiers |= Modifiers::SHIFT;
-    }
-    if mods.alt {
-        modifiers |= Modifiers::ALT;
-    }
-    if mods.logo {
-        modifiers |= Modifiers::SUPER;
-    }
-    if mods.iso_level3_shift {
-        modifiers |= Modifiers::ISO_LEVEL3_SHIFT;
-    }
-    if mods.iso_level5_shift {
-        modifiers |= Modifiers::ISO_LEVEL5_SHIFT;
-    }
-    modifiers
-}
+// TEAM_085: find_bind, find_configured_bind, find_configured_switch_action,
+// and modifiers_from_state moved to binds.rs
 
 fn should_activate_monitors<I: InputBackend>(event: &InputEvent<I>) -> bool {
     match event {
@@ -4661,64 +4550,8 @@ pub fn apply_libinput_settings(config: &niri_config::Input, device: &mut input::
     }
 }
 
-pub fn mods_with_binds(mod_key: ModKey, binds: &Binds, triggers: &[Trigger]) -> HashSet<Modifiers> {
-    let mut rv = HashSet::new();
-    for bind in &binds.0 {
-        if !triggers.contains(&bind.key.trigger) {
-            continue;
-        }
-
-        let mut mods = bind.key.modifiers;
-        if mods.contains(Modifiers::COMPOSITOR) {
-            mods.remove(Modifiers::COMPOSITOR);
-            mods.insert(mod_key.to_modifiers());
-        }
-
-        rv.insert(mods);
-    }
-
-    rv
-}
-
-pub fn mods_with_mouse_binds(mod_key: ModKey, binds: &Binds) -> HashSet<Modifiers> {
-    mods_with_binds(
-        mod_key,
-        binds,
-        &[
-            Trigger::MouseLeft,
-            Trigger::MouseRight,
-            Trigger::MouseMiddle,
-            Trigger::MouseBack,
-            Trigger::MouseForward,
-        ],
-    )
-}
-
-pub fn mods_with_wheel_binds(mod_key: ModKey, binds: &Binds) -> HashSet<Modifiers> {
-    mods_with_binds(
-        mod_key,
-        binds,
-        &[
-            Trigger::WheelScrollUp,
-            Trigger::WheelScrollDown,
-            Trigger::WheelScrollLeft,
-            Trigger::WheelScrollRight,
-        ],
-    )
-}
-
-pub fn mods_with_finger_scroll_binds(mod_key: ModKey, binds: &Binds) -> HashSet<Modifiers> {
-    mods_with_binds(
-        mod_key,
-        binds,
-        &[
-            Trigger::TouchpadScrollUp,
-            Trigger::TouchpadScrollDown,
-            Trigger::TouchpadScrollLeft,
-            Trigger::TouchpadScrollRight,
-        ],
-    )
-}
+// TEAM_085: mods_with_binds, mods_with_mouse_binds, mods_with_wheel_binds,
+// and mods_with_finger_scroll_binds moved to binds.rs
 
 /// Returns an iterator over bindings.
 ///
@@ -4746,9 +4579,13 @@ fn make_binds_iter<'a>(
 #[cfg(test)]
 mod tests {
     use std::cell::Cell;
+    use std::time::Duration;
+
+    use niri_config::Binds;
 
     use super::*;
     use crate::animation::Clock;
+    use crate::ui::screenshot_ui::ScreenshotUi;
 
     #[test]
     fn bindings_suppress_keys() {
@@ -4768,6 +4605,10 @@ mod tests {
 
         let comp_mod = ModKey::Super;
         let mut suppressed_keys = HashSet::new();
+
+        let clock = Clock::with_time(Duration::ZERO);
+        let config = std::rc::Rc::new(std::cell::RefCell::new(niri_config::Config::default()));
+        let screenshot_ui = ScreenshotUi::new(clock, config);
 
         let disable_power_key_handling = false;
         let is_inhibiting_shortcuts = Cell::new(false);

@@ -1,6 +1,6 @@
 # Phase I1.1: Extract Bind Resolution
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE (TEAM_085)  
 > **Time Estimate**: ~1 hour  
 > **Risk Level**: 🟢 Low  
 > **Architectural Benefit**: ⭐⭐⭐ High - creates testable, pure module
@@ -83,6 +83,17 @@ pub fn mods_with_binds(...) -> HashSet<Modifiers> { ... }
 
 ## Verification
 
-- [ ] All bind-related tests pass
-- [ ] `cargo check` passes
-- [ ] No State or Niri imports in binds.rs (keeps it pure)
+- [x] All bind-related tests pass
+- [x] `cargo check` passes
+- [x] No State or Niri imports in binds.rs (keeps it pure)
+
+## Implementation Notes (TEAM_085)
+
+**What was moved:**
+- `modifiers_from_state()`, `find_bind()`, `find_configured_bind()`
+- `find_configured_switch_action()`
+- `mods_with_binds()`, `mods_with_mouse_binds()`, `mods_with_wheel_binds()`, `mods_with_finger_scroll_binds()`
+
+**What was NOT moved (not pure):**
+- `should_intercept_key()` - depends on `ScreenshotUi`
+- `make_binds_iter()` - depends on `WindowMruUi`
