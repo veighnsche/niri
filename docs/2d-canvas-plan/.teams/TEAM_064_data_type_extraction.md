@@ -100,3 +100,30 @@ Each step is:
 - Can be reverted if it fails
 
 See `TODO.md` section "🔴 DEFERRED ITEMS BREAKDOWN (TEAM_064)" for full details.
+
+---
+
+## Deferred Item 1: Split row/mod.rs - Steps 1.1-1.4
+
+### Completed Steps:
+- ✅ **Step 1.1**: Extract `ColumnData` struct → `row/column_data.rs` (34 LOC)
+- ✅ **Step 1.2-1.4**: Extract state query methods → `row/state.rs` (155 LOC)
+  - `is_empty()`, `column_count()`, `active_column_idx()`
+  - `has_window()`, `contains()`, `is_floating()`
+  - `has_windows()`, `has_windows_or_name()`, `is_urgent()`
+  - `active_column()`, `active_column_mut()`
+  - `active_window()`, `active_window_mut()`
+  - `active_tile_visual_rectangle()`
+  - `columns()`, `find_column()`
+  - `tiles()`, `tiles_mut()`, `windows()`, `windows_mut()`
+
+### Impact:
+- `row/mod.rs`: 2161 → 2033 LOC (**-128 lines**)
+- New files: `column_data.rs` (34 LOC), `state.rs` (155 LOC)
+
+### Verification:
+```bash
+cargo check    # ✅ Passes
+cargo test layout::  # ✅ 187 passed
+cargo xtask test-all golden  # ✅ 88 passed
+```
