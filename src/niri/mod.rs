@@ -920,6 +920,156 @@ impl State {
             .unwrap_or(false)
     }
 
+    /// Updates MRU timestamp with debounce.
+    fn update_mru_timestamp(&mut self, mapped: &mut Mapped) {
+        let stamp = get_monotonic_time();
+        let debounce = self.niri.config.borrow().recent_windows.debounce_ms;
+        let debounce = Duration::from_millis(u64::from(debounce));
+
+        if mapped.get_focus_timestamp().is_none() || debounce.is_zero() {
+            mapped.set_focus_timestamp(stamp);
+        } else {
+            self.schedule_mru_commit(mapped.id(), stamp, debounce);
+        }
+    }
+
+    /// Schedules a delayed MRU commit.
+    fn schedule_mru_commit(&mut self, id: MappedId, stamp: Duration, debounce: Duration) {
+        let timer = Timer::from_duration(debounce);
+        let token = self
+            .niri
+            .event_loop
+            .insert_source(timer, move |_, _, state| {
+                state.niri.mru_apply_keyboard_commit();
+                TimeoutAction::Drop
+            })
+            .unwrap();
+
+        if let Some(PendingMruCommit { token: old_token, .. }) =
+            self.niri.pending_mru_commit.replace(PendingMruCommit { id, token, stamp })
+        {
+            self.niri.event_loop.remove(old_token);
+        }
+    }
+
+    /// Handles all side effects of a focus change.
+    fn handle_focus_change(&mut self, old_focus: &KeyboardFocus, new_focus: &KeyboardFocus) {
+        self.update_window_focus_states(old_focus, new_focus);
+        self.handle_popup_grab_on_focus_change(new_focus);
+        self.handle_keyboard_layout_tracking(old_focus, new_focus);
+        self.apply_keyboard_focus(new_focus);
+    }
+
+    /// Applies the keyboard focus change.
+    fn apply_keyboard_focus(&mut self, new_focus: &KeyboardFocus) {
+        let keyboard = self.niri.seat.get_keyboard().unwrap();
+        self.niri.focus.set_current(new_focus.clone());
+        keyboard.set_focus(self, new_focus.clone().into_surface(), SERIAL_COUNTER.next_serial());
+
+        // FIXME: can be more granular.
+        self.niri.queue_redraw_all();
+    }
+
+    /// Handles per-window keyboard layout tracking.
+    fn handle_keyboard_layout_tracking(&mut self, old: &KeyboardFocus, new: &KeyboardFocus) {
+        if self.niri.config.borrow().input.keyboard.track_layout != TrackLayout::Window {
+            return;
+        }
+
+        let keyboard = self.niri.seat.get_keyboard().unwrap();
+        let current_layout = keyboard.with_xkb_state(self, |context| {
+            let xkb = context.xkb().lock().unwrap();
+            xkb.active_layout()
+        });
+
+        // Store current layout for old focus surface
+        if let Some(surface) = old.surface() {
+            with_states(surface, |data| {
+                let cell = data
+                    .data_map
+                    .get_or_insert::<Cell<KeyboardLayout>, _>(Cell::default);
+                cell.set(current_layout);
+            });
+        }
+
+        // Restore layout for new focus surface
+        let new_layout = new.surface().map_or(current_layout, |surface| {
+            with_states(surface, |data| {
+                data.data_map
+                    .get_or_insert::<Cell<KeyboardLayout>, _>(|| {
+                        // The default layout is effectively the first layout in the
+                        // keymap, so use it for new windows.
+                        Cell::new(KeyboardLayout::default())
+                    })
+                    .get()
+            })
+        });
+
+        if new_layout != current_layout && new.surface().is_some() {
+            keyboard.set_focus(self, None, SERIAL_COUNTER.next_serial());
+            keyboard.with_xkb_state(self, |mut context| {
+                context.set_layout(new_layout);
+            });
+        }
+    }
+
+    /// Handles popup grab when focus changes.
+    fn handle_popup_grab_on_focus_change(&mut self, new_focus: &KeyboardFocus) {
+        let Some(grab) = self.niri.popup_grab.as_mut() else { return };
+
+        if grab.has_keyboard_grab && Some(&grab.root) != new_focus.surface() {
+            trace!(
+                "grab root {:?} is not the new focus {:?}, ungrabbing",
+                grab.root,
+                new_focus
+            );
+
+            let keyboard = self.niri.seat.get_keyboard().unwrap();
+            grab.grab.ungrab(PopupUngrabStrategy::All);
+            keyboard.unset_grab(self);
+            self.niri.seat.get_pointer().unwrap().unset_grab(
+                self,
+                SERIAL_COUNTER.next_serial(),
+                get_monotonic_time().as_millis() as u32,
+            );
+            self.niri.popup_grab = None;
+        }
+    }
+
+    /// Updates window focus states and MRU timestamps.
+    fn update_window_focus_states(&mut self, old: &KeyboardFocus, new: &KeyboardFocus) {
+        // Unfocus old window
+        if let KeyboardFocus::Layout {
+            surface: Some(surface),
+        } = old
+        {
+            if let Some((mapped, _)) = self.niri.layout.find_window_and_output_mut(surface) {
+                mapped.set_is_focused(false);
+            }
+        }
+
+        // Focus new window
+        if let KeyboardFocus::Layout {
+            surface: Some(surface),
+        } = new
+        {
+            if let Some((mapped, _)) = self.niri.layout.find_window_and_output_mut(surface) {
+                mapped.set_is_focused(true);
+                
+                // Update MRU timestamp inline to avoid borrow checker issues
+                let stamp = get_monotonic_time();
+                let debounce = self.niri.config.borrow().recent_windows.debounce_ms;
+                let debounce = Duration::from_millis(u64::from(debounce));
+
+                if mapped.get_focus_timestamp().is_none() || debounce.is_zero() {
+                    mapped.set_focus_timestamp(stamp);
+                } else {
+                    self.schedule_mru_commit(mapped.id(), stamp, debounce);
+                }
+            }
+        }
+    }
+
     pub fn update_keyboard_focus(&mut self) {
         // Clean up on-demand layer surface focus if necessary.
         if let Some(surface) = &self.niri.focus.layer_on_demand() {
@@ -945,127 +1095,13 @@ impl State {
 
         // Compute the current focus.
         let ctx = self.build_focus_context();
-        let focus = self.niri.focus.compute_focus(&ctx);
+        let new_focus = self.niri.focus.compute_focus(&ctx);
 
-        let keyboard = self.niri.seat.get_keyboard().unwrap();
-        if *self.niri.focus.current() != focus {
-            trace!(
-                "keyboard focus changed from {:?} to {:?}",
-                self.niri.focus.current(),
-                focus
-            );
-
-            // Tell the windows their new focus state for window rule purposes.
-            if let KeyboardFocus::Layout {
-                surface: Some(surface),
-            } = &self.niri.focus.current()
-            {
-                if let Some((mapped, _)) = self.niri.layout.find_window_and_output_mut(surface) {
-                    mapped.set_is_focused(false);
-                }
-            }
-            if let KeyboardFocus::Layout {
-                surface: Some(surface),
-            } = &focus
-            {
-                if let Some((mapped, _)) = self.niri.layout.find_window_and_output_mut(surface) {
-                    mapped.set_is_focused(true);
-
-                    // If `mapped` does not have a focus timestamp, then the window is newly
-                    // created/mapped and a timestamp is unconditionally created.
-                    //
-                    // If `mapped` already has a timestamp only update it after the focus lock-in
-                    // period has gone by without the focus having elsewhere.
-                    let stamp = get_monotonic_time();
-
-                    let debounce = self.niri.config.borrow().recent_windows.debounce_ms;
-                    let debounce = Duration::from_millis(u64::from(debounce));
-
-                    if mapped.get_focus_timestamp().is_none() || debounce.is_zero() {
-                        mapped.set_focus_timestamp(stamp);
-                    } else {
-                        let timer = Timer::from_duration(debounce);
-
-                        let focus_token = self
-                            .niri
-                            .event_loop
-                            .insert_source(timer, move |_, _, state| {
-                                state.niri.mru_apply_keyboard_commit();
-                                TimeoutAction::Drop
-                            })
-                            .unwrap();
-                        if let Some(PendingMruCommit { token, .. }) =
-                            self.niri.pending_mru_commit.replace(PendingMruCommit {
-                                id: mapped.id(),
-                                token: focus_token,
-                                stamp,
-                            })
-                        {
-                            self.niri.event_loop.remove(token);
-                        }
-                    }
-                }
-            }
-
-            if let Some(grab) = self.niri.popup_grab.as_mut() {
-                if grab.has_keyboard_grab && Some(&grab.root) != focus.surface() {
-                    trace!(
-                        "grab root {:?} is not the new focus {:?}, ungrabbing",
-                        grab.root,
-                        focus
-                    );
-
-                    grab.grab.ungrab(PopupUngrabStrategy::All);
-                    keyboard.unset_grab(self);
-                    self.niri.seat.get_pointer().unwrap().unset_grab(
-                        self,
-                        SERIAL_COUNTER.next_serial(),
-                        get_monotonic_time().as_millis() as u32,
-                    );
-                    self.niri.popup_grab = None;
-                }
-            }
-
-            if self.niri.config.borrow().input.keyboard.track_layout == TrackLayout::Window {
-                let current_layout = keyboard.with_xkb_state(self, |context| {
-                    let xkb = context.xkb().lock().unwrap();
-                    xkb.active_layout()
-                });
-
-                let mut new_layout = current_layout;
-                // Store the currently active layout for the surface.
-                if let Some(current_focus) = self.niri.keyboard_focus.surface() {
-                    with_states(current_focus, |data| {
-                        let cell = data
-                            .data_map
-                            .get_or_insert::<Cell<KeyboardLayout>, _>(Cell::default);
-                        cell.set(current_layout);
-                    });
-                }
-
-                if let Some(focus) = focus.surface() {
-                    new_layout = with_states(focus, |data| {
-                        let cell = data.data_map.get_or_insert::<Cell<KeyboardLayout>, _>(|| {
-                            // The default layout is effectively the first layout in the
-                            // keymap, so use it for new windows.
-                            Cell::new(KeyboardLayout::default())
-                        });
-                        cell.get()
-                    });
-                }
-                if new_layout != current_layout && focus.surface().is_some() {
-                    keyboard.set_focus(self, None, SERIAL_COUNTER.next_serial());
-                    keyboard.with_xkb_state(self, |mut context| {
-                        context.set_layout(new_layout);
-                    });
-                }
-            }
-
-            self.niri.focus.set_current(focus.clone());
-            keyboard.set_focus(self, focus.into_surface(), SERIAL_COUNTER.next_serial());
-
-            // FIXME: can be more granular.
-            self.niri.queue_redraw_all();
+        // Handle focus change if different
+        let old_focus = self.niri.focus.current().clone();
+        if old_focus != new_focus {
+            trace!("keyboard focus changed from {:?} to {:?}", old_focus, new_focus);
+            self.handle_focus_change(&old_focus, &new_focus);
         }
     }
 
