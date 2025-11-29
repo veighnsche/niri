@@ -28,7 +28,7 @@ use crate::window::{InitialConfigureState, Mapped, ResolvedWindowRules, Unmapped
 
 impl CompositorHandler for State {
     fn compositor_state(&mut self) -> &mut CompositorState {
-        &mut self.niri.compositor_state
+        &mut self.niri.protocols.compositor
     }
 
     fn client_compositor_state<'a>(&self, client: &'a Client) -> &'a CompositorClientState {
@@ -399,10 +399,11 @@ impl CompositorHandler for State {
         }
 
         // This might be a popup.
-        self.popups_handle_commit(surface);
-        if let Some(popup) = self.niri.popups.find_popup(surface) {
-            if let Some(output) = self.output_for_popup(&popup) {
-                self.niri.queue_redraw(&output.clone());
+        self.niri.protocols.popups.commit(surface);
+        if let Some(popup) = self.niri.protocols.popups.find_popup(surface) {
+            if let Err(err) = self.niri.protocols.popups.track_popup(popup) {
+                // Redraw all outputs since we don't have the specific output here
+                self.niri.queue_redraw_all();
             }
             return;
         }
@@ -521,7 +522,7 @@ impl BufferHandler for State {
 
 impl ShmHandler for State {
     fn shm_state(&self) -> &ShmState {
-        &self.niri.shm_state
+        &self.niri.protocols.shm
     }
 }
 

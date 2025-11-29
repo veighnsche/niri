@@ -307,7 +307,7 @@ impl Niri {
                     surface_primary_scanout_output(surface, states).is_some()
                 })
             });
-        self.idle_notifier_state.set_is_inhibited(is_inhibited);
+        self.protocols.idle_notifier.set_is_inhibited(is_inhibited);
     }
 
     /// Refreshes window tiled states.

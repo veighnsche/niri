@@ -9,6 +9,7 @@ mod lock;
 mod mru;
 mod output;
 mod pointer;
+mod protocols;
 mod render;
 mod rules;
 mod screencast;
@@ -16,6 +17,7 @@ mod screencopy;
 mod screenshot;
 mod types;
 
+pub use protocols::ProtocolStates;
 pub use types::*;
 
 use std::cell::{Cell, OnceCell, RefCell};
@@ -288,55 +290,11 @@ pub struct Niri {
     pub tablets: HashMap<input::Device, TabletData>,
     pub touch: HashSet<input::Device>,
 
-    // Smithay state.
-    pub compositor_state: CompositorState,
-    pub xdg_shell_state: XdgShellState,
-    pub xdg_decoration_state: XdgDecorationState,
-    pub kde_decoration_state: KdeDecorationState,
-    pub layer_shell_state: WlrLayerShellState,
-    pub session_lock_state: SessionLockManagerState,
-    pub foreign_toplevel_state: ForeignToplevelManagerState,
-    pub ext_workspace_state: ExtWorkspaceManagerState,
-    pub screencopy_state: ScreencopyManagerState,
-    pub output_management_state: OutputManagementManagerState,
-    pub viewporter_state: ViewporterState,
-    pub xdg_foreign_state: XdgForeignState,
-    pub shm_state: ShmState,
-    pub output_manager_state: OutputManagerState,
-    pub dmabuf_state: DmabufState,
-    pub fractional_scale_manager_state: FractionalScaleManagerState,
-    pub seat_state: SeatState<State>,
-    pub tablet_state: TabletManagerState,
-    pub text_input_state: TextInputManagerState,
-    pub input_method_state: InputMethodManagerState,
-    pub keyboard_shortcuts_inhibit_state: KeyboardShortcutsInhibitState,
-    pub virtual_keyboard_state: VirtualKeyboardManagerState,
-    pub virtual_pointer_state: VirtualPointerManagerState,
-    pub pointer_gestures_state: PointerGesturesState,
-    pub relative_pointer_state: RelativePointerManagerState,
-    pub pointer_constraints_state: PointerConstraintsState,
-    pub idle_notifier_state: IdleNotifierState<State>,
-    pub idle_inhibit_manager_state: IdleInhibitManagerState,
-    pub data_device_state: DataDeviceState,
-    pub primary_selection_state: PrimarySelectionState,
-    pub wlr_data_control_state: WlrDataControlState,
-    pub ext_data_control_state: ExtDataControlState,
-    pub popups: PopupManager,
-    pub popup_grab: Option<PopupGrabState>,
-    pub presentation_state: PresentationState,
-    pub security_context_state: SecurityContextState,
-    pub gamma_control_manager_state: GammaControlManagerState,
-    pub activation_state: XdgActivationState,
-    pub mutter_x11_interop_state: MutterX11InteropManagerState,
+    // Smithay protocol states.
+    pub protocols: ProtocolStates,
 
-    // This will not work as is outside of tests, so it is gated with #[cfg(test)] for now. In
-    // particular, shaders will need to learn about the single pixel buffer. Also, it must be
-    // verified that a black single-pixel-buffer background lets the foreground surface to be
-    // unredirected.
-    //
-    // https://github.com/YaLTeR/niri/issues/619
-    #[cfg(test)]
-    pub single_pixel_buffer_state: SinglePixelBufferState,
+    /// Active popup grab state.
+    pub popup_grab: Option<PopupGrabState>,
 
     pub seat: Seat<State>,
     /// Scancodes of the keys to suppress.
@@ -356,7 +314,6 @@ pub struct Niri {
 
     pub cursor_manager: CursorManager,
     pub cursor_texture_cache: CursorTextureCache,
-    pub cursor_shape_manager_state: CursorShapeManagerState,
     pub dnd_icon: Option<DndIcon>,
     /// Contents under pointer.
     ///
@@ -604,7 +561,7 @@ impl State {
         self.notify_blocker_cleared();
 
         // These should be called periodically, before flushing the clients.
-        self.niri.popups.cleanup();
+        self.niri.protocols.popups.cleanup();
         self.refresh_popup_grab();
         self.update_keyboard_focus();
 
@@ -1618,7 +1575,7 @@ impl State {
         }
 
         let config = self.niri.config.borrow().outputs.clone();
-        self.niri.output_management_state.on_config_changed(config);
+        self.niri.protocols.output_management.on_config_changed(config);
     }
 
     pub fn modify_output_config<F>(&mut self, name: &str, fun: F)
@@ -1762,7 +1719,7 @@ impl State {
         self.niri.on_ipc_outputs_changed();
 
         let new_config = self.backend.ipc_outputs().lock().unwrap().clone();
-        self.niri.output_management_state.notify_changes(new_config);
+        self.niri.protocols.output_management.notify_changes(new_config);
     }
 
     pub fn open_screenshot_ui(&mut self, show_pointer: bool, path: Option<String>) {
@@ -2540,7 +2497,7 @@ impl Niri {
         self.layout.remove_output(output);
         self.global_space.unmap_output(output);
         self.reposition_outputs(None);
-        self.gamma_control_manager_state.output_removed(output);
+        self.protocols.gamma_control.output_removed(output);
 
         let state = self.output_state.remove(output).unwrap();
 
@@ -3376,7 +3333,7 @@ impl Niri {
             return surface.clone();
         };
 
-        if let Some(popup) = self.popups.find_popup(root) {
+        if let Some(popup) = self.protocols.popups.find_popup(root) {
             return find_popup_root_surface(&popup).unwrap_or_else(|_| root.clone());
         }
 

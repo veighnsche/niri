@@ -105,7 +105,7 @@ impl SeatHandler for State {
     type TouchFocus = WlSurface;
 
     fn seat_state(&mut self) -> &mut SeatState<State> {
-        &mut self.niri.seat_state
+        &mut self.niri.protocols.seat
     }
 
     fn cursor_image(&mut self, _seat: &Seat<Self>, mut image: CursorImageStatus) {
@@ -234,7 +234,7 @@ impl InputMethodHandler for State {
 
         self.unconstrain_popup(&popup);
 
-        if let Err(err) = self.niri.popups.track_popup(popup) {
+        if let Err(err) = self.niri.protocols.popups.track_popup(popup) {
             warn!("error tracking ime popup {err:?}");
         }
     }
@@ -261,7 +261,7 @@ impl InputMethodHandler for State {
 
 impl KeyboardShortcutsInhibitHandler for State {
     fn keyboard_shortcuts_inhibit_state(&mut self) -> &mut KeyboardShortcutsInhibitState {
-        &mut self.niri.keyboard_shortcuts_inhibit_state
+        &mut self.niri.protocols.keyboard_shortcuts_inhibit
     }
 
     fn new_inhibitor(&mut self, inhibitor: KeyboardShortcutsInhibitor) {
@@ -311,7 +311,7 @@ impl SelectionHandler for State {
 
 impl DataDeviceHandler for State {
     fn data_device_state(&mut self) -> &mut DataDeviceState {
-        &mut self.niri.data_device_state
+        &mut self.niri.protocols.data_device
     }
 }
 
@@ -378,14 +378,14 @@ delegate_data_device!(State);
 
 impl PrimarySelectionHandler for State {
     fn primary_selection_state(&mut self) -> &mut PrimarySelectionState {
-        &mut self.niri.primary_selection_state
+        &mut self.niri.protocols.primary_selection
     }
 }
 delegate_primary_selection!(State);
 
 impl WlrDataControlHandler for State {
     fn data_control_state(&mut self) -> &mut WlrDataControlState {
-        &mut self.niri.wlr_data_control_state
+        &mut self.niri.protocols.wlr_data_control
     }
 }
 
@@ -393,7 +393,7 @@ delegate_data_control!(State);
 
 impl ExtDataControlHandler for State {
     fn data_control_state(&mut self) -> &mut ExtDataControlState {
-        &mut self.niri.ext_data_control_state
+        &mut self.niri.protocols.ext_data_control
     }
 }
 
@@ -411,7 +411,7 @@ delegate_presentation!(State);
 
 impl DmabufHandler for State {
     fn dmabuf_state(&mut self) -> &mut DmabufState {
-        &mut self.niri.dmabuf_state
+        &mut self.niri.protocols.dmabuf
     }
 
     fn dmabuf_imported(
@@ -431,7 +431,7 @@ delegate_dmabuf!(State);
 
 impl SessionLockHandler for State {
     fn lock_state(&mut self) -> &mut SessionLockManagerState {
-        &mut self.niri.session_lock_state
+        &mut self.niri.protocols.session_lock
     }
 
     fn lock(&mut self, confirmation: SessionLocker) {
@@ -489,7 +489,7 @@ delegate_security_context!(State);
 
 impl IdleNotifierHandler for State {
     fn idle_notifier_state(&mut self) -> &mut IdleNotifierState<Self> {
-        &mut self.niri.idle_notifier_state
+        &mut self.niri.protocols.idle_notifier
     }
 }
 delegate_idle_notify!(State);
@@ -507,7 +507,7 @@ delegate_idle_inhibit!(State);
 
 impl ForeignToplevelHandler for State {
     fn foreign_toplevel_manager_state(&mut self) -> &mut ForeignToplevelManagerState {
-        &mut self.niri.foreign_toplevel_state
+        &mut self.niri.protocols.foreign_toplevel
     }
 
     fn activate(&mut self, wl_surface: WlSurface) {
@@ -570,7 +570,7 @@ delegate_foreign_toplevel!(State);
 
 impl ExtWorkspaceHandler for State {
     fn ext_workspace_manager_state(&mut self) -> &mut ExtWorkspaceManagerState {
-        &mut self.niri.ext_workspace_state
+        &mut self.niri.protocols.ext_workspace
     }
 
     fn activate_workspace(&mut self, id: WorkspaceId) {
@@ -610,7 +610,7 @@ impl ScreencopyHandler for State {
         // If with_damage then push it onto the queue for redraw of the output,
         // otherwise render it immediately.
         if screencopy.with_damage() {
-            let Some(queue) = self.niri.screencopy_state.get_queue_mut(manager) else {
+            let Some(queue) = self.niri.protocols.screencopy.get_queue_mut(manager) else {
                 trace!("screencopy manager destroyed already");
                 return;
             };
@@ -628,14 +628,14 @@ impl ScreencopyHandler for State {
     }
 
     fn screencopy_state(&mut self) -> &mut ScreencopyManagerState {
-        &mut self.niri.screencopy_state
+        &mut self.niri.protocols.screencopy
     }
 }
 delegate_screencopy!(State);
 
 impl VirtualPointerHandler for State {
     fn virtual_pointer_manager_state(&mut self) -> &mut VirtualPointerManagerState {
-        &mut self.niri.virtual_pointer_state
+        &mut self.niri.protocols.virtual_pointer
     }
 
     fn on_virtual_pointer_motion(&mut self, event: VirtualPointerMotionEvent) {
@@ -709,7 +709,7 @@ delegate_viewporter!(State);
 
 impl GammaControlHandler for State {
     fn gamma_control_manager_state(&mut self) -> &mut GammaControlManagerState {
-        &mut self.niri.gamma_control_manager_state
+        &mut self.niri.protocols.gamma_control
     }
 
     fn get_gamma_size(&mut self, output: &Output) -> Option<u32> {
@@ -742,7 +742,7 @@ struct UrgentOnlyMarker;
 
 impl XdgActivationHandler for State {
     fn activation_state(&mut self) -> &mut XdgActivationState {
-        &mut self.niri.activation_state
+        &mut self.niri.protocols.activation
     }
 
     fn token_created(&mut self, _token: XdgActivationToken, data: XdgActivationTokenData) -> bool {
@@ -807,7 +807,7 @@ impl XdgActivationHandler for State {
             }
         }
 
-        self.niri.activation_state.remove_token(&token);
+        self.niri.protocols.activation.remove_token(&token);
     }
 }
 delegate_xdg_activation!(State);
@@ -817,7 +817,7 @@ delegate_fractional_scale!(State);
 
 impl OutputManagementHandler for State {
     fn output_management_state(&mut self) -> &mut OutputManagementManagerState {
-        &mut self.niri.output_management_state
+        &mut self.niri.protocols.output_management
     }
 
     fn apply_output_config(&mut self, config: niri_config::Outputs) {

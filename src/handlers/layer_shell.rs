@@ -16,7 +16,7 @@ use crate::utils::{is_mapped, output_size, send_scale_transform};
 
 impl WlrLayerShellHandler for State {
     fn shell_state(&mut self) -> &mut WlrLayerShellState {
-        &mut self.niri.layer_shell_state
+        &mut self.niri.protocols.layer_shell
     }
 
     fn new_layer_surface(

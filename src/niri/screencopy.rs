@@ -33,7 +33,7 @@ impl Niri {
     ) {
         let _span = tracy_client::span!("Niri::render_for_screencopy_with_damage");
 
-        let mut screencopy_state = mem::take(&mut self.screencopy_state);
+        let mut screencopy_state = mem::take(&mut self.protocols.screencopy);
         let elements = OnceCell::new();
 
         for queue in screencopy_state.queues_mut() {
@@ -85,7 +85,7 @@ impl Niri {
             }
         }
 
-        self.screencopy_state = screencopy_state;
+        self.protocols.screencopy = screencopy_state;
     }
 
     /// Renders for screencopy without damage tracking.
@@ -111,7 +111,7 @@ impl Niri {
             screencopy.overlay_cursor(),
             RenderTarget::ScreenCapture,
         );
-        let Some(queue) = self.screencopy_state.get_queue_mut(manager) else {
+        let Some(queue) = self.protocols.screencopy.get_queue_mut(manager) else {
             bail!("screencopy manager destroyed already");
         };
         let damage_tracker = queue.split().0;
@@ -203,7 +203,7 @@ impl Niri {
     /// Removes an output from all screencopy queues.
     pub fn remove_screencopy_output(&mut self, output: &Output) {
         let _span = tracy_client::span!("Niri::remove_screencopy_output");
-        for queue in self.screencopy_state.queues_mut() {
+        for queue in self.protocols.screencopy.queues_mut() {
             queue.remove_output(output);
         }
     }

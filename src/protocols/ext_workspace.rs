@@ -85,7 +85,7 @@ pub struct ExtWorkspaceGlobalData {
 pub fn refresh(state: &mut State) {
     let _span = tracy_client::span!("ext_workspace::refresh");
 
-    let protocol_state = &mut state.niri.ext_workspace_state;
+    let protocol_state = &mut state.niri.protocols.ext_workspace;
 
     let mut changed = false;
 
@@ -157,7 +157,7 @@ pub fn on_output_bound(state: &mut State, output: &Output, wl_output: &WlOutput)
 
     let mut sent = false;
 
-    let protocol_state = &mut state.niri.ext_workspace_state;
+    let protocol_state = &mut state.niri.protocols.ext_workspace;
     if let Some(data) = protocol_state.workspace_groups.get_mut(output) {
         for group in &mut data.instances {
             if group.client().as_ref() != Some(&client) {

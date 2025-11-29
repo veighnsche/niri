@@ -67,6 +67,7 @@ use crate::handlers::XDG_ACTIVATION_TOKEN_TIMEOUT;
 use crate::input::scroll_swipe_gesture::ScrollSwipeGesture;
 use crate::input::scroll_tracker::ScrollTracker;
 use crate::input::{mods_with_finger_scroll_binds, mods_with_mouse_binds, mods_with_wheel_binds};
+use crate::niri::{Niri, ClientState, ProtocolStates};
 use crate::ipc::server::IpcServer;
 use crate::layout::Layout;
 use crate::protocols::ext_workspace::ExtWorkspaceManagerState;
@@ -83,7 +84,7 @@ use crate::ui::mru::WindowMruUi;
 use crate::ui::screenshot_ui::ScreenshotUi;
 use crate::window::mapped::MappedId;
 use super::{State,
-    ClientState, KeyboardFocus, LockState, NewClient, Niri, PointContents, PointerVisibility,
+    KeyboardFocus, LockState, NewClient, PointContents, PointerVisibility,
 };
 
 // =============================================================================
@@ -124,106 +125,16 @@ impl Niri {
             !client.get_data::<ClientState>().unwrap().restricted
         }
 
-        let compositor_state = CompositorState::new_v6::<State>(&display_handle);
-        let xdg_shell_state = XdgShellState::new_with_capabilities::<State>(
-            &display_handle,
-            [WmCapabilities::Fullscreen, WmCapabilities::Maximize],
-        );
-        let xdg_decoration_state =
-            XdgDecorationState::new_with_filter::<State, _>(&display_handle, |client| {
-                client
-                    .get_data::<ClientState>()
-                    .unwrap()
-                    .can_view_decoration_globals
-            });
-        let kde_decoration_state = KdeDecorationState::new_with_filter::<State, _>(
-            &display_handle,
-            // If we want CSD we will hide the global.
-            KdeDecorationsMode::Server,
-            |client| {
-                client
-                    .get_data::<ClientState>()
-                    .unwrap()
-                    .can_view_decoration_globals
-            },
-        );
-        let layer_shell_state = WlrLayerShellState::new_with_filter::<State, _>(
-            &display_handle,
-            client_is_unrestricted,
-        );
-        let session_lock_state =
-            SessionLockManagerState::new::<State, _>(&display_handle, client_is_unrestricted);
-        let shm_state = ShmState::new::<State>(
-            &display_handle,
-            vec![wl_shm::Format::Xbgr8888, wl_shm::Format::Abgr8888],
-        );
-        let output_manager_state =
-            OutputManagerState::new_with_xdg_output::<State>(&display_handle);
-        let dmabuf_state = DmabufState::new();
-        let fractional_scale_manager_state =
-            FractionalScaleManagerState::new::<State>(&display_handle);
-        let mut seat_state = SeatState::new();
-        let tablet_state = TabletManagerState::new::<State>(&display_handle);
-        let pointer_gestures_state = PointerGesturesState::new::<State>(&display_handle);
-        let relative_pointer_state = RelativePointerManagerState::new::<State>(&display_handle);
-        let pointer_constraints_state = PointerConstraintsState::new::<State>(&display_handle);
-        let idle_notifier_state = IdleNotifierState::new(&display_handle, event_loop.clone());
-        let idle_inhibit_manager_state = IdleInhibitManagerState::new::<State>(&display_handle);
-        let data_device_state = DataDeviceState::new::<State>(&display_handle);
-        let primary_selection_state =
-            PrimarySelectionState::new_with_filter::<State, _>(&display_handle, |client| {
-                !client
-                    .get_data::<ClientState>()
-                    .unwrap()
-                    .primary_selection_disabled
-            });
-        let wlr_data_control_state = WlrDataControlState::new::<State, _>(
-            &display_handle,
-            Some(&primary_selection_state),
-            client_is_unrestricted,
-        );
-        let ext_data_control_state = ExtDataControlState::new::<State, _>(
-            &display_handle,
-            Some(&primary_selection_state),
-            client_is_unrestricted,
-        );
-        let presentation_state =
-            PresentationState::new::<State>(&display_handle, Monotonic::ID as u32);
-        let security_context_state =
-            SecurityContextState::new::<State, _>(&display_handle, client_is_unrestricted);
+        let cursor_manager =
+            CursorManager::new(&config_.cursor.xcursor_theme, config_.cursor.xcursor_size);
 
-        let text_input_state = TextInputManagerState::new::<State>(&display_handle);
-        let input_method_state =
-            InputMethodManagerState::new::<State, _>(&display_handle, client_is_unrestricted);
-        let keyboard_shortcuts_inhibit_state =
-            KeyboardShortcutsInhibitState::new::<State>(&display_handle);
-        let virtual_keyboard_state =
-            VirtualKeyboardManagerState::new::<State, _>(&display_handle, client_is_unrestricted);
-        let virtual_pointer_state =
-            VirtualPointerManagerState::new::<State, _>(&display_handle, client_is_unrestricted);
-        let foreign_toplevel_state =
-            ForeignToplevelManagerState::new::<State, _>(&display_handle, client_is_unrestricted);
-        let ext_workspace_state =
-            ExtWorkspaceManagerState::new::<State, _>(&display_handle, client_is_unrestricted);
-        let mut output_management_state =
-            OutputManagementManagerState::new::<State, _>(&display_handle, client_is_unrestricted);
-        output_management_state.on_config_changed(config_.outputs.clone());
-        let screencopy_state =
-            ScreencopyManagerState::new::<State, _>(&display_handle, client_is_unrestricted);
-        let viewporter_state = ViewporterState::new::<State>(&display_handle);
-        let xdg_foreign_state = XdgForeignState::new::<State>(&display_handle);
+        let mut protocols = ProtocolStates::new(&display_handle, &event_loop, &config_, backend);
 
-        let is_tty = matches!(backend, Backend::Tty(_));
-        let gamma_control_manager_state =
-            GammaControlManagerState::new::<State, _>(&display_handle, move |client| {
-                is_tty && !client.get_data::<ClientState>().unwrap().restricted
-            });
-        let activation_state = XdgActivationState::new::<State>(&display_handle);
         event_loop
             .insert_source(
                 Timer::from_duration(XDG_ACTIVATION_TOKEN_TIMEOUT),
                 |_, _, state| {
-                    state.niri.activation_state.retain_tokens(|_, token_data| {
+                    state.niri.protocols.activation.retain_tokens(|_, token_data| {
                         token_data.timestamp.elapsed() < XDG_ACTIVATION_TOKEN_TIMEOUT
                     });
                     TimeoutAction::ToDuration(XDG_ACTIVATION_TOKEN_TIMEOUT)
@@ -231,13 +142,8 @@ impl Niri {
             )
             .unwrap();
 
-        let mutter_x11_interop_state =
-            MutterX11InteropManagerState::new::<State, _>(&display_handle, move |_| true);
-
-        #[cfg(test)]
-        let single_pixel_buffer_state = SinglePixelBufferState::new::<State>(&display_handle);
-
-        let mut seat = seat_state.new_wl_seat(&display_handle, backend.seat_name());
+        let mut seat = protocols.seat.new_wl_seat(&display_handle, backend.seat_name());
+        let mod_key = backend.mod_key(&config_);
         let keyboard = match seat.add_keyboard(
             config_.input.keyboard.xkb.to_xkb_config(),
             config_.input.keyboard.repeat_delay.into(),
@@ -264,12 +170,6 @@ impl Niri {
             keyboard.set_modifier_state(modifier_state);
         }
         seat.add_pointer();
-
-        let cursor_shape_manager_state = CursorShapeManagerState::new::<State>(&display_handle);
-        let cursor_manager =
-            CursorManager::new(&config_.cursor.xcursor_theme, config_.cursor.xcursor_size);
-
-        let mod_key = backend.mod_key(&config.borrow());
         let mods_with_mouse_binds = mods_with_mouse_binds(mod_key, &config_.binds);
         let mods_with_wheel_binds = mods_with_wheel_binds(mod_key, &config_.binds);
         let mods_with_finger_scroll_binds = mods_with_finger_scroll_binds(mod_key, &config_.binds);
@@ -392,51 +292,12 @@ impl Niri {
             tablets: HashMap::new(),
             touch: HashSet::new(),
 
-            compositor_state,
-            xdg_shell_state,
-            xdg_decoration_state,
-            kde_decoration_state,
-            layer_shell_state,
-            session_lock_state,
-            foreign_toplevel_state,
-            ext_workspace_state,
-            output_management_state,
-            screencopy_state,
-            viewporter_state,
-            xdg_foreign_state,
-            text_input_state,
-            input_method_state,
-            keyboard_shortcuts_inhibit_state,
-            virtual_keyboard_state,
-            virtual_pointer_state,
-            shm_state,
-            output_manager_state,
-            dmabuf_state,
-            fractional_scale_manager_state,
-            seat_state,
-            tablet_state,
-            pointer_gestures_state,
-            relative_pointer_state,
-            pointer_constraints_state,
-            idle_notifier_state,
-            idle_inhibit_manager_state,
-            data_device_state,
-            primary_selection_state,
-            wlr_data_control_state,
-            ext_data_control_state,
-            popups: PopupManager::default(),
+            protocols,
             popup_grab: None,
             suppressed_keys: HashSet::new(),
             suppressed_buttons: HashSet::new(),
             bind_cooldown_timers: HashMap::new(),
             bind_repeat_timer: Option::default(),
-            presentation_state,
-            security_context_state,
-            gamma_control_manager_state,
-            activation_state,
-            mutter_x11_interop_state,
-            #[cfg(test)]
-            single_pixel_buffer_state,
 
             seat,
             keyboard_focus: KeyboardFocus::Layout { surface: None },
@@ -447,7 +308,6 @@ impl Niri {
             xkb_from_locale1: None,
             cursor_manager,
             cursor_texture_cache: Default::default(),
-            cursor_shape_manager_state,
             dnd_icon: None,
             pointer_contents: PointContents::default(),
             pointer_visibility: PointerVisibility::Visible,

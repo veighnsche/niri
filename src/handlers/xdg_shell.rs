@@ -52,7 +52,7 @@ use crate::window::{InitialConfigureState, ResolvedWindowRules, Unmapped, Window
 
 impl XdgShellHandler for State {
     fn xdg_shell_state(&mut self) -> &mut XdgShellState {
-        &mut self.niri.xdg_shell_state
+        &mut self.niri.protocols.xdg_shell
     }
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
@@ -66,7 +66,7 @@ impl XdgShellHandler for State {
         let popup = PopupKind::Xdg(surface);
         self.unconstrain_popup(&popup);
 
-        if let Err(err) = self.niri.popups.track_popup(popup) {
+        if let Err(err) = self.niri.protocols.popups.track_popup(popup) {
             warn!("error tracking popup: {err:?}");
         }
     }
@@ -361,6 +361,7 @@ impl XdgShellHandler for State {
         let seat = &self.niri.seat;
         let mut grab = match self
             .niri
+            .protocols
             .popups
             .grab_popup(root.clone(), popup, seat, serial)
         {
@@ -990,7 +991,7 @@ impl KdeDecorationsModeState {
 
 impl KdeDecorationHandler for State {
     fn kde_decoration_state(&self) -> &KdeDecorationState {
-        &self.niri.kde_decoration_state
+        &self.niri.protocols.kde_decoration
     }
 
     fn request_mode(
@@ -1019,7 +1020,7 @@ delegate_kde_decoration!(State);
 
 impl XdgForeignHandler for State {
     fn xdg_foreign_state(&mut self) -> &mut XdgForeignState {
-        &mut self.niri.xdg_foreign_state
+        &mut self.niri.protocols.xdg_foreign
     }
 }
 delegate_xdg_foreign!(State);
@@ -1203,9 +1204,9 @@ impl State {
 
     /// Should be called on `WlSurface::commit`
     pub fn popups_handle_commit(&mut self, surface: &WlSurface) {
-        self.niri.popups.commit(surface);
+        self.niri.protocols.popups.commit(surface);
 
-        if let Some(popup) = self.niri.popups.find_popup(surface) {
+        if let Some(popup) = self.niri.protocols.popups.find_popup(surface) {
             match popup {
                 PopupKind::Xdg(ref popup) => {
                     if !popup.is_initial_configure_sent() {

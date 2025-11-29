@@ -690,11 +690,11 @@ impl State {
             }
             Action::Spawn(command) => {
                 info!("Spawn action triggered with command: {:?}", command);
-                let (token, _) = self.niri.activation_state.create_external_token(None);
+                let (token, _) = self.niri.protocols.activation.create_external_token(None);
                 spawn(command, Some(token.clone()));
             }
             Action::SpawnSh(command) => {
-                let (token, _) = self.niri.activation_state.create_external_token(None);
+                let (token, _) = self.niri.protocols.activation.create_external_token(None);
                 spawn_sh(command, Some(token.clone()));
             }
             Action::DoScreenTransition(delay_ms) => {

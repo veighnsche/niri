@@ -186,7 +186,7 @@ impl Niri {
 
         let _span = tracy_client::span!("Niri::notify_activity");
 
-        self.idle_notifier_state.notify_activity(&self.seat);
+        self.protocols.idle_notifier.notify_activity(&self.seat);
 
         self.notified_activity_this_iteration = true;
     }

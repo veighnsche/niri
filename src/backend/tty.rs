@@ -827,7 +827,7 @@ impl Tty {
                     .build()
                     .context("error building default dmabuf feedback")?;
             let dmabuf_global = niri
-                .dmabuf_state
+                .protocols.dmabuf
                 .create_global_with_default_feedback::<State>(
                     &niri.display_handle,
                     &default_feedback,
@@ -1122,7 +1122,7 @@ impl Tty {
 
                 // Disable and destroy the dmabuf global.
                 if let Some(global) = self.dmabuf_global.take() {
-                    niri.dmabuf_state
+                    niri.protocols.dmabuf
                         .disable_global::<State>(&niri.display_handle, &global);
                     niri.event_loop
                         .insert_source(
@@ -1130,7 +1130,7 @@ impl Tty {
                             move |_, _, state| {
                                 state
                                     .niri
-                                    .dmabuf_state
+                                    .protocols.dmabuf
                                     .destroy_global::<State>(&state.niri.display_handle, global);
                                 TimeoutAction::Drop
                             },
