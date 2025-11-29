@@ -203,7 +203,7 @@ impl PointerConstraintsHandler for State {
         let target = self
             .niri
             .output_for_root(&root)
-            .and_then(|output| self.niri.outputs.global_space.output_geometry(output))
+            .and_then(|output| self.niri.outputs.space().output_geometry(output))
             .map_or(origin + location, |mut output_geometry| {
                 // i32 sizes are exclusive, but f64 sizes are inclusive.
                 output_geometry.size -= (1, 1).into();

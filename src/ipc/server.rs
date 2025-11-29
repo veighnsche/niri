@@ -292,7 +292,7 @@ async fn process(ctx: &ClientCtx, request: Request) -> Reply {
             let (tx, rx) = async_channel::bounded(1);
             ctx.event_loop.insert_idle(move |state| {
                 let mut layers = Vec::new();
-                for output in state.niri.outputs.global_space.outputs() {
+                for output in state.niri.outputs.space().outputs() {
                     let name = output.name();
                     for surface in layer_map_for_output(output).layers() {
                         let layer = match surface.layer() {

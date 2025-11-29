@@ -233,7 +233,7 @@ impl Niri {
 
         self.layout.update_output_size(output);
 
-        if let Some(state) = self.outputs.state.get_mut(output) {
+        if let Some(state) = self.outputs.state_mut(output) {
             state.backdrop_buffer.resize(output_size);
 
             state.lock_color_buffer.resize(output_size);
@@ -265,21 +265,21 @@ impl Niri {
 
     /// Deactivates all monitors.
     pub fn deactivate_monitors(&mut self, backend: &mut Backend) {
-        if !self.outputs.monitors_active {
+        if !self.outputs.monitors_active() {
             return;
         }
 
-        self.outputs.monitors_active = false;
+        self.outputs.set_monitors_active(false);
         backend.set_monitors_active(false);
     }
 
     /// Activates all monitors.
     pub fn activate_monitors(&mut self, backend: &mut Backend) {
-        if self.outputs.monitors_active {
+        if self.outputs.monitors_active() {
             return;
         }
 
-        self.outputs.monitors_active = true;
+        self.outputs.set_monitors_active(true);
         backend.set_monitors_active(true);
 
         self.queue_redraw_all();

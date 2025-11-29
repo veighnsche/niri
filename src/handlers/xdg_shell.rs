@@ -1066,7 +1066,7 @@ impl State {
                 .as_deref()
                 .and_then(|name| {
                     self.niri
-                        .outputs.global_space
+                        .outputs.space()
                         .outputs()
                         .find(|output| output_matches_name(output, name))
                 })
@@ -1271,7 +1271,7 @@ impl State {
         layer_surface: &LayerSurface,
         output: &Output,
     ) {
-        let output_geo = self.niri.outputs.global_space.output_geometry(output).unwrap();
+        let output_geo = self.niri.outputs.space().output_geometry(output).unwrap();
         let map = layer_map_for_output(output);
         let Some(layer_geo) = map.layer_geometry(layer_surface) else {
             return;

@@ -27,7 +27,7 @@
 //! }
 //!
 //! // Check if any monitors are active
-//! if !niri.outputs.monitors_active {
+//! if !niri.outputs.monitors_active() {
 //!     // Handle all monitors off
 //! }
 //! ```
@@ -53,26 +53,26 @@ use crate::niri::OutputState;
 /// for adding, removing, repositioning, and querying outputs.
 pub struct OutputSubsystem {
     /// Global compositor space containing all outputs.
-    pub global_space: Space<smithay::desktop::Window>,
+    space: Space<smithay::desktop::Window>,
     
     /// Outputs sorted by name and position.
-    pub sorted: Vec<Output>,
+    sorted: Vec<Output>,
     
     /// Per-output state (frame clock, redraw state, etc.).
-    pub state: HashMap<Output, OutputState>,
+    state: HashMap<Output, OutputState>,
     
     /// Whether monitors are currently active (not powered off for idle).
-    pub monitors_active: bool,
+    monitors_active: bool,
     
     /// Whether the laptop lid is closed.
-    pub lid_closed: bool,
+    lid_closed: bool,
 }
 
 impl OutputSubsystem {
     /// Creates a new output subsystem.
     pub fn new() -> Self {
         Self {
-            global_space: Space::default(),
+            space: Space::default(),
             sorted: Vec::new(),
             state: HashMap::new(),
             monitors_active: true,
@@ -117,8 +117,8 @@ impl OutputSubsystem {
     
     /// Returns the output under the given global position.
     pub fn under_position(&self, pos: Point<f64, Logical>) -> Option<(&Output, Point<f64, Logical>)> {
-        let output = self.global_space.output_under(pos).next()?;
-        let geo = self.global_space.output_geometry(output)?;
+        let output = self.space.output_under(pos).next()?;
+        let geo = self.space.output_geometry(output)?;
         Some((output, pos - geo.loc.to_f64()))
     }
     
@@ -157,12 +157,12 @@ impl OutputSubsystem {
     
     /// Returns the global space (read-only).
     pub fn space(&self) -> &Space<smithay::desktop::Window> {
-        &self.global_space
+        &self.space
     }
     
     /// Returns a mutable reference to the global space.
     pub fn space_mut(&mut self) -> &mut Space<smithay::desktop::Window> {
-        &mut self.global_space
+        &mut self.space
     }
     
     /// Returns the state for a specific output.
@@ -173,6 +173,61 @@ impl OutputSubsystem {
     /// Returns mutable state for a specific output.
     pub fn state_mut(&mut self, output: &Output) -> Option<&mut OutputState> {
         self.state.get_mut(output)
+    }
+    
+    /// Returns an iterator over all (output, state) pairs.
+    pub fn state_iter(&self) -> impl Iterator<Item = (&Output, &OutputState)> {
+        self.state.iter()
+    }
+    
+    /// Returns a mutable iterator over all (output, state) pairs.
+    pub fn state_iter_mut(&mut self) -> impl Iterator<Item = (&Output, &mut OutputState)> {
+        self.state.iter_mut()
+    }
+    
+    /// Inserts state for an output. Returns previous state if present.
+    pub fn insert_state(&mut self, output: Output, state: OutputState) -> Option<OutputState> {
+        self.state.insert(output, state)
+    }
+    
+    /// Removes and returns state for an output.
+    pub fn remove_state(&mut self, output: &Output) -> Option<OutputState> {
+        self.state.remove(output)
+    }
+    
+    /// Returns true if the output has state.
+    pub fn has_state(&self, output: &Output) -> bool {
+        self.state.contains_key(output)
+    }
+    
+    /// Returns the number of outputs with state.
+    pub fn state_count(&self) -> usize {
+        self.state.len()
+    }
+    
+    /// Returns all output states as a slice-like iterator for values.
+    pub fn states(&self) -> impl Iterator<Item = &OutputState> {
+        self.state.values()
+    }
+    
+    /// Returns mutable access to all output states.
+    pub fn states_mut(&mut self) -> impl Iterator<Item = &mut OutputState> {
+        self.state.values_mut()
+    }
+    
+    /// Adds an output to the sorted list.
+    pub fn add_sorted(&mut self, output: Output) {
+        self.sorted.push(output);
+    }
+    
+    /// Clears the sorted outputs list.
+    pub fn clear_sorted(&mut self) {
+        self.sorted.clear();
+    }
+    
+    /// Sets the sorted outputs list.
+    pub fn set_sorted(&mut self, outputs: Vec<Output>) {
+        self.sorted = outputs;
     }
     
     /// Returns whether monitors are active.

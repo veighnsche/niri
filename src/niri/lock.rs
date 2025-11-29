@@ -35,9 +35,9 @@ impl Niri {
         let output = output_under_cursor
             .as_ref()
             .or_else(|| self.layout.active_output())
-            .or_else(|| self.outputs.global_space.outputs().next())?;
+            .or_else(|| self.outputs.space().outputs().next())?;
 
-        let state = self.outputs.state.get(output)?;
+        let state = self.outputs.state(output)?;
         state.lock_surface.as_ref().map(|s| s.wl_surface()).cloned()
     }
 }
@@ -79,7 +79,7 @@ impl Niri {
 
         info!("locking session");
 
-        if self.outputs.state.is_empty() {
+        if self.outputs.state_count() == 0 {
             // There are no outputs, lock the session right away.
             self.ui.screenshot.close();
             self.cursor.manager
@@ -118,7 +118,7 @@ impl Niri {
         }
 
         // Check if there are any outputs whose lock surfaces had not had a commit yet.
-        for state in self.outputs.state.values() {
+        for state in self.outputs.states() {
             let Some(surface) = &state.lock_surface else {
                 // Surface not created yet.
                 return;
@@ -148,7 +148,7 @@ impl Niri {
                     .set_cursor_image(CursorImageStatus::default_named());
                 self.cancel_mru();
 
-                if self.outputs.state.is_empty() {
+                if self.outputs.state_count() == 0 {
                     // There are no outputs, lock the session right away.
                     let lock = confirmation.ext_session_lock().clone();
                     confirmation.lock();
@@ -175,7 +175,7 @@ impl Niri {
             self.event_loop.remove(deadline_token);
         }
 
-        for output_state in self.outputs.state.values_mut() {
+        for output_state in self.outputs.states_mut() {
             output_state.lock_surface = None;
         }
         self.queue_redraw_all();
@@ -281,7 +281,7 @@ impl Niri {
             return;
         }
 
-        let Some(output_state) = self.outputs.state.get_mut(output) else {
+        let Some(output_state) = self.outputs.state_mut(output) else {
             error!("missing output state");
             return;
         };

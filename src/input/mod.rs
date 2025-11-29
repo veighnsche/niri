@@ -116,7 +116,7 @@ impl State {
         // Make sure some logic like workspace clean-up has a chance to run before doing actions.
         self.niri.advance_animations();
 
-        if self.niri.outputs.monitors_active {
+        if self.niri.outputs.monitors_active() {
             // Notify the idle-notifier of activity.
             if should_notify_activity(&event) {
                 self.niri.notify_activity();
@@ -266,11 +266,11 @@ impl State {
 
     /// Computes the rectangle that covers all outputs in global space.
     fn global_bounding_rectangle(&self) -> Option<Rectangle<i32, Logical>> {
-        self.niri.outputs.global_space.outputs().fold(
+        self.niri.outputs.space().outputs().fold(
             None,
             |acc: Option<Rectangle<i32, Logical>>, output| {
                 self.niri
-                    .outputs.global_space
+                    .outputs.space()
                     .output_geometry(output)
                     .map(|geo| acc.map(|acc| acc.merge(geo)).unwrap_or(geo))
             },
@@ -293,7 +293,7 @@ impl State {
         let (target_geo, keep_ratio, px, transform) =
             if let Some(output) = device_output.or_else(|| self.niri.output_for_tablet()) {
                 (
-                    self.niri.outputs.global_space.output_geometry(output).unwrap(),
+                    self.niri.outputs.space().output_geometry(output).unwrap(),
                     true,
                     1. / output.current_scale().fractional_scale(),
                     output.current_transform(),
@@ -303,7 +303,7 @@ impl State {
 
                 // FIXME: this 1 px size should ideally somehow be computed for the rightmost output
                 // corresponding to the position on the right when clamping.
-                let output = self.niri.outputs.global_space.outputs().next().unwrap();
+                let output = self.niri.outputs.space().outputs().next().unwrap();
                 let scale = output.current_scale().fractional_scale();
 
                 // Do not keep ratio for the unified mode as this is what OpenTabletDriver expects.
@@ -2203,7 +2203,7 @@ impl State {
         self.niri.pointer_inside_hot_corner = false;
 
         // We need an output to be able to move the pointer.
-        if self.niri.outputs.global_space.outputs().next().is_none() {
+        if self.niri.outputs.space().outputs().next().is_none() {
             return;
         }
 
@@ -2276,16 +2276,16 @@ impl State {
 
         if self
             .niri
-            .outputs.global_space
+            .outputs.space()
             .output_under(new_pos)
             .next()
             .is_none()
         {
             // We ended up outside the outputs and need to clip the movement.
-            if let Some(output) = self.niri.outputs.global_space.output_under(pos).next() {
+            if let Some(output) = self.niri.outputs.space().output_under(pos).next() {
                 // The pointer was previously on some output. Clip the movement against its
                 // boundaries.
-                let geom = self.niri.outputs.global_space.output_geometry(output).unwrap();
+                let geom = self.niri.outputs.space().output_geometry(output).unwrap();
                 new_pos.x = new_pos
                     .x
                     .clamp(geom.loc.x as f64, (geom.loc.x + geom.size.w - 1) as f64);
@@ -2295,14 +2295,14 @@ impl State {
             } else {
                 // The pointer was not on any output in the first place. Find one for it.
                 // Let's do the simple thing and just put it on the first output.
-                let output = self.niri.outputs.global_space.outputs().next().unwrap();
-                let geom = self.niri.outputs.global_space.output_geometry(output).unwrap();
+                let output = self.niri.outputs.space().outputs().next().unwrap();
+                let geom = self.niri.outputs.space().output_geometry(output).unwrap();
                 new_pos = center(geom).to_f64();
             }
         }
 
         if let Some(output) = self.niri.ui.screenshot.selection_output() {
-            let geom = self.niri.outputs.global_space.output_geometry(output).unwrap();
+            let geom = self.niri.outputs.space().output_geometry(output).unwrap();
             let mut point = (new_pos - geom.loc.to_f64())
                 .to_physical(output.current_scale().fractional_scale())
                 .to_i32_round::<i32>();
@@ -2435,7 +2435,7 @@ impl State {
         let pointer = self.niri.seat.get_pointer().unwrap();
 
         if let Some(output) = self.niri.ui.screenshot.selection_output() {
-            let geom = self.niri.outputs.global_space.output_geometry(output).unwrap();
+            let geom = self.niri.outputs.space().output_geometry(output).unwrap();
             let mut point = (pos - geom.loc.to_f64())
                 .to_physical(output.current_scale().fractional_scale())
                 .to_i32_round::<i32>();
@@ -2773,7 +2773,7 @@ impl State {
                 let pos = pointer.current_location();
                 if let Some((output, _)) = self.niri.output_under(pos) {
                     let output = output.clone();
-                    let geom = self.niri.outputs.global_space.output_geometry(&output).unwrap();
+                    let geom = self.niri.outputs.space().output_geometry(&output).unwrap();
                     let mut point = (pos - geom.loc.to_f64())
                         .to_physical(output.current_scale().fractional_scale())
                         .to_i32_round();
@@ -3271,7 +3271,7 @@ impl State {
         };
 
         if let Some(output) = self.niri.ui.screenshot.selection_output() {
-            let geom = self.niri.outputs.global_space.output_geometry(output).unwrap();
+            let geom = self.niri.outputs.space().output_geometry(output).unwrap();
             let mut point = (pos - geom.loc.to_f64())
                 .to_physical(output.current_scale().fractional_scale())
                 .to_i32_round::<i32>();
@@ -3356,7 +3356,7 @@ impl State {
 
                     if self.niri.ui.screenshot.is_open() {
                         if let Some(output) = under.output.clone() {
-                            let geom = self.niri.outputs.global_space.output_geometry(&output).unwrap();
+                            let geom = self.niri.outputs.space().output_geometry(&output).unwrap();
                             let mut point = (pos - geom.loc.to_f64())
                                 .to_physical(output.current_scale().fractional_scale())
                                 .to_i32_round();
@@ -3764,7 +3764,7 @@ impl State {
     ) -> Option<Point<f64, Logical>> {
         let output = evt.device().output(self);
         let output = output.as_ref().or(fallback_output)?;
-        let output_geo = self.niri.outputs.global_space.output_geometry(output).unwrap();
+        let output_geo = self.niri.outputs.space().output_geometry(output).unwrap();
         let transform = output.current_transform();
         let size = transform.invert().transform_size(output_geo.size);
         Some(
@@ -3800,7 +3800,7 @@ impl State {
 
         if self.niri.ui.screenshot.is_open() {
             if let Some(output) = under.output.clone() {
-                let geom = self.niri.outputs.global_space.output_geometry(&output).unwrap();
+                let geom = self.niri.outputs.space().output_geometry(&output).unwrap();
                 let mut point = (pos - geom.loc.to_f64())
                     .to_physical(output.current_scale().fractional_scale())
                     .to_i32_round();
@@ -3933,7 +3933,7 @@ impl State {
         let slot = evt.slot();
 
         if let Some(output) = self.niri.ui.screenshot.selection_output().cloned() {
-            let geom = self.niri.outputs.global_space.output_geometry(&output).unwrap();
+            let geom = self.niri.outputs.space().output_geometry(&output).unwrap();
             let mut point = (pos - geom.loc.to_f64())
                 .to_physical(output.current_scale().fractional_scale())
                 .to_i32_round::<i32>();

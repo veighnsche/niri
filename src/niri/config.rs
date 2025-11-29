@@ -58,7 +58,7 @@ impl StateConfigExt for super::State {
         let mut resized_outputs = vec![];
         let mut recolored_outputs = vec![];
 
-        for output in self.niri.outputs.global_space.outputs() {
+        for output in self.niri.outputs.space().outputs() {
             let name = output.user_data().get::<niri_config::OutputName>().unwrap();
             let full_config = self.niri.config.borrow_mut();
             let config = full_config.outputs.find(name);

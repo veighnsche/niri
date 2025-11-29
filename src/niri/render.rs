@@ -58,7 +58,7 @@ impl Niri {
 
         let _span = tracy_client::span!("Niri::pointer_element");
         let output_scale = output.current_scale();
-        let output_pos = self.outputs.global_space.output_geometry(output).unwrap().loc;
+        let output_pos = self.outputs.space().output_geometry(output).unwrap().loc;
 
         // Check whether we need to draw the tablet cursor or the regular cursor.
         let pointer_pos = self
@@ -182,8 +182,8 @@ impl Niri {
                 let mut cursor_transform = Transform::Normal;
                 let mut dnd_scale = 1.;
                 let mut dnd_transform = Transform::Normal;
-                for output in self.outputs.global_space.outputs() {
-                    let geo = self.outputs.global_space.output_geometry(output).unwrap();
+                for output in self.outputs.space().outputs() {
+                    let geo = self.outputs.space().output_geometry(output).unwrap();
 
                     // Compute pointer surface overlap.
                     if let Some(mut overlap) = geo.intersection(bbox) {
@@ -247,8 +247,8 @@ impl Niri {
 
                 let mut dnd_scale = 1.;
                 let mut dnd_transform = Transform::Normal;
-                for output in self.outputs.global_space.outputs() {
-                    let geo = self.outputs.global_space.output_geometry(output).unwrap();
+                for output in self.outputs.space().outputs() {
+                    let geo = self.outputs.space().output_geometry(output).unwrap();
 
                     // The default cursor is rendered at the right scale for each output, which
                     // means that it may have a different hotspot for each output.
@@ -391,7 +391,7 @@ impl Niri {
         self.ui.screenshot.advance_animations();
         self.ui.mru.advance_animations();
 
-        for state in self.outputs.state.values_mut() {
+        for state in self.outputs.states_mut() {
             if let Some(transition) = &mut state.screen_transition {
                 if transition.is_done() {
                     state.screen_transition = None;
@@ -404,7 +404,7 @@ impl Niri {
     pub fn update_render_elements(&mut self, output: Option<&Output>) {
         self.layout.update_render_elements(output);
 
-        for (out, state) in self.outputs.state.iter_mut() {
+        for (out, state) in self.outputs.state_iter_mut() {
             if output.map_or(true, |output| out == output) {
                 let scale = Scale::from(out.current_scale().fractional_scale());
                 let transform = out.current_transform();
@@ -445,21 +445,21 @@ impl Niri {
 impl Niri {
     /// Schedules an immediate redraw on all outputs if one is not already scheduled.
     pub fn queue_redraw_all(&mut self) {
-        for state in self.outputs.state.values_mut() {
+        for state in self.outputs.states_mut() {
             state.redraw_state = mem::take(&mut state.redraw_state).queue_redraw();
         }
     }
 
     /// Schedules an immediate redraw if one is not already scheduled.
     pub fn queue_redraw(&mut self, output: &Output) {
-        let state = self.outputs.state.get_mut(output).unwrap();
+        let state = self.outputs.state_mut(output).unwrap();
         state.redraw_state = mem::take(&mut state.redraw_state).queue_redraw();
     }
 
     pub fn redraw_queued_outputs(&mut self, backend: &mut Backend) {
         let _span = tracy_client::span!("Niri::redraw_queued_outputs");
 
-        while let Some((output, _)) = self.outputs.state.iter().find(|(_, state)| {
+        while let Some((output, _)) = self.outputs.state_iter().find(|(_, state)| {
             matches!(
                 state.redraw_state,
                 RedrawState::Queued | RedrawState::WaitingForEstimatedVBlankAndQueued(_)
@@ -499,7 +499,7 @@ impl Niri {
 
         // Next, the screen transition texture.
         {
-            let state = self.outputs.state.get(output).unwrap();
+            let state = self.outputs.state(output).unwrap();
             if let Some(transition) = &state.screen_transition {
                 elements.push(transition.render(target).into());
             }
@@ -520,7 +520,7 @@ impl Niri {
 
         // If the session is locked, draw the lock surface.
         if self.is_locked() {
-            let state = self.outputs.state.get(output).unwrap();
+            let state = self.outputs.state(output).unwrap();
             if let Some(surface) = state.lock_surface.as_ref() {
                 elements.extend(render_elements_from_surface_tree(
                     renderer,
@@ -550,7 +550,7 @@ impl Niri {
         }
 
         // Prepare the background elements.
-        let state = self.outputs.state.get(output).unwrap();
+        let state = self.outputs.state(output).unwrap();
         let backdrop = SolidColorRenderElement::from_buffer(
             &state.backdrop_buffer,
             (0., 0.),
@@ -749,7 +749,7 @@ impl Niri {
         let _span = tracy_client::span!("Niri::redraw");
 
         // Verify our invariant.
-        let state = self.outputs.state.get_mut(output).unwrap();
+        let state = self.outputs.state_mut(output).unwrap();
         assert!(matches!(
             state.redraw_state,
             RedrawState::Queued | RedrawState::WaitingForEstimatedVBlankAndQueued(_)
@@ -763,8 +763,8 @@ impl Niri {
         self.update_render_elements(Some(output));
 
         let mut res = RenderResult::Skipped;
-        if self.outputs.monitors_active {
-            let state = self.outputs.state.get_mut(output).unwrap();
+        if self.outputs.monitors_active() {
+            let state = self.outputs.state_mut(output).unwrap();
             state.unfinished_animations_remain = self.layout.are_animations_ongoing(Some(output));
             state.unfinished_animations_remain |=
                 self.ui.config_error.are_animations_ongoing();
@@ -791,7 +791,7 @@ impl Niri {
         }
 
         let is_locked = self.is_locked();
-        let state = self.outputs.state.get_mut(output).unwrap();
+        let state = self.outputs.state_mut(output).unwrap();
 
         if res == RenderResult::Skipped {
             // Update the redraw state on failed render.
@@ -808,7 +808,7 @@ impl Niri {
         // Update the lock render state on successful render, or if monitors are inactive. When
         // monitors are inactive on a TTY, they have no framebuffer attached, so no sensitive data
         // from a last render will be visible.
-        if res != RenderResult::Skipped || !self.outputs.monitors_active {
+        if res != RenderResult::Skipped || !self.outputs.monitors_active() {
             state.lock_render_state = if is_locked {
                 LockRenderState::Locked
             } else {
@@ -825,8 +825,8 @@ impl Niri {
                 } else {
                     // Check if all outputs are now locked.
                     let all_locked = self
-                        .outputs.state
-                        .values()
+                        .outputs
+                        .states()
                         .all(|state| state.lock_render_state == LockRenderState::Locked);
 
                     if all_locked {
@@ -994,7 +994,7 @@ impl Niri {
             );
         }
 
-        if let Some(surface) = &self.outputs.state[output].lock_surface {
+        if let Some(surface) = self.outputs.state(output).unwrap().lock_surface {
             send_dmabuf_feedback_surface_tree(
                 surface.wl_surface(),
                 output,

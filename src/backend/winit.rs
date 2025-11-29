@@ -189,7 +189,7 @@ impl Winit {
 
         // Visualize the damage, if enabled.
         if niri.debug_draw_damage {
-            let output_state = niri.outputs.state.get_mut(output).unwrap();
+            let output_state = niri.outputs.state_mut(output).unwrap();
             draw_damage(&mut output_state.debug_damage_tracker, &mut elements);
         }
 
@@ -236,7 +236,7 @@ impl Winit {
             rv = RenderResult::NoDamage;
         }
 
-        let output_state = niri.outputs.state.get_mut(output).unwrap();
+        let output_state = niri.outputs.state_mut(output).unwrap();
         match mem::replace(&mut output_state.redraw_state, RedrawState::Idle) {
             RedrawState::Idle => unreachable!(),
             RedrawState::Queued => (),

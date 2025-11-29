@@ -470,7 +470,7 @@ impl CompositorHandler for State {
         }
 
         // This might be a lock surface.
-        for (output, state) in &self.niri.outputs.state {
+        for (output, state) in self.niri.outputs.state_iter() {
             if let Some(lock_surface) = &state.lock_surface {
                 if lock_surface.wl_surface() == &root_surface {
                     if matches!(self.niri.lock_state, LockState::WaitingForSurfaces { .. }) {

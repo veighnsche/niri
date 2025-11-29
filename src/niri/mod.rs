@@ -503,12 +503,12 @@ impl State {
     // We monitor both libinput and logind: libinput is always there (including without DBus), but
     // it misses some switch events (e.g. after unsuspend) on some systems.
     pub fn set_lid_closed(&mut self, is_closed: bool) {
-        if self.niri.outputs.lid_closed == is_closed {
+        if self.niri.outputs.lid_closed() == is_closed {
             return;
         }
 
         debug!("laptop lid {}", if is_closed { "closed" } else { "opened" });
-        self.niri.outputs.lid_closed = is_closed;
+        self.niri.outputs.set_lid_closed(is_closed);
         self.backend.on_output_config_changed(&mut self.niri);
     }
 
@@ -533,7 +533,7 @@ impl State {
 
         self.niri.cursor.manager().check_cursor_image_surface_alive();
         self.niri.refresh_pointer_outputs();
-        self.niri.outputs.global_space.refresh();
+        self.niri.outputs.space().refresh();
         self.niri.refresh_idle_inhibit();
         self.refresh_pointer_contents();
         foreign_toplevel::refresh(self);
@@ -658,7 +658,7 @@ impl State {
         let rect = monitor.active_tile_visual_rectangle();
 
         if let Some(rect) = rect {
-            let output_geo = self.niri.outputs.global_space.output_geometry(output).unwrap();
+            let output_geo = self.niri.outputs.space().output_geometry(output).unwrap();
             let mut rect = rect;
             rect.loc += output_geo.loc.to_f64();
             rv = self.move_cursor_to_rect(rect, mode);
@@ -669,7 +669,7 @@ impl State {
 
     pub fn focus_default_monitor(&mut self) {
         // Our default target is the first output in sorted order.
-        let Some(mut target) = self.niri.outputs.sorted.first().cloned() else {
+        let Some(mut target) = self.niri.outputs.iter().first().cloned() else {
             // No outputs are connected.
             return;
         };
@@ -820,7 +820,7 @@ impl State {
     }
 
     pub fn move_cursor_to_output(&mut self, output: &Output) {
-        let geo = self.niri.outputs.global_space.output_geometry(output).unwrap();
+        let geo = self.niri.outputs.space().output_geometry(output).unwrap();
         self.move_cursor(center(geo).to_f64());
     }
 
@@ -1503,7 +1503,7 @@ impl State {
                 let mut dynamic_target = false;
                 let (target, size, refresh, alpha) = match target {
                     StreamTargetId::Output { name } => {
-                        let global_space = &self.niri.outputs.global_space;
+                        let global_space = &self.niri.outputs.space();
                         let output = global_space.outputs().find(|out| out.name() == name);
                         let Some(output) = output else {
                             warn!("error starting screencast: requested output is missing");
@@ -1748,19 +1748,15 @@ impl Niri {
         self.outputs.space_mut()
     }
 
-    #[inline]
-    pub fn output_state(&self) -> &HashMap<Output, OutputState> {
-        &self.outputs.state
-    }
-    
-    #[inline]
-    pub fn output_state_mut(&mut self) -> &mut HashMap<Output, OutputState> {
-        &mut self.outputs.state
-    }
+    // TEAM_083: Removed output_state() accessor - use self.outputs.state() or self.outputs.state_iter() instead
+    // Callers should migrate to:
+    //   - self.outputs.state(output) for single output lookup
+    //   - self.outputs.state_iter() for iteration
+    //   - self.outputs.states() for values iteration
     
     #[inline]
     pub fn monitors_active(&self) -> bool {
-        self.outputs.monitors_active
+        self.outputs.monitors_active()
     }
     
     #[inline]
@@ -1898,9 +1894,9 @@ impl Niri {
 
         let config = self.config.borrow();
         let mut outputs = vec![];
-        for output in self.outputs.global_space.outputs().chain(new_output) {
+        for output in self.outputs.space().outputs().chain(new_output) {
             let name = output.user_data().get::<OutputName>().unwrap();
-            let position = self.outputs.global_space.output_geometry(output).map(|geo| geo.loc);
+            let position = self.outputs.space().output_geometry(output).map(|geo| geo.loc);
             let config = config.outputs.find(name).and_then(|c| c.position);
 
             outputs.push(Data {
@@ -1913,7 +1909,7 @@ impl Niri {
         drop(config);
 
         for Data { output, .. } in &outputs {
-            self.outputs.global_space.unmap_output(output);
+            self.outputs.space().unmap_output(output);
         }
 
         // Connectors can appear in udev in any order. If we sort by name then we get output
@@ -1932,10 +1928,10 @@ impl Niri {
             outputs.iter().map(|d| &d.name.connector)
         );
 
-        self.outputs.sorted = outputs
+        self.outputs.set_sorted(outputs
             .iter()
             .map(|Data { output, .. }| output.clone())
-            .collect();
+            .collect());
 
         for data in outputs.into_iter() {
             let Data {
@@ -1956,7 +1952,7 @@ impl Niri {
                     let overlap = self
                         .global_space
                         .outputs()
-                        .map(|output| self.outputs.global_space.output_geometry(output).unwrap())
+                        .map(|output| self.outputs.space().output_geometry(output).unwrap())
                         .find(|geom| geom.overlaps(target_geom));
 
                     if let Some(overlap) = overlap {
@@ -1984,7 +1980,7 @@ impl Niri {
                     let x = self
                         .global_space
                         .outputs()
-                        .map(|output| self.outputs.global_space.output_geometry(output).unwrap())
+                        .map(|output| self.outputs.space().output_geometry(output).unwrap())
                         .map(|geom| geom.loc.x + geom.size.w)
                         .max()
                         .unwrap_or(0);
@@ -1992,7 +1988,7 @@ impl Niri {
                     Point::from((x, 0))
                 });
 
-            self.outputs.global_space.map_output(&output, new_position);
+            self.outputs.space().map_output(&output, new_position);
 
             // By passing new_output as an Option, rather than mapping it into a bogus location
             // in global_space, we ensure that this branch always runs for it.
@@ -2097,7 +2093,7 @@ impl Niri {
             screen_transition: None,
             debug_damage_tracker: OutputDamageTracker::from_output(&output),
         };
-        let rv = self.outputs.state.insert(output.clone(), state);
+        let rv = self.outputs.insert_state(output.clone(), state);
         assert!(rv.is_none(), "output was already tracked");
 
         // Must be last since it will call queue_redraw(output) which needs things to be filled-in.
@@ -2114,7 +2110,7 @@ impl Niri {
         self.reposition_outputs(None);
         self.protocols.gamma_control.output_removed(output);
 
-        let state = self.outputs.state.remove(output).unwrap();
+        let state = self.outputs.remove_state(output).unwrap();
 
         match state.redraw_state {
             RedrawState::Idle => (),
@@ -2150,8 +2146,8 @@ impl Niri {
             LockState::Locking(confirmation) => {
                 // We're locking and an output was removed, check if the requirements are now met.
                 let all_locked = self
-                    .outputs.state
-                    .values()
+                    .outputs
+                    .states()
                     .all(|state| state.lock_render_state == LockRenderState::Locked);
 
                 if all_locked {

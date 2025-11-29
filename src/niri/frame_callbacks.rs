@@ -29,7 +29,7 @@ impl Niri {
     pub fn send_frame_callbacks(&mut self, output: &Output) {
         let _span = tracy_client::span!("Niri::send_frame_callbacks");
 
-        let state = self.outputs.state.get(output).unwrap();
+        let state = self.outputs.state(output).unwrap();
         let sequence = state.frame_callback_sequence;
 
         let should_send = |surface: &WlSurface, states: &SurfaceData| {
@@ -85,7 +85,7 @@ impl Niri {
             );
         }
 
-        if let Some(surface) = &self.outputs.state[output].lock_surface {
+        if let Some(surface) = self.outputs.state(output).unwrap().lock_surface {
             send_frames_surface_tree(
                 surface.wl_surface(),
                 output,
@@ -144,7 +144,7 @@ impl Niri {
             );
         });
 
-        for (output, state) in self.outputs.state.iter() {
+        for (output, state) in self.outputs.state_iter() {
             for surface in layer_map_for_output(output).layers() {
                 surface.send_frame(
                     output,
@@ -236,7 +236,7 @@ impl Niri {
             );
         }
 
-        if let Some(surface) = &self.outputs.state[output].lock_surface {
+        if let Some(surface) = self.outputs.state(output).unwrap().lock_surface {
             take_presentation_feedback_surface_tree(
                 surface.wl_surface(),
                 &mut feedback,
