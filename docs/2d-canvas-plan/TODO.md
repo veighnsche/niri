@@ -96,6 +96,42 @@ Split `src/niri.rs` (6604 LOC) into focused modules (<500 LOC each).
 
 ---
 
+### Priority 3: Granular Redraw Optimization
+
+**Location**: `src/input/actions.rs` (80 occurrences of `// FIXME: granular`)
+
+**Problem**: Many actions call `queue_redraw_all()` which redraws ALL outputs, even when only ONE output was affected. This is wasteful on multi-monitor setups.
+
+**Why it matters**:
+1. **Performance**: Redrawing all monitors when only one changed wastes GPU cycles
+2. **Power consumption**: Unnecessary redraws drain laptop batteries faster
+3. **Latency**: Full redraws take longer than targeted ones
+
+**Solution**: Replace `queue_redraw_all()` with `queue_redraw(&output)` where the affected output can be determined.
+
+**Affected Actions** (62 unique actions, 80 total FIXME comments):
+
+| Category | Actions |
+|----------|---------|
+| **Focus** | `FocusColumnLeft`, `FocusColumnRight`, `FocusColumnFirst`, `FocusColumnLast`, `FocusColumnLeftOrLast`, `FocusColumnRightOrFirst`, `FocusColumn(index)`, `FocusWindowUp`, `FocusWindowDown`, `FocusWindowTop`, `FocusWindowBottom`, `FocusWindowDownOrTop`, `FocusWindowUpOrBottom`, `FocusWindowDownOrColumnLeft`, `FocusWindowDownOrColumnRight`, `FocusWindowUpOrColumnLeft`, `FocusWindowUpOrColumnRight`, `FocusWindowInColumn(index)`, `FocusWindowOrRowDown`, `FocusWindowOrRowUp`, `FocusRowDown`, `FocusRowUp`, `FocusPreviousPosition`, `FocusFloating`, `FocusTiling`, `SwitchFocusBetweenFloatingAndTiling` |
+| **Move Column** | `MoveColumnToFirst`, `MoveColumnToLast`, `MoveColumnToIndex(idx)`, `MoveColumnToRowDown(focus)`, `MoveColumnToRowUp(focus)` |
+| **Move Window** | `MoveWindowToRowDown(focus)`, `MoveWindowToRowUp(focus)`, `MoveWindowToFloating`, `MoveWindowToFloatingById(id)`, `MoveWindowToTiling`, `MoveWindowToTilingById(id)` |
+| **Move Row** | `MoveRowDown`, `MoveRowUp`, `MoveRowToIndex(new_idx)` |
+| **Resize/Layout** | `SetColumnWidth(change)`, `SetWindowWidth(change)`, `SetWindowHeight(change)`, `SetColumnDisplay(display)`, `ToggleColumnTabbedDisplay`, `SwapWindowLeft`, `SwapWindowRight`, `ConsumeWindowIntoColumn`, `ExpelWindowFromColumn`, `ConsumeOrExpelWindowLeft`, `ConsumeOrExpelWindowRight` |
+| **Fullscreen** | `FullscreenWindow`, `FullscreenWindowById(id)`, `ToggleWindowedFullscreen`, `ToggleWindowedFullscreenById(id)` |
+| **Maximize** | `MaximizeWindowToEdges`, `MaximizeWindowToEdgesById(id)` |
+| **Center** | `CenterColumn`, `CenterWindow`, `CenterWindowById(id)`, `CenterVisibleColumns` |
+| **Floating** | `ToggleWindowFloating`, `ToggleWindowFloatingById(id)` |
+
+**Implementation approach**:
+1. Most actions operate on the active output → use `self.niri.layout.active_output()`
+2. Some actions (like `*ById`) may affect a different output → need to find window's output first
+3. Some actions may affect multiple outputs (cross-monitor moves) → may still need `queue_redraw_all()` or redraw both
+
+**Estimated Time**: ~4-6 hours (requires careful analysis of each action)
+
+---
+
 ## 🚀 Part B: FEATURES (After Refactor Complete)
 
 > These features are **BLOCKED** until Part A is complete.
@@ -124,8 +160,9 @@ Phase files will be created when Part A is complete.
 |------|--------|------|--------|
 | **Part A** | A1-A8 (niri.rs refactor) | ~8h | 🔴 CURRENT |
 | Cleanup | During Part A | ~1h | Pending |
+| Granular Redraw | 80 FIXMEs in actions.rs | ~5h | Pending |
 | **Part B** | B1-B4 (features) | ~11.5h | ⏸️ Blocked |
-| **Total** | | **~20.5h** | |
+| **Total** | | **~25.5h** | |
 
 ---
 

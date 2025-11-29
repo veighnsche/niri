@@ -31,6 +31,7 @@ use smithay::utils::SERIAL_COUNTER;
 use smithay::wayland::shell::wlr_layer::{KeyboardInteractivity, Layer};
 
 use crate::backend::IpcOutputMap;
+use crate::input::actions::ActionHandler;
 use crate::input::pick_window_grab::PickWindowGrab;
 // TEAM_060: Using RowId directly instead of WorkspaceId alias
 use crate::layout::row_types::RowId as WorkspaceId;

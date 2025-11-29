@@ -6,6 +6,7 @@ use smithay::backend::input::{Event, KeyState, KeyboardKeyEvent};
 use smithay::input::keyboard::{FilterResult, Keysym};
 use smithay::utils::SERIAL_COUNTER;
 
+use super::actions::ActionHandler;
 use super::backend_ext::NiriInputBackend as InputBackend;
 use super::{
     hardcoded_overview_bind, make_binds_iter, modifiers_from_state, should_intercept_key,
