@@ -1,6 +1,6 @@
 # Phase A8: Extract niri/init.rs
 
-> **Status**: ⏳ PENDING
+> **Status**: ✅ COMPLETE (TEAM_068)
 > **Estimated Time**: 1 hour
 > **Risk Level**: 🟡 Medium (large function, many dependencies)
 > **Prerequisite**: Phase A7 complete

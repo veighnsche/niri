@@ -1,6 +1,6 @@
 # Phase A6: Extract Screen Capture Modules
 
-> **Status**: 🔄 IN PROGRESS (screenshot.rs complete)
+> **Status**: ✅ COMPLETE (TEAM_068)
 > **Estimated Time**: 1.5 hours
 > **Risk Level**: 🟡 Medium (feature-gated, protocol-specific)
 > **Prerequisite**: Phase A5 complete
@@ -11,8 +11,8 @@
 
 Extract screen capture functionality into files:
 - `src/niri/screenshot.rs` — Screenshot capture and saving ✅ DONE
-- `src/niri/screencopy.rs` — zwlr_screencopy protocol (TODO - complex, many dependencies)
-- `src/niri/screencast.rs` — PipeWire screencasting (TODO - feature-gated)
+- `src/niri/screencopy.rs` — zwlr_screencopy protocol ✅ DONE (TEAM_068)
+- `src/niri/screencast.rs` — PipeWire screencasting ✅ DONE (TEAM_068)
 
 > **Note**: `screenshot_window` remains in mod.rs due to private Mapped method access.
 > Screencopy and screencast methods have heavy dependencies and may stay in mod.rs.
@@ -289,14 +289,14 @@ Delete all the extracted methods from `niri.rs`.
 
 ## Verification Checklist
 
-- [ ] `src/niri/screenshot.rs` exists (~400 LOC)
-- [ ] `src/niri/screencopy.rs` exists (~300 LOC)
-- [ ] `src/niri/screencast.rs` exists (~300 LOC)
-- [ ] Screenshots work correctly
-- [ ] Screencopy protocol works
-- [ ] Screencasting works (if feature enabled)
-- [ ] `cargo check` passes
-- [ ] `cargo test` passes
+- [x] `src/niri/screenshot.rs` exists (~330 LOC)
+- [x] `src/niri/screencopy.rs` exists (~200 LOC) — TEAM_068
+- [x] `src/niri/screencast.rs` exists (~220 LOC) — TEAM_068
+- [x] Screenshots work correctly
+- [x] Screencopy protocol works
+- [x] Screencasting works (if feature enabled)
+- [x] `cargo check` passes
+- [x] `cargo test` passes (270 tests)
 
 ---
 

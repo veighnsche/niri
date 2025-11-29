@@ -1,6 +1,6 @@
 # Phase A7: Extract niri/pointer.rs + rules.rs
 
-> **Status**: ⏳ PENDING
+> **Status**: ✅ COMPLETE (TEAM_068)
 > **Estimated Time**: 45 minutes
 > **Risk Level**: 🟢 Low (small, focused modules)
 > **Prerequisite**: Phase A6 complete
