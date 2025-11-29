@@ -1,6 +1,6 @@
 # Phase A6: Extract Screen Capture Modules
 
-> **Status**: ⏳ PENDING
+> **Status**: 🔄 IN PROGRESS (screenshot.rs complete)
 > **Estimated Time**: 1.5 hours
 > **Risk Level**: 🟡 Medium (feature-gated, protocol-specific)
 > **Prerequisite**: Phase A5 complete
@@ -9,12 +9,13 @@
 
 ## Goal
 
-Extract screen capture functionality into three files:
-- `src/niri/screenshot.rs` — Screenshot capture and saving
-- `src/niri/screencopy.rs` — zwlr_screencopy protocol
-- `src/niri/screencast.rs` — PipeWire screencasting (feature-gated)
+Extract screen capture functionality into files:
+- `src/niri/screenshot.rs` — Screenshot capture and saving ✅ DONE
+- `src/niri/screencopy.rs` — zwlr_screencopy protocol (TODO - complex, many dependencies)
+- `src/niri/screencast.rs` — PipeWire screencasting (TODO - feature-gated)
 
-User: Remember that when a item is too big of a refactor than planned. that I want you to make it smaller and do it in multiple steps. Write it down in this folder as broken down steps in the phase file...
+> **Note**: `screenshot_window` remains in mod.rs due to private Mapped method access.
+> Screencopy and screencast methods have heavy dependencies and may stay in mod.rs.
 
 ---
 
