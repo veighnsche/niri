@@ -7,8 +7,8 @@ use calloop::timer::{TimeoutAction, Timer};
 use niri_config::{Action, Bind, Config, Key, ModKey, Modifiers, MruDirection, Trigger};
 use niri_ipc::LayoutSwitchTarget;
 use smithay::backend::input::{
-    AbsolutePositionEvent, ButtonState, Event, InputEvent, KeyState, KeyboardKeyEvent, Keycode,
-    PointerButtonEvent, Switch, SwitchState, SwitchToggleEvent, TabletToolEvent,
+    AbsolutePositionEvent, Event, InputEvent, Keycode, Switch, SwitchState, SwitchToggleEvent,
+    TabletToolEvent,
 };
 use smithay::backend::libinput::LibinputInputBackend;
 use smithay::input::keyboard::{FilterResult, Keysym, Layout, ModifiersState};
@@ -31,6 +31,7 @@ pub mod backend_ext;
 pub mod binds;
 mod device;
 mod gesture;
+mod helpers;
 mod keyboard;
 pub mod move_grab;
 mod pointer;
@@ -61,6 +62,12 @@ pub use binds::{
 };
 // TEAM_085: Re-export device functions
 pub use device::apply_libinput_settings;
+// TEAM_087: Import helper functions
+use helpers::{
+    allowed_during_screenshot, allowed_when_locked, hardcoded_overview_bind,
+    should_activate_monitors, should_hide_exit_confirm_dialog, should_hide_hotkey_overlay,
+    should_notify_activity, should_reset_pointer_inactivity_timer,
+};
 
 use backend_ext::{NiriInputBackend as InputBackend, NiriInputDevice as _};
 
@@ -2071,158 +2078,10 @@ fn should_intercept_key<'a>(
 // TEAM_085: find_bind, find_configured_bind, find_configured_switch_action,
 // and modifiers_from_state moved to binds.rs
 
-fn should_activate_monitors<I: InputBackend>(event: &InputEvent<I>) -> bool {
-    match event {
-        InputEvent::Keyboard { event } if event.state() == KeyState::Pressed => true,
-        InputEvent::PointerButton { event } if event.state() == ButtonState::Pressed => true,
-        InputEvent::PointerMotion { .. }
-        | InputEvent::PointerMotionAbsolute { .. }
-        | InputEvent::PointerAxis { .. }
-        | InputEvent::GestureSwipeBegin { .. }
-        | InputEvent::GesturePinchBegin { .. }
-        | InputEvent::GestureHoldBegin { .. }
-        | InputEvent::TouchDown { .. }
-        | InputEvent::TouchMotion { .. }
-        | InputEvent::TabletToolAxis { .. }
-        | InputEvent::TabletToolProximity { .. }
-        | InputEvent::TabletToolTip { .. }
-        | InputEvent::TabletToolButton { .. } => true,
-        // Ignore events like device additions and removals, key releases, gesture ends.
-        _ => false,
-    }
-}
-
-fn should_hide_hotkey_overlay<I: InputBackend>(event: &InputEvent<I>) -> bool {
-    match event {
-        InputEvent::Keyboard { event } if event.state() == KeyState::Pressed => true,
-        InputEvent::PointerButton { event } if event.state() == ButtonState::Pressed => true,
-        InputEvent::PointerAxis { .. }
-        | InputEvent::GestureSwipeBegin { .. }
-        | InputEvent::GesturePinchBegin { .. }
-        | InputEvent::TouchDown { .. }
-        | InputEvent::TouchMotion { .. }
-        | InputEvent::TabletToolTip { .. }
-        | InputEvent::TabletToolButton { .. } => true,
-        _ => false,
-    }
-}
-
-fn should_hide_exit_confirm_dialog<I: InputBackend>(event: &InputEvent<I>) -> bool {
-    match event {
-        InputEvent::Keyboard { event } if event.state() == KeyState::Pressed => true,
-        InputEvent::PointerButton { event } if event.state() == ButtonState::Pressed => true,
-        InputEvent::PointerAxis { .. }
-        | InputEvent::GestureSwipeBegin { .. }
-        | InputEvent::GesturePinchBegin { .. }
-        | InputEvent::TouchDown { .. }
-        | InputEvent::TouchMotion { .. }
-        | InputEvent::TabletToolTip { .. }
-        | InputEvent::TabletToolButton { .. } => true,
-        _ => false,
-    }
-}
-
-fn should_notify_activity<I: InputBackend>(event: &InputEvent<I>) -> bool {
-    !matches!(
-        event,
-        InputEvent::DeviceAdded { .. } | InputEvent::DeviceRemoved { .. }
-    )
-}
-
-fn should_reset_pointer_inactivity_timer<I: InputBackend>(event: &InputEvent<I>) -> bool {
-    matches!(
-        event,
-        InputEvent::PointerAxis { .. }
-            | InputEvent::PointerButton { .. }
-            | InputEvent::PointerMotion { .. }
-            | InputEvent::PointerMotionAbsolute { .. }
-            | InputEvent::TabletToolAxis { .. }
-            | InputEvent::TabletToolButton { .. }
-            | InputEvent::TabletToolProximity { .. }
-            | InputEvent::TabletToolTip { .. }
-    )
-}
-
-fn allowed_when_locked(action: &Action) -> bool {
-    matches!(
-        action,
-        Action::Quit(_)
-            | Action::ChangeVt(_)
-            | Action::Suspend
-            | Action::PowerOffMonitors
-            | Action::PowerOnMonitors
-            | Action::SwitchLayout(_)
-            | Action::ToggleKeyboardShortcutsInhibit
-    )
-}
-
-fn allowed_during_screenshot(action: &Action) -> bool {
-    matches!(
-        action,
-        Action::Quit(_)
-            | Action::ChangeVt(_)
-            | Action::Suspend
-            | Action::PowerOffMonitors
-            | Action::PowerOnMonitors
-            // The screenshot UI can handle these.
-            | Action::MoveColumnLeft
-            | Action::MoveColumnLeftOrToMonitorLeft
-            | Action::MoveColumnRight
-            | Action::MoveColumnRightOrToMonitorRight
-            | Action::MoveWindowUp
-            | Action::MoveWindowUpOrToRowUp
-            | Action::MoveWindowDown
-            | Action::MoveWindowDownOrToRowDown
-            | Action::MoveColumnToMonitorLeft
-            | Action::MoveColumnToMonitorRight
-            | Action::MoveColumnToMonitorUp
-            | Action::MoveColumnToMonitorDown
-            | Action::MoveColumnToMonitorPrevious
-            | Action::MoveColumnToMonitorNext
-            | Action::MoveColumnToMonitor(_)
-            | Action::MoveWindowToMonitorLeft
-            | Action::MoveWindowToMonitorRight
-            | Action::MoveWindowToMonitorUp
-            | Action::MoveWindowToMonitorDown
-            | Action::MoveWindowToMonitorPrevious
-            | Action::MoveWindowToMonitorNext
-            | Action::MoveWindowToMonitor(_)
-            | Action::SetWindowWidth(_)
-            | Action::SetWindowHeight(_)
-            | Action::SetColumnWidth(_)
-    )
-}
-
-fn hardcoded_overview_bind(raw: Keysym, mods: ModifiersState) -> Option<Bind> {
-    let mods = modifiers_from_state(mods);
-    if !mods.is_empty() {
-        return None;
-    }
-
-    let repeat = true;
-    let action = match raw {
-        Keysym::Left => Action::FocusColumnLeft,
-        Keysym::Right => Action::FocusColumnRight,
-        Keysym::Up => Action::FocusWindowOrRowUp,
-        Keysym::Down => Action::FocusWindowOrRowDown,
-        _ => {
-            return None;
-        }
-    };
-
-    Some(Bind {
-        key: Key {
-            trigger: Trigger::Keysym(raw),
-            modifiers: Modifiers::empty(),
-        },
-        action,
-        repeat,
-        cooldown: None,
-        allow_when_locked: false,
-        allow_inhibiting: false,
-        hotkey_overlay_title: None,
-    })
-}
+// TEAM_087: should_activate_monitors, should_hide_hotkey_overlay,
+// should_hide_exit_confirm_dialog, should_notify_activity,
+// should_reset_pointer_inactivity_timer, allowed_when_locked,
+// allowed_during_screenshot, and hardcoded_overview_bind moved to helpers.rs
 
 // TEAM_085: apply_libinput_settings moved to device.rs
 

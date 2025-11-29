@@ -6,8 +6,10 @@ use niri_config::utils::{Flag, MergeWith as _};
 use niri_config::RowConfig;
 // TEAM_012: Removed WorkspaceReference import (no longer used)
 use niri_config::{
-    CenterFocusedColumn, FloatOrInt, OutputName, Struts, TabIndicatorLength, TabIndicatorPosition,
+    CenterFocusedColumn, FloatOrInt, OutputName, PresetSize, Struts, TabIndicatorLength,
+    TabIndicatorPosition,
 };
+use niri_ipc::ColumnDisplay;
 use proptest::prelude::*;
 use proptest_derive::Arbitrary;
 use smithay::output::{Mode, PhysicalProperties, Subpixel};
