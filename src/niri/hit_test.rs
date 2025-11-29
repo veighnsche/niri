@@ -3,7 +3,6 @@
 //! All methods in this module are pure queries that determine what's under a given point.
 
 use niri_config::OutputName;
-use smithay::desktop::utils::under_from_surface_tree;
 use smithay::desktop::{layer_map_for_output, WindowSurfaceType};
 use smithay::output::Output;
 use smithay::utils::{Logical, Point, Rectangle, Size};

@@ -155,7 +155,7 @@ impl<W: LayoutElement> Monitor<W> {
 
         self.canvas
             .rows()
-            .map(|(row_idx, row)| {
+            .map(|(utils::scale::MIN_LOGICAL_AREA, row)| {
                 let row_height = row.row_height();
                 let y_offset = row.y_offset();
                 let geo = Rectangle::new(

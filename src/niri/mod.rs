@@ -19,26 +19,23 @@ mod screenshot;
 mod subsystems;
 mod types;
 
-use std::cell::{Cell, OnceCell, RefCell};
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsString;
 use std::os::unix::net::UnixStream;
-use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::AtomicBool;
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::{env, mem, thread};
 
-use _server_decoration::server::org_kde_kwin_server_decoration_manager::Mode as KdeDecorationsMode;
-use anyhow::{bail, ensure, Context};
+use anyhow::Context;
 use calloop::futures::Scheduler;
 pub use config::StateConfigExt;
 use config::StateConfigExt as _;
-use niri_config::debug::PreviewRender;
 use niri_config::{
-    Config, FloatOrInt, Key, Modifiers, OutputName, TrackLayout, WarpMouseToFocusMode,
+    Config, FloatOrInt, Key, OutputName, TrackLayout, WarpMouseToFocusMode,
     WorkspaceReference, Xkb,
 };
 pub use protocols::ProtocolStates;
@@ -46,97 +43,48 @@ use smithay::backend::allocator::Fourcc;
 use smithay::backend::input::Keycode;
 use smithay::backend::renderer::damage::OutputDamageTracker;
 use smithay::backend::renderer::element::memory::MemoryRenderBufferRenderElement;
-use smithay::backend::renderer::element::surface::{
-    render_elements_from_surface_tree, WaylandSurfaceRenderElement,
-};
+use smithay::backend::renderer::element::surface::WaylandSurfaceRenderElement;
 use smithay::backend::renderer::element::utils::{
-    select_dmabuf_feedback, CropRenderElement, Relocate, RelocateRenderElement,
+    CropRenderElement, Relocate, RelocateRenderElement,
     RescaleRenderElement,
 };
-use smithay::backend::renderer::element::{
-    default_primary_scanout_output_compare, Element, Id, Kind, PrimaryScanoutOutput,
-    RenderElementStates,
-};
+use smithay::backend::renderer::element::Element;
 use smithay::backend::renderer::gles::GlesRenderer;
-use smithay::backend::renderer::sync::SyncPoint;
-use smithay::backend::renderer::Color32F;
-use smithay::desktop::utils::{
-    bbox_from_surface_tree, output_update, send_dmabuf_feedback_surface_tree,
-    send_frames_surface_tree, surface_presentation_feedback_flags_from_states,
-    surface_primary_scanout_output, take_presentation_feedback_surface_tree,
-    under_from_surface_tree, update_surface_primary_scanout_output, OutputPresentationFeedback,
-};
 use smithay::desktop::{
-    find_popup_root_surface, layer_map_for_output, LayerMap, LayerSurface, PopupGrab, PopupManager,
-    PopupUngrabStrategy, Space, Window, WindowSurfaceType,
+    find_popup_root_surface, layer_map_for_output, LayerSurface,
+    PopupUngrabStrategy, Window,
 };
-use smithay::input::keyboard::{Layout as KeyboardLayout, XkbConfig};
+use smithay::input::keyboard::Layout as KeyboardLayout;
 use smithay::input::pointer::{
-    CursorIcon, CursorImageStatus, CursorImageSurfaceData, Focus,
+    CursorIcon, CursorImageStatus, Focus,
     GrabStartData as PointerGrabStartData, MotionEvent,
 };
-use smithay::input::{Seat, SeatState};
+use smithay::input::Seat;
 use smithay::output::{
-    self as smithay_output, Output, OutputModeSource, PhysicalProperties, Scale as OutputScale,
-    Subpixel, WeakOutput,
+    Output, Scale as OutputScale,
 };
-use smithay::reexports::calloop::generic::Generic;
 use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
 use smithay::reexports::calloop::{
-    Interest, LoopHandle, LoopSignal, Mode, PostAction, RegistrationToken,
+    LoopHandle, LoopSignal, RegistrationToken,
 };
-use smithay::reexports::wayland_protocols::ext::session_lock::v1::server::ext_session_lock_v1::ExtSessionLockV1;
-use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::WmCapabilities;
 use smithay::reexports::wayland_protocols_misc::server_decoration as _server_decoration;
-use smithay::reexports::wayland_protocols_wlr::screencopy::v1::server::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1;
 use smithay::reexports::wayland_server::backend::{
     ClientData, ClientId, DisconnectReason, GlobalId,
 };
-use smithay::reexports::wayland_server::protocol::wl_shm;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::reexports::wayland_server::{Client, Display, DisplayHandle, Resource};
 use smithay::utils::{
-    ClockSource, IsAlive as _, Logical, Monotonic, Physical, Point, Rectangle, Scale, Size,
+    IsAlive as _, Logical, Point, Rectangle, Scale, Size,
     Transform, SERIAL_COUNTER,
 };
 use smithay::wayland::compositor::{
-    with_states, with_surface_tree_downward, CompositorClientState, CompositorHandler,
-    CompositorState, HookId, SurfaceData, TraversalAction,
+    with_states, CompositorClientState, CompositorHandler, HookId,
 };
-use smithay::wayland::cursor_shape::CursorShapeManagerState;
-use smithay::wayland::dmabuf::DmabufState;
-use smithay::wayland::fractional_scale::FractionalScaleManagerState;
-use smithay::wayland::idle_inhibit::IdleInhibitManagerState;
-use smithay::wayland::idle_notify::IdleNotifierState;
-use smithay::wayland::input_method::{InputMethodManagerState, InputMethodSeat};
-use smithay::wayland::keyboard_shortcuts_inhibit::{
-    KeyboardShortcutsInhibitState, KeyboardShortcutsInhibitor,
-};
-use smithay::wayland::output::OutputManagerState;
-use smithay::wayland::pointer_constraints::{with_pointer_constraint, PointerConstraintsState};
-use smithay::wayland::pointer_gestures::PointerGesturesState;
-use smithay::wayland::presentation::PresentationState;
-use smithay::wayland::relative_pointer::RelativePointerManagerState;
-use smithay::wayland::security_context::SecurityContextState;
-use smithay::wayland::selection::data_device::{set_data_device_selection, DataDeviceState};
-use smithay::wayland::selection::ext_data_control::DataControlState as ExtDataControlState;
-use smithay::wayland::selection::primary_selection::PrimarySelectionState;
-use smithay::wayland::selection::wlr_data_control::DataControlState as WlrDataControlState;
-use smithay::wayland::session_lock::{LockSurface, SessionLockManagerState, SessionLocker};
-use smithay::wayland::shell::kde::decoration::KdeDecorationState;
-use smithay::wayland::shell::wlr_layer::{self, Layer, WlrLayerShellState};
-use smithay::wayland::shell::xdg::decoration::XdgDecorationState;
-use smithay::wayland::shell::xdg::XdgShellState;
-use smithay::wayland::shm::ShmState;
+use smithay::wayland::input_method::InputMethodSeat;
+use smithay::wayland::session_lock::LockSurface;
+use smithay::wayland::shell::wlr_layer::{self};
 #[cfg(test)]
 use smithay::wayland::single_pixel_buffer::SinglePixelBufferState;
-use smithay::wayland::socket::ListeningSocketSource;
-use smithay::wayland::tablet_manager::TabletManagerState;
-use smithay::wayland::text_input::TextInputManagerState;
-use smithay::wayland::viewporter::ViewporterState;
-use smithay::wayland::virtual_keyboard::VirtualKeyboardManagerState;
-use smithay::wayland::xdg_activation::XdgActivationState;
-use smithay::wayland::xdg_foreign::XdgForeignState;
 pub use subsystems::{
     CursorSubsystem, FocusState, InputTracking, OutputSubsystem, StreamingSubsystem, UiOverlays,
 };
@@ -146,9 +94,7 @@ pub use types::*;
 #[cfg(feature = "dbus")]
 use crate::a11y::A11y;
 use crate::animation::Clock;
-use crate::backend::tty::SurfaceDmabufFeedback;
-use crate::backend::{Backend, Headless, RenderResult, Tty, Winit};
-use crate::cursor::{CursorManager, CursorTextureCache, RenderCursor, XCursor};
+use crate::backend::{Backend, Headless, Tty, Winit};
 #[cfg(feature = "dbus")]
 use crate::dbus::freedesktop_locale1::Locale1ToNiri;
 #[cfg(feature = "dbus")]
@@ -158,56 +104,43 @@ use crate::dbus::gnome_shell_introspect::{self, IntrospectToNiri, NiriToIntrospe
 #[cfg(feature = "dbus")]
 use crate::dbus::gnome_shell_screenshot::{NiriToScreenshot, ScreenshotToNiri};
 #[cfg(feature = "xdp-gnome-screencast")]
-use crate::dbus::mutter_screen_cast::{self, ScreenCastToNiri};
+use crate::dbus::mutter_screen_cast::ScreenCastToNiri;
 use crate::frame_clock::FrameClock;
-use crate::handlers::{configure_lock_surface, XDG_ACTIVATION_TOKEN_TIMEOUT};
 use crate::input::pick_color_grab::PickColorGrab;
-use crate::input::scroll_swipe_gesture::ScrollSwipeGesture;
-use crate::input::scroll_tracker::ScrollTracker;
-use crate::input::{apply_libinput_settings, TabletData};
+use crate::input::TabletData;
 use crate::ipc::server::IpcServer;
 use crate::layer::mapped::LayerSurfaceRenderElement;
 use crate::layer::MappedLayer;
 // TEAM_060: Using RowId directly instead of WorkspaceId alias
 use crate::layout::row_types::RowId as WorkspaceId;
 use crate::layout::tile::TileRenderElement;
-use crate::layout::{HitType, Layout, LayoutElement as _, MonitorRenderElement};
+use crate::layout::{Layout, LayoutElement as _, MonitorRenderElement};
 use crate::niri_render_elements;
-use crate::protocols::ext_workspace::{self, ExtWorkspaceManagerState};
-use crate::protocols::foreign_toplevel::{self, ForeignToplevelManagerState};
-use crate::protocols::gamma_control::GammaControlManagerState;
-use crate::protocols::mutter_x11_interop::MutterX11InteropManagerState;
-use crate::protocols::output_management::OutputManagementManagerState;
-use crate::protocols::screencopy::{Screencopy, ScreencopyBuffer, ScreencopyManagerState};
-use crate::protocols::virtual_pointer::VirtualPointerManagerState;
-use crate::pw_utils::{Cast, PipeWire};
+use crate::protocols::ext_workspace::{self};
+use crate::protocols::foreign_toplevel::{self};
+use crate::pw_utils::PipeWire;
 #[cfg(feature = "xdp-gnome-screencast")]
 use crate::pw_utils::{CastSizeChange, PwToNiri};
-use crate::render_helpers::debug::draw_opaque_regions;
 use crate::render_helpers::primary_gpu_texture::PrimaryGpuTextureRenderElement;
-use crate::render_helpers::renderer::NiriRenderer;
 use crate::render_helpers::solid_color::{SolidColorBuffer, SolidColorRenderElement};
 use crate::render_helpers::texture::TextureBuffer;
 use crate::render_helpers::{
-    encompassing_geo, render_to_dmabuf, render_to_encompassing_texture, render_to_shm,
-    render_to_texture, render_to_vec, shaders, RenderTarget, SplitElements,
+    render_to_texture, RenderTarget,
 };
 use crate::ui::exit_confirm_dialog::ExitConfirmDialogRenderElement;
 use crate::ui::mru::{MruCloseRequest, WindowMruUiRenderElement};
 use crate::ui::screen_transition::{self, ScreenTransition};
-use crate::ui::screenshot_ui::{OutputScreenshot, ScreenshotUi, ScreenshotUiRenderElement};
+use crate::ui::screenshot_ui::{ScreenshotUi, ScreenshotUiRenderElement};
 use crate::utils::scale::{closest_representable_scale, guess_monitor_scale};
-use crate::utils::spawning::{CHILD_DISPLAY, CHILD_ENV};
 use crate::utils::vblank_throttle::VBlankThrottle;
 use crate::utils::watcher::Watcher;
 use crate::utils::xwayland::satellite::Satellite;
 use crate::utils::{
-    center, center_f64, expand_home, get_monotonic_time, ipc_transform_to_smithay, is_mapped,
-    logical_output, make_screenshot_path, output_matches_name, output_size, panel_orientation,
-    send_scale_transform, write_png_rgba8, xwayland,
+    center, center_f64, get_monotonic_time, ipc_transform_to_smithay,
+    logical_output, output_matches_name, output_size, panel_orientation,
 };
 use crate::window::mapped::MappedId;
-use crate::window::{InitialConfigureState, Mapped, ResolvedWindowRules, Unmapped, WindowRef};
+use crate::window::{Mapped, Unmapped};
 
 const CLEAR_COLOR_LOCKED: [f32; 4] = [0.3, 0.1, 0.1, 1.];
 

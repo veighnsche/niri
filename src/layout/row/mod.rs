@@ -47,11 +47,10 @@ use std::rc::Rc;
 use column_data::ColumnData;
 use niri_config::utils::MergeWith;
 use niri_config::{Border, PresetSize, Struts};
-use niri_ipc::{ColumnDisplay, SizeChange};
+use niri_ipc::ColumnDisplay;
 pub use render::RowRenderElement;
 use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::output::Output;
-use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point, Rectangle, Serial, Size};
 use smithay::wayland::compositor::with_states;
 use smithay::wayland::shell::xdg::SurfaceCachedState;
@@ -68,7 +67,7 @@ use crate::animation::Clock;
 use crate::layout::row_types::RowId;
 use crate::utils::transaction::TransactionBlocker;
 use crate::utils::{
-    ensure_min_max_size, ensure_min_max_size_maybe_zero, send_scale_transform, ResizeEdge,
+    ensure_min_max_size, ensure_min_max_size_maybe_zero, send_scale_transform,
 };
 use crate::window::ResolvedWindowRules;
 

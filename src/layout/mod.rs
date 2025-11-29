@@ -32,28 +32,23 @@
 //! don't want an unassuming workspace to end up on it.
 
 use std::collections::HashMap;
-use std::mem;
 use std::rc::Rc;
 use std::time::Duration;
 
-use column::Column;
-use monitor::{InsertHint, InsertPosition, InsertWorkspace, MonitorAddWindowTarget};
+use monitor::{InsertPosition, MonitorAddWindowTarget};
 use niri_config::utils::MergeWith as _;
 // TEAM_055: Renamed from Workspace to RowConfig
-use niri_config::{
-    Config, CornerRadius, LayoutPart, PresetSize, RowConfig as WorkspaceConfig, WorkspaceReference,
-};
-use niri_ipc::{ColumnDisplay, PositionChange, SizeChange, WindowLayout};
+use niri_config::Config;
+use niri_ipc::{PositionChange, SizeChange};
 // TEAM_021: Use minimal row types after Canvas2D migration
 // TEAM_055: Renamed from workspace_types to row_types
-use row_types::{compute_working_area, OutputId, RowAddWindowTarget, RowId};
+use row_types::RowId;
 use smithay::backend::renderer::element::surface::WaylandSurfaceRenderElement;
-use smithay::backend::renderer::element::utils::RescaleRenderElement;
 use smithay::backend::renderer::gles::{GlesRenderer, GlesTexture};
 use smithay::output::{self, Output};
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point, Rectangle, Scale, Serial, Size, Transform};
-use tile::{Tile, TileRenderElement};
+use tile::Tile;
 use types::{ColumnWidth, ScrollDirection};
 
 // TEAM_060: Removed WorkspaceId type alias - using RowId directly
@@ -69,7 +64,6 @@ use crate::render_helpers::snapshot::RenderSnapshot;
 use crate::render_helpers::solid_color::{SolidColorBuffer, SolidColorRenderElement};
 use crate::render_helpers::texture::TextureBuffer;
 use crate::render_helpers::{BakedBuffer, RenderTarget, SplitElements};
-use crate::rubber_band::RubberBand;
 use crate::utils::transaction::{Transaction, TransactionBlocker};
 use crate::utils::{
     ensure_min_max_size_maybe_zero, output_matches_name, output_size,
@@ -103,7 +97,7 @@ mod layout_impl;
 // Re-export internal types for use in this module
 // Re-export public types
 pub use layout_impl::types::DndData;
-use layout_impl::types::{DndHold, DndHoldTarget, InteractiveMoveData, InteractiveMoveState};
+use layout_impl::types::InteractiveMoveState;
 // DEPRECATED: workspace module removed - functionality migrated to Canvas2D
 
 // TEAM_004: Golden snapshot infrastructure
@@ -736,7 +730,7 @@ impl<W: LayoutElement> Layout<W> {
 
     pub fn monitor_for_workspace(&self, workspace_name: &str) -> Option<&Monitor<W>> {
         self.monitors().find(|monitor| {
-            monitor.canvas.rows().any(|(idx, ws)| {
+            monitor.canvas.rows().any(|(utils::scale::MIN_LOGICAL_AREA, ws)| {
                 ws.name()
                     .is_some_and(|name| name.eq_ignore_ascii_case(workspace_name))
             })

@@ -5,7 +5,6 @@
 
 use std::mem;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use anyhow::Context;
 use niri_config::{Config, Xkb};

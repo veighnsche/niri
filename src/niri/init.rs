@@ -9,56 +9,18 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
-use _server_decoration::server::org_kde_kwin_server_decoration_manager::Mode as KdeDecorationsMode;
 use calloop::timer::{TimeoutAction, Timer};
 use calloop::LoopHandle;
-use smithay::backend::renderer::gles::GlesRenderer;
-use smithay::desktop::{PopupManager, Space};
-use smithay::input::SeatState;
 use smithay::reexports::calloop::generic::Generic;
 use smithay::reexports::calloop::{Interest, LoopSignal, Mode, PostAction};
-use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::WmCapabilities;
 use smithay::reexports::wayland_protocols_misc::server_decoration as _server_decoration;
-use smithay::reexports::wayland_server::protocol::wl_shm;
 use smithay::reexports::wayland_server::{Client, Display};
-use smithay::utils::{ClockSource, Monotonic};
-use smithay::wayland::compositor::CompositorState;
-use smithay::wayland::cursor_shape::CursorShapeManagerState;
-use smithay::wayland::dmabuf::DmabufState;
-use smithay::wayland::fractional_scale::FractionalScaleManagerState;
-use smithay::wayland::idle_inhibit::IdleInhibitManagerState;
-use smithay::wayland::idle_notify::IdleNotifierState;
-use smithay::wayland::input_method::InputMethodManagerState;
-use smithay::wayland::keyboard_shortcuts_inhibit::KeyboardShortcutsInhibitState;
-use smithay::wayland::output::OutputManagerState;
-use smithay::wayland::pointer_constraints::PointerConstraintsState;
-use smithay::wayland::pointer_gestures::PointerGesturesState;
-use smithay::wayland::presentation::PresentationState;
-use smithay::wayland::relative_pointer::RelativePointerManagerState;
-use smithay::wayland::security_context::SecurityContextState;
-use smithay::wayland::selection::data_device::DataDeviceState;
-use smithay::wayland::selection::ext_data_control::DataControlState as ExtDataControlState;
-use smithay::wayland::selection::primary_selection::PrimarySelectionState;
-use smithay::wayland::selection::wlr_data_control::DataControlState as WlrDataControlState;
-use smithay::wayland::session_lock::SessionLockManagerState;
-use smithay::wayland::shell::kde::decoration::KdeDecorationState;
-use smithay::wayland::shell::wlr_layer::WlrLayerShellState;
-use smithay::wayland::shell::xdg::decoration::XdgDecorationState;
-use smithay::wayland::shell::xdg::XdgShellState;
-use smithay::wayland::shm::ShmState;
 #[cfg(test)]
 use smithay::wayland::single_pixel_buffer::SinglePixelBufferState;
 use smithay::wayland::socket::ListeningSocketSource;
-use smithay::wayland::tablet_manager::TabletManagerState;
-use smithay::wayland::text_input::TextInputManagerState;
-use smithay::wayland::viewporter::ViewporterState;
-use smithay::wayland::virtual_keyboard::VirtualKeyboardManagerState;
-use smithay::wayland::xdg_activation::XdgActivationState;
-use smithay::wayland::xdg_foreign::XdgForeignState;
 
 use super::{
-    CursorSubsystem, FocusState, KeyboardFocus, NewClient, OutputSubsystem, PointContents,
-    PointerVisibility, State, StreamingSubsystem, UiOverlays,
+    CursorSubsystem, FocusState, NewClient, OutputSubsystem, State, StreamingSubsystem, UiOverlays,
 };
 #[cfg(feature = "dbus")]
 use crate::a11y::A11y;
@@ -66,20 +28,10 @@ use crate::animation::Clock;
 use crate::backend::Backend;
 use crate::cursor::CursorManager;
 use crate::handlers::XDG_ACTIVATION_TOKEN_TIMEOUT;
-use crate::input::scroll_swipe_gesture::ScrollSwipeGesture;
-use crate::input::scroll_tracker::ScrollTracker;
 use crate::ipc::server::IpcServer;
 use crate::layout::Layout;
 use crate::niri::subsystems::InputTracking;
 use crate::niri::{ClientState, LockState, Niri, ProtocolStates};
-use crate::protocols::ext_workspace::ExtWorkspaceManagerState;
-use crate::protocols::foreign_toplevel::ForeignToplevelManagerState;
-use crate::protocols::gamma_control::GammaControlManagerState;
-use crate::protocols::mutter_x11_interop::MutterX11InteropManagerState;
-use crate::protocols::output_management::OutputManagementManagerState;
-use crate::protocols::screencopy::ScreencopyManagerState;
-use crate::protocols::virtual_pointer::VirtualPointerManagerState;
-use crate::window::mapped::MappedId;
 
 // =============================================================================
 // Niri Constructor

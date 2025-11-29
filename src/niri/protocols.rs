@@ -106,7 +106,7 @@ impl ProtocolStates {
         config: &niri_config::Config,
         backend: &crate::backend::Backend,
     ) -> Self {
-        use std::time::Duration;
+        
 
         use _server_decoration::server::org_kde_kwin_server_decoration_manager::Mode as KdeDecorationsMode;
         use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::WmCapabilities;
@@ -154,7 +154,7 @@ impl ProtocolStates {
         let output_manager = OutputManagerState::new_with_xdg_output::<State>(display);
         let dmabuf = DmabufState::new();
         let fractional_scale = FractionalScaleManagerState::new::<State>(display);
-        let mut seat = SeatState::new();
+        let seat = SeatState::new();
         let tablet = TabletManagerState::new::<State>(display);
         let pointer_gestures = PointerGesturesState::new::<State>(display);
         let relative_pointer = RelativePointerManagerState::new::<State>(display);

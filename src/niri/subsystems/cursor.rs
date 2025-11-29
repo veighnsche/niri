@@ -2,14 +2,11 @@
 //!
 //! Handles cursor visibility, positioning, rendering, and input device state.
 
-use std::time::Duration;
 
 use calloop::RegistrationToken;
-use smithay::input::pointer::CursorImageStatus;
-use smithay::output::Output;
 use smithay::utils::{Logical, Point};
 
-use super::super::types::{CenterCoords, DndIcon, PointContents, PointerVisibility};
+use super::super::types::{DndIcon, PointContents, PointerVisibility};
 use crate::cursor::{CursorManager, CursorTextureCache, RenderCursor};
 
 /// Cursor/pointer management subsystem.

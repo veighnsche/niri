@@ -9,7 +9,7 @@ use smithay::desktop::LayerSurface;
 use smithay::wayland::pointer_constraints::with_pointer_constraint;
 use smithay::wayland::shell::wlr_layer;
 
-use super::{Niri, PointContents, PointerVisibility};
+use super::{Niri, PointContents};
 use crate::layout::HitType;
 
 // =============================================================================

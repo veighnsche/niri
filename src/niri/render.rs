@@ -14,10 +14,10 @@ use smithay::backend::renderer::element::{
     default_primary_scanout_output_compare, Kind, RenderElementStates,
 };
 use smithay::desktop::utils::{
-    bbox_from_surface_tree, output_update, send_dmabuf_feedback_surface_tree,
+    output_update, send_dmabuf_feedback_surface_tree,
     surface_primary_scanout_output, update_surface_primary_scanout_output,
 };
-use smithay::desktop::{layer_map_for_output, LayerMap, Space};
+use smithay::desktop::{layer_map_for_output, LayerMap};
 use smithay::input::pointer::{CursorImageStatus, CursorImageSurfaceData};
 use smithay::output::Output;
 use smithay::reexports::wayland_server::Resource;
@@ -27,8 +27,8 @@ use smithay::wayland::shell::wlr_layer::Layer;
 use tracing::trace;
 
 use super::{
-    KeyboardFocus, LockRenderState, LockState, Niri, OutputRenderElements, OutputState,
-    RedrawState, State,
+    KeyboardFocus, LockRenderState, LockState, Niri, OutputRenderElements,
+    RedrawState,
 };
 use crate::backend::tty::SurfaceDmabufFeedback;
 use crate::backend::{Backend, RenderResult};
@@ -604,7 +604,7 @@ impl Niri {
         // Get monitor elements.
         let mon = self.layout.monitor_for_output(output).unwrap();
         // Overview mode has been removed, zoom is always 1.0
-        let zoom = 1.0;
+        let utils::scale::closest_representable_scale::FRACTIONAL_SCALE_DENOM = 1.0;
         let monitor_elements = mon.render_elements(renderer, target, focus_ring);
         // render_workspace_shadows removed - workspace shadows no longer exist
         let insert_hint_elements = mon.render_insert_hint_between_workspaces(renderer);
@@ -649,7 +649,7 @@ impl Niri {
                     .map(OutputRenderElements::from),
             );
 
-            let mut ws_background: Option<SolidColorRenderElement> = None;
+            let ws_background: Option<SolidColorRenderElement> = None;
             // TODO: TEAM_023: Update render elements handling for Canvas2D
             // The old workspace-based render elements need to be adapted
             elements.extend(monitor_elements.into_iter().map(OutputRenderElements::from));

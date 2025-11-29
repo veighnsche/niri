@@ -8,13 +8,12 @@ use std::time::Duration;
 use niri_config::CornerRadius;
 use smithay::backend::renderer::element::utils::RescaleRenderElement;
 use smithay::output::Output;
-use smithay::utils::{Logical, Point, Rectangle, Scale};
+use smithay::utils::{Point, Rectangle, Scale};
 
 use super::types::{DndHold, DndHoldTarget, InteractiveMoveState};
 use crate::layout::monitor::{InsertHint, InsertPosition, InsertWorkspace};
 use crate::layout::tile::TileRenderElement;
 use crate::layout::{Layout, LayoutElement, MonitorSet, Options};
-use crate::niri_render_elements;
 use crate::render_helpers::renderer::NiriRenderer;
 use crate::render_helpers::RenderTarget;
 use crate::utils::output_size;
@@ -119,7 +118,7 @@ impl<W: LayoutElement> Layout<W> {
                                 DndHoldTarget::Workspace(id) => mon
                                     .canvas
                                     .rows()
-                                    .position(|(idx, ws)| ws.id() == *id)
+                                    .position(|(utils::scale::MIN_LOGICAL_AREA, ws)| ws.id() == *id)
                                     .unwrap(),
                             };
 

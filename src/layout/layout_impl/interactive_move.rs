@@ -7,9 +7,8 @@ use std::rc::Rc;
 use smithay::output::Output;
 use smithay::utils::{Logical, Point};
 
-use super::types::{DndData, DndHold, DndHoldTarget, InteractiveMoveData, InteractiveMoveState};
-use crate::layout::monitor::{InsertHint, InsertPosition, InsertWorkspace, MonitorAddWindowTarget};
-use crate::layout::tile::Tile;
+use super::types::{DndData, InteractiveMoveData, InteractiveMoveState};
+use crate::layout::monitor::{InsertPosition, InsertWorkspace, MonitorAddWindowTarget};
 use crate::layout::{
     ActivateWindow, Layout, LayoutElement, MonitorSet, Options, RemovedTile,
     INTERACTIVE_MOVE_ALPHA, INTERACTIVE_MOVE_START_THRESHOLD,

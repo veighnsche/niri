@@ -5,12 +5,12 @@
 use smithay::desktop::{layer_map_for_output, WindowSurfaceType};
 use smithay::input::pointer::CursorImageStatus;
 use smithay::output::Output;
-use smithay::utils::{Logical, Point, Rectangle, Size};
+use smithay::utils::{Logical, Point};
 
 use super::Niri;
 use crate::backend::Backend;
 use crate::handlers::configure_lock_surface;
-use crate::utils::{center, output_matches_name, output_size, send_scale_transform};
+use crate::utils::{output_matches_name, output_size, send_scale_transform};
 
 // =============================================================================
 // Output Query Methods

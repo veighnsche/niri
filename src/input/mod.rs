@@ -3545,8 +3545,8 @@ impl State {
         let is_overview_open = false;
 
         if let Some((cx, cy)) = self.niri.input.swipe_3f() {
-            let mut cx = cx;
-            let mut cy = cy;
+            let cx = cx;
+            let cy = cy;
 
             // Update cumulative values
             self.niri.input.add_swipe_3f(delta_x, delta_y);
