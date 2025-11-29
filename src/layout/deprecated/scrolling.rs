@@ -2405,7 +2405,7 @@ impl<W: LayoutElement> ScrollingSpace<W> {
                 if tile.window().id() == id {
                     // In the scrolling layout, we try to position popups horizontally within the
                     // window geometry (so they remain visible even if the window scrolls flush with
-                    // the left/right edge of the screen), and vertically wihin the whole parent
+                    // the left/right edge of the screen), and vertically within the whole parent
                     // working area.
                     let width = tile.window_size().w;
                     let height = self.parent_area.size.h;
@@ -3852,6 +3852,1533 @@ impl ColumnData {
 
 // TEAM_002: Column impl block (1520 lines) moved to column module
 
+impl WindowHeight {
+    const fn auto_1() -> Self {
+        Self::Auto { weight: 1. }
+    }
+}
+
+impl<W: LayoutElement> Column<W> {
+    #[allow(clippy::too_many_arguments)]
+    fn new_with_tile(
+        tile: Tile<W>,
+        view_size: Size<f64, Logical>,
+        working_area: Rectangle<f64, Logical>,
+        parent_area: Rectangle<f64, Logical>,
+        scale: f64,
+        width: ColumnWidth,
+        is_full_width: bool,
+    ) -> Self {
+        let options = tile.options.clone();
+
+        let display_mode = tile
+            .window()
+            .rules()
+            .default_column_display
+            .unwrap_or(options.layout.default_column_display);
+
+        // Try to match width to a preset width. Consider the following case: a terminal (foot)
+        // sizes itself to the terminal grid. We open it with default-column-width 0.5. It shrinks
+        // by a few pixels to evenly match the terminal grid. Then we press
+        // switch-preset-column-width intending to go to proportion 0.667, but the preset width
+        // matching code picks the proportion 0.5 preset because it's the next smallest width after
+        // the current foot's window width. Effectively, this makes the first
+        // switch-preset-column-width press ignored.
+        //
+        // However, here, we do know that width = proportion 0.5 (regardless of what the window
+        // opened with), and we can match it to a preset right away, if one exists.
+        let preset_width_idx = options
+            .layout
+            .preset_column_widths
+            .iter()
+            .position(|preset| width == ColumnWidth::from(*preset));
+
+        let mut rv = Self {
+            tiles: vec![],
+            data: vec![],
+            active_tile_idx: 0,
+            width,
+            preset_width_idx,
+            is_full_width,
+            is_pending_maximized: false,
+            is_pending_fullscreen: false,
+            display_mode,
+            tab_indicator: TabIndicator::new(options.layout.tab_indicator),
+            move_animation: None,
+            view_size,
+            working_area,
+            parent_area,
+            scale,
+            clock: tile.clock.clone(),
+            options,
+        };
+
+        let pending_sizing_mode = tile.window().pending_sizing_mode();
+
+        rv.add_tile_at(0, tile);
+
+        match pending_sizing_mode {
+            SizingMode::Normal => (),
+            SizingMode::Maximized => rv.set_maximized(true),
+            SizingMode::Fullscreen => rv.set_fullscreen(true),
+        }
+
+        // Animate the tab indicator for new columns.
+        if display_mode == ColumnDisplay::Tabbed
+            && !rv.options.layout.tab_indicator.hide_when_single_tab
+            && rv.sizing_mode().is_normal()
+        {
+            // Usually new columns are created together with window movement actions. For new
+            // windows, we handle that in start_open_animation().
+            rv.tab_indicator
+                .start_open_animation(rv.clock.clone(), rv.options.animations.window_movement.0);
+        }
+
+        rv
+    }
+
+    fn update_config(
+        &mut self,
+        view_size: Size<f64, Logical>,
+        working_area: Rectangle<f64, Logical>,
+        parent_area: Rectangle<f64, Logical>,
+        scale: f64,
+        options: Rc<Options>,
+    ) {
+        let mut update_sizes = false;
+
+        if self.view_size != view_size
+            || self.working_area != working_area
+            || self.parent_area != parent_area
+        {
+            update_sizes = true;
+        }
+
+        // If preset widths changed, clear our stored preset index.
+        if self.options.layout.preset_column_widths != options.layout.preset_column_widths {
+            self.preset_width_idx = None;
+        }
+
+        // If preset heights changed, make our heights non-preset.
+        if self.options.layout.preset_window_heights != options.layout.preset_window_heights {
+            self.convert_heights_to_auto();
+            update_sizes = true;
+        }
+
+        if self.options.layout.gaps != options.layout.gaps {
+            update_sizes = true;
+        }
+
+        if self.options.layout.border.off != options.layout.border.off
+            || self.options.layout.border.width != options.layout.border.width
+        {
+            update_sizes = true;
+        }
+
+        if self.options.layout.tab_indicator != options.layout.tab_indicator {
+            update_sizes = true;
+        }
+
+        for (tile, data) in zip(&mut self.tiles, &mut self.data) {
+            tile.update_config(view_size, scale, options.clone());
+            data.update(tile);
+        }
+
+        self.tab_indicator
+            .update_config(options.layout.tab_indicator);
+        self.view_size = view_size;
+        self.working_area = working_area;
+        self.parent_area = parent_area;
+        self.scale = scale;
+        self.options = options;
+
+        if update_sizes {
+            self.update_tile_sizes(false);
+        }
+    }
+
+    pub fn advance_animations(&mut self) {
+        if let Some(move_) = &mut self.move_animation {
+            if move_.anim.is_done() {
+                self.move_animation = None;
+            }
+        }
+
+        for tile in &mut self.tiles {
+            tile.advance_animations();
+        }
+
+        self.tab_indicator.advance_animations();
+    }
+
+    pub fn are_animations_ongoing(&self) -> bool {
+        self.move_animation.is_some()
+            || self.tab_indicator.are_animations_ongoing()
+            || self.tiles.iter().any(Tile::are_animations_ongoing)
+    }
+
+    pub fn are_transitions_ongoing(&self) -> bool {
+        self.move_animation.is_some()
+            || self.tab_indicator.are_animations_ongoing()
+            || self.tiles.iter().any(Tile::are_transitions_ongoing)
+    }
+
+    pub fn update_render_elements(&mut self, is_active: bool, view_rect: Rectangle<f64, Logical>) {
+        let active_idx = self.active_tile_idx;
+        for (tile_idx, (tile, tile_off)) in self.tiles_mut().enumerate() {
+            let is_active = is_active && tile_idx == active_idx;
+
+            let mut tile_view_rect = view_rect;
+            tile_view_rect.loc -= tile_off + tile.render_offset();
+            tile.update_render_elements(is_active, tile_view_rect);
+        }
+
+        let config = self.tab_indicator.config();
+        let offsets = self.tile_offsets_iter(self.data.iter().copied());
+        let tabs = zip(&self.tiles, offsets)
+            .enumerate()
+            .map(|(tile_idx, (tile, tile_off))| {
+                let is_active = tile_idx == active_idx;
+                let is_urgent = tile.window().is_urgent();
+                let tile_pos = tile_off + tile.render_offset();
+                TabInfo::from_tile(tile, tile_pos, is_active, is_urgent, &config)
+            });
+
+        // Hide the tab indicator in fullscreen. If you have it configured to overlap the window,
+        // you don't want that to happen in fullscreen. Also, laying things out correctly when the
+        // tab indicator is within the column and the column goes fullscreen, would require too
+        // many changes to the code for too little benefit (it's mostly invisible anyway).
+        let enabled = self.display_mode == ColumnDisplay::Tabbed && self.sizing_mode().is_normal();
+
+        self.tab_indicator.update_render_elements(
+            enabled,
+            self.tab_indicator_area(),
+            view_rect,
+            self.tiles.len(),
+            tabs,
+            is_active,
+            self.scale,
+        );
+    }
+
+    pub fn is_pending_fullscreen(&self) -> bool {
+        self.is_pending_fullscreen
+    }
+
+    pub fn is_pending_maximized(&self) -> bool {
+        self.is_pending_maximized
+    }
+
+    pub fn pending_sizing_mode(&self) -> SizingMode {
+        if self.is_pending_fullscreen {
+            SizingMode::Fullscreen
+        } else if self.is_pending_maximized {
+            SizingMode::Maximized
+        } else {
+            SizingMode::Normal
+        }
+    }
+
+    pub fn render_offset(&self) -> Point<f64, Logical> {
+        let mut offset = Point::from((0., 0.));
+
+        if let Some(move_) = &self.move_animation {
+            offset.x += move_.from * move_.anim.value();
+        }
+
+        offset
+    }
+
+    pub fn animate_move_from(&mut self, from_x_offset: f64) {
+        self.animate_move_from_with_config(
+            from_x_offset,
+            self.options.animations.window_movement.0,
+        );
+    }
+
+    pub fn animate_move_from_with_config(
+        &mut self,
+        from_x_offset: f64,
+        config: niri_config::Animation,
+    ) {
+        let current_offset = self
+            .move_animation
+            .as_ref()
+            .map_or(0., |move_| move_.from * move_.anim.value());
+
+        let anim = Animation::new(self.clock.clone(), 1., 0., 0., config);
+        self.move_animation = Some(MoveAnimation {
+            anim,
+            from: from_x_offset + current_offset,
+        });
+    }
+
+    pub fn offset_move_anim_current(&mut self, offset: f64) {
+        if let Some(move_) = self.move_animation.as_mut() {
+            // If the anim is almost done, there's little point trying to offset it; we can let
+            // things jump. If it turns out like a bad idea, we could restart the anim instead.
+            let value = move_.anim.value();
+            if value > 0.001 {
+                move_.from += offset / value;
+            }
+        }
+    }
+
+    /// Returns whether this column is currently fullscreen.
+    ///
+    /// As in, if it contains one currently-fullscreen tile, or in tabbed mode, if it contains at
+    /// least one currently-fullscreen tile.
+    ///
+    /// This will lag behind is_pending_fullscreen, depending on when the tiles actually respond to
+    /// the un/fullscreen request. But, it's possible for is_fullscreen() to flip instantly, for
+    /// example when consuming a fullscreen tile into a non-pending-fullscreen column.
+    ///
+    /// This controls things like:
+    ///
+    /// - whether the column draws at the top of the screen or at the start of the working area
+    /// - whether the column draws above the top layer-shell layer
+    /// - whether the tab indicator is shown
+    /// - restoring view_offset_before_fullscreen
+    ///
+    /// Edge cases to watch out for:
+    ///
+    /// - Consuming a fullscreen tile into a non-tabbed column will keep that tile fullscreen until
+    ///   it responds to the unfullscreen request. This tile may be anywhere in the column,
+    ///   including at the active position.
+    ///
+    /// - Changing a fullscreen tabbed column into normal mode is an easy way to get randomly
+    ///   delayed unfullscreening tiles in a normal column.
+    ///
+    /// - is_fullscreen() can suddenly change when consuming/expelling a fullscreen tile into/from a
+    ///   non-fullscreen column. This can influence the code that saves/restores the unfullscreen
+    ///   view offset.
+    fn sizing_mode(&self) -> SizingMode {
+        // Behaviors that we want:
+        //
+        // 1. The common case: single tile in a column. Assume no animations. Fullscreening the tile
+        //    should make it jump to the top-left of the screen only when the tile finishes
+        //    fullscreening. Similarly, unfullscreening should keep it at the top-left until the
+        //    tile had unfullscreened.
+        //
+        // 2. Unfullscreening a tabbed column with multiple tiles should restore the view offset
+        //    correctly. This means waiting for *all* tiles to unfullscreen, because otherwise the
+        //    restored view offset will immediately get overwritten by the still screen-wide column
+        //    (it uses the largest tile's width).
+        //
+        // 3. Changing a fullscreen tabbed column to normal should probably also restore the view
+        //    offset correctly. Same problem as above, but now for normal columns (since display
+        //    mode change applies instantly).
+        //
+        // The logic that satisfies these behaviors is to check if *any* tile is fullscreen.
+        let mut any_fullscreen = false;
+        let mut any_maximized = false;
+        for tile in &self.tiles {
+            match tile.sizing_mode() {
+                SizingMode::Normal => (),
+                SizingMode::Maximized => any_maximized = true,
+                SizingMode::Fullscreen => any_fullscreen = true,
+            }
+        }
+
+        if any_fullscreen {
+            SizingMode::Fullscreen
+        } else if any_maximized {
+            SizingMode::Maximized
+        } else {
+            SizingMode::Normal
+        }
+    }
+
+    pub fn contains(&self, window: &W::Id) -> bool {
+        self.tiles
+            .iter()
+            .map(Tile::window)
+            .any(|win| win.id() == window)
+    }
+
+    pub fn position(&self, window: &W::Id) -> Option<usize> {
+        self.tiles
+            .iter()
+            .map(Tile::window)
+            .position(|win| win.id() == window)
+    }
+
+    fn activate_idx(&mut self, idx: usize) -> bool {
+        if self.active_tile_idx == idx {
+            return false;
+        }
+
+        self.active_tile_idx = idx;
+
+        self.tiles[idx].ensure_alpha_animates_to_1();
+
+        true
+    }
+
+    fn activate_window(&mut self, window: &W::Id) {
+        let idx = self.position(window).unwrap();
+        self.activate_idx(idx);
+    }
+
+    fn add_tile_at(&mut self, idx: usize, mut tile: Tile<W>) {
+        tile.update_config(self.view_size, self.scale, self.options.clone());
+
+        // Inserting a tile pushes down all tiles below it, but also in always-centering mode it
+        // will affect the X position of all tiles in the column.
+        let mut prev_offsets = Vec::with_capacity(self.tiles.len() + 1);
+        prev_offsets.extend(self.tile_offsets().take(self.tiles.len()));
+
+        if self.display_mode != ColumnDisplay::Tabbed {
+            self.is_pending_fullscreen = false;
+            self.is_pending_maximized = false;
+        }
+
+        self.data
+            .insert(idx, TileData::new(&tile, WindowHeight::auto_1()));
+        self.tiles.insert(idx, tile);
+        self.update_tile_sizes(true);
+
+        // Animate tiles according to the offset changes.
+        prev_offsets.insert(idx, Point::default());
+        for (i, ((tile, offset), prev)) in zip(self.tiles_mut(), prev_offsets).enumerate() {
+            if i == idx {
+                continue;
+            }
+
+            tile.animate_move_from(prev - offset);
+        }
+    }
+
+    fn update_window(&mut self, window: &W::Id) {
+        let (tile_idx, tile) = self
+            .tiles
+            .iter_mut()
+            .enumerate()
+            .find(|(_, tile)| tile.window().id() == window)
+            .unwrap();
+
+        let prev_height = self.data[tile_idx].size.h;
+
+        tile.update_window();
+        self.data[tile_idx].update(tile);
+
+        let offset = prev_height - self.data[tile_idx].size.h;
+
+        let is_tabbed = self.display_mode == ColumnDisplay::Tabbed;
+
+        // Move windows below in tandem with resizing.
+        //
+        // FIXME: in always-centering mode, window resizing will affect the offsets of all other
+        // windows in the column, so they should all be animated. How should this interact with
+        // animated vs. non-animated resizes? For example, an animated +20 resize followed by two
+        // non-animated -10 resizes.
+        if !is_tabbed && offset != 0. {
+            if tile.resize_animation().is_some() {
+                // If there's a resize animation (that may have just started in
+                // tile.update_window()), then the apparent size change is smooth with no sudden
+                // jumps. This corresponds to adding an Y animation to tiles below.
+                for tile in &mut self.tiles[tile_idx + 1..] {
+                    tile.animate_move_y_from_with_config(
+                        offset,
+                        self.options.animations.window_resize.anim,
+                    );
+                }
+            } else {
+                // There's no resize animation, but the offset is nonzero. This could happen for
+                // example:
+                // - if the window resized on its own, which we don't animate
+                // - if the window resized by less than 10 px (the resize threshold)
+                //
+                // The latter case could also cancel an ongoing resize animation.
+                //
+                // Now, stationary tiles below shouldn't react to this offset change in any way,
+                // i.e. their apparent Y position should jump together with the resize. However,
+                // tiles below that are already animating an Y movement should offset their
+                // animations to avoid the jump.
+                //
+                // Notably, this is necessary to fix the animation jump when resizing height back
+                // and forth in quick succession (in a way that cancels the resize animation).
+                for tile in &mut self.tiles[tile_idx + 1..] {
+                    tile.offset_move_y_anim_current(offset);
+                }
+            }
+        }
+    }
+
+    /// Extra size taken up by elements in the column such as the tab indicator.
+    fn extra_size(&self) -> Size<f64, Logical> {
+        if self.display_mode == ColumnDisplay::Tabbed {
+            self.tab_indicator.extra_size(self.tiles.len(), self.scale)
+        } else {
+            Size::from((0., 0.))
+        }
+    }
+
+    fn resolve_preset_width(&self, preset: PresetSize) -> ResolvedSize {
+        let extra = self.extra_size();
+        resolve_preset_size(preset, &self.options, self.working_area.size.w, extra.w)
+    }
+
+    fn resolve_preset_height(&self, preset: PresetSize) -> ResolvedSize {
+        let extra = self.extra_size();
+        resolve_preset_size(preset, &self.options, self.working_area.size.h, extra.h)
+    }
+
+    fn resolve_column_width(&self, width: ColumnWidth) -> f64 {
+        let working_size = self.working_area.size;
+        let gaps = self.options.layout.gaps;
+        let extra = self.extra_size();
+
+        match width {
+            ColumnWidth::Proportion(proportion) => {
+                (working_size.w - gaps) * proportion - gaps - extra.w
+            }
+            ColumnWidth::Fixed(width) => width,
+        }
+    }
+
+    fn update_tile_sizes(&mut self, animate: bool) {
+        self.update_tile_sizes_with_transaction(animate, Transaction::new());
+    }
+
+    fn update_tile_sizes_with_transaction(&mut self, animate: bool, transaction: Transaction) {
+        let sizing_mode = self.pending_sizing_mode();
+        if matches!(sizing_mode, SizingMode::Fullscreen | SizingMode::Maximized) {
+            for (tile_idx, tile) in self.tiles.iter_mut().enumerate() {
+                // In tabbed mode, only the visible window participates in the transaction.
+                let is_active = tile_idx == self.active_tile_idx;
+                let transaction = if self.display_mode == ColumnDisplay::Tabbed && !is_active {
+                    None
+                } else {
+                    Some(transaction.clone())
+                };
+
+                if matches!(sizing_mode, SizingMode::Fullscreen) {
+                    tile.request_fullscreen(animate, transaction);
+                } else {
+                    tile.request_maximized(self.parent_area.size, animate, transaction);
+                }
+            }
+            return;
+        }
+
+        let is_tabbed = self.display_mode == ColumnDisplay::Tabbed;
+
+        let min_size: Vec<_> = self
+            .tiles
+            .iter()
+            .map(Tile::min_size_nonfullscreen)
+            .map(|mut size| {
+                size.w = size.w.max(1.);
+                size.h = size.h.max(1.);
+                size
+            })
+            .collect();
+        let max_size: Vec<_> = self
+            .tiles
+            .iter()
+            .map(Tile::max_size_nonfullscreen)
+            .collect();
+
+        // Compute the column width.
+        let min_width = min_size
+            .iter()
+            .map(|size| NotNan::new(size.w).unwrap())
+            .max()
+            .map(NotNan::into_inner)
+            .unwrap();
+        let max_width = max_size
+            .iter()
+            .filter_map(|size| {
+                let w = size.w;
+                if w == 0. {
+                    None
+                } else {
+                    Some(NotNan::new(w).unwrap())
+                }
+            })
+            .min()
+            .map(NotNan::into_inner)
+            .unwrap_or(f64::from(i32::MAX));
+        let max_width = f64::max(max_width, min_width);
+
+        let width = if self.is_full_width {
+            ColumnWidth::Proportion(1.)
+        } else {
+            self.width
+        };
+
+        let working_size = self.working_area.size;
+        let extra_size = self.extra_size();
+
+        let width = self.resolve_column_width(width);
+        let width = f64::max(f64::min(width, max_width), min_width);
+        let max_tile_height = working_size.h - self.options.layout.gaps * 2. - extra_size.h;
+
+        // If there are multiple windows in a column, clamp the non-auto window's height according
+        // to other windows' min sizes.
+        let mut max_non_auto_window_height = None;
+        if self.tiles.len() > 1 && !is_tabbed {
+            if let Some(non_auto_idx) = self
+                .data
+                .iter()
+                .position(|data| !matches!(data.height, WindowHeight::Auto { .. }))
+            {
+                let min_height_taken = min_size
+                    .iter()
+                    .enumerate()
+                    .filter(|(idx, _)| *idx != non_auto_idx)
+                    .map(|(_, min_size)| min_size.h + self.options.layout.gaps)
+                    .sum::<f64>();
+
+                let tile = &self.tiles[non_auto_idx];
+                let height_left = max_tile_height - min_height_taken;
+                max_non_auto_window_height = Some(f64::max(
+                    1.,
+                    tile.window_height_for_tile_height(height_left).round(),
+                ));
+            }
+        }
+
+        // Compute the tile heights. Start by converting window heights to tile heights.
+        let mut heights = zip(&self.tiles, &self.data)
+            .map(|(tile, data)| match data.height {
+                auto @ WindowHeight::Auto { .. } => auto,
+                WindowHeight::Fixed(height) => {
+                    let mut window_height = height.round().max(1.);
+                    if let Some(max) = max_non_auto_window_height {
+                        window_height = f64::min(window_height, max);
+                    } else {
+                        // In any case, clamp to the working area height.
+                        let max = tile.window_height_for_tile_height(max_tile_height).round();
+                        window_height = f64::min(window_height, max);
+                    }
+
+                    WindowHeight::Fixed(tile.tile_height_for_window_height(window_height))
+                }
+                WindowHeight::Preset(idx) => {
+                    let preset = self.options.layout.preset_window_heights[idx];
+                    let window_height = match self.resolve_preset_height(preset) {
+                        ResolvedSize::Tile(h) => tile.window_height_for_tile_height(h),
+                        ResolvedSize::Window(h) => h,
+                    };
+
+                    let mut window_height = window_height.round().clamp(1., 100000.);
+                    if let Some(max) = max_non_auto_window_height {
+                        window_height = f64::min(window_height, max);
+                    }
+
+                    let tile_height = tile.tile_height_for_window_height(window_height);
+                    WindowHeight::Fixed(tile_height)
+                }
+            })
+            .collect::<Vec<_>>();
+
+        // In tabbed display mode, fill fixed heights right away.
+        if is_tabbed {
+            // All tiles have the same height, equal to the height of the only fixed tile (if any).
+            let tabbed_height = heights
+                .iter()
+                .find_map(|h| {
+                    if let WindowHeight::Fixed(h) = h {
+                        Some(*h)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(max_tile_height);
+
+            // We also take min height of all tabs into account.
+            let min_height = min_size
+                .iter()
+                .map(|size| NotNan::new(size.h).unwrap())
+                .max()
+                .map(NotNan::into_inner)
+                .unwrap();
+            // But, if there's a larger-than-workspace tab, we don't want to force all tabs to that
+            // size.
+            let min_height = f64::min(max_tile_height, min_height);
+            let tabbed_height = f64::max(tabbed_height, min_height);
+
+            heights.fill(WindowHeight::Fixed(tabbed_height));
+
+            // The following logic will apply individual min/max height, etc.
+        }
+
+        let gaps_left = self.options.layout.gaps * (self.tiles.len() + 1) as f64;
+        let mut height_left = working_size.h - gaps_left;
+        let mut auto_tiles_left = self.tiles.len();
+
+        // Subtract all fixed-height tiles.
+        for (h, (min_size, max_size)) in zip(&mut heights, zip(&min_size, &max_size)) {
+            // Check if the tile has an exact height constraint.
+            if min_size.h == max_size.h {
+                *h = WindowHeight::Fixed(min_size.h);
+            }
+
+            if let WindowHeight::Fixed(h) = h {
+                if max_size.h > 0. {
+                    *h = f64::min(*h, max_size.h);
+                }
+                *h = f64::max(*h, min_size.h);
+
+                height_left -= *h;
+                auto_tiles_left -= 1;
+            }
+        }
+
+        let mut total_weight: f64 = heights
+            .iter()
+            .filter_map(|h| {
+                if let WindowHeight::Auto { weight } = *h {
+                    Some(weight)
+                } else {
+                    None
+                }
+            })
+            .sum();
+
+        // Iteratively try to distribute the remaining height, checking against tile min heights.
+        // Pick an auto height according to the current sizes, then check if it satisfies all
+        // remaining min heights. If not, allocate fixed height to those tiles and repeat the
+        // loop. On each iteration the auto height will get smaller.
+        //
+        // NOTE: we do not respect max height here. Doing so would complicate things: if the current
+        // auto height is above some tile's max height, then the auto height can become larger.
+        // Combining this with the min height loop is where the complexity appears.
+        //
+        // However, most max height uses are for fixed-size dialogs, where min height == max_height.
+        // This case is separately handled above.
+        'outer: while auto_tiles_left > 0 {
+            // Wayland requires us to round the requested size for a window to integer logical
+            // pixels, therefore we compute the remaining auto height dynamically.
+            let mut height_left_2 = height_left;
+            let mut total_weight_2 = total_weight;
+            for ((h, tile), min_size) in zip(zip(&mut heights, &self.tiles), &min_size) {
+                let weight = match *h {
+                    WindowHeight::Auto { weight } => weight,
+                    WindowHeight::Fixed(_) => continue,
+                    WindowHeight::Preset(_) => unreachable!(),
+                };
+                let factor = weight / total_weight_2;
+
+                // Compute the current auto height.
+                let mut auto = height_left_2 * factor;
+
+                // Check if the auto height satisfies the min height.
+                if min_size.h > auto {
+                    auto = min_size.h;
+                    *h = WindowHeight::Fixed(auto);
+                    height_left -= auto;
+                    total_weight -= weight;
+                    auto_tiles_left -= 1;
+
+                    // If a min height was unsatisfied, then we allocate the tile more than the
+                    // auto height, which means that the remaining auto tiles now have less height
+                    // to work with, and the loop must run again.
+                    //
+                    // If we keep going in this loop and break out later, we may allocate less
+                    // height to the subsequent tiles than would be available next iteration and
+                    // potentially trip their min height check earlier than necessary, leading to
+                    // visible snapping.
+                    continue 'outer;
+                }
+
+                auto = tile.tile_height_for_window_height(
+                    tile.window_height_for_tile_height(auto).round().max(1.),
+                );
+
+                height_left_2 -= auto;
+                total_weight_2 -= weight;
+            }
+
+            // All min heights were satisfied, fill them in.
+            for (h, tile) in zip(&mut heights, &self.tiles) {
+                let weight = match *h {
+                    WindowHeight::Auto { weight } => weight,
+                    WindowHeight::Fixed(_) => continue,
+                    WindowHeight::Preset(_) => unreachable!(),
+                };
+                let factor = weight / total_weight;
+
+                // Compute the current auto height.
+                let auto = height_left * factor;
+                let auto = tile.tile_height_for_window_height(
+                    tile.window_height_for_tile_height(auto).round().max(1.),
+                );
+
+                *h = WindowHeight::Fixed(auto);
+                height_left -= auto;
+                total_weight -= weight;
+                auto_tiles_left -= 1;
+            }
+
+            assert_eq!(auto_tiles_left, 0);
+        }
+
+        for (tile_idx, (tile, h)) in zip(&mut self.tiles, heights).enumerate() {
+            let WindowHeight::Fixed(height) = h else {
+                unreachable!()
+            };
+
+            let size = Size::from((width, height));
+
+            // In tabbed mode, only the visible window participates in the transaction.
+            let is_active = tile_idx == self.active_tile_idx;
+            let transaction = if self.display_mode == ColumnDisplay::Tabbed && !is_active {
+                None
+            } else {
+                Some(transaction.clone())
+            };
+
+            tile.request_tile_size(size, animate, transaction);
+        }
+    }
+
+    fn width(&self) -> f64 {
+        let mut tiles_width = self
+            .data
+            .iter()
+            .map(|data| NotNan::new(data.size.w).unwrap())
+            .max()
+            .map(NotNan::into_inner)
+            .unwrap();
+
+        if self.display_mode == ColumnDisplay::Tabbed && self.sizing_mode().is_normal() {
+            let extra_size = self.tab_indicator.extra_size(self.tiles.len(), self.scale);
+            tiles_width += extra_size.w;
+        }
+
+        tiles_width
+    }
+
+    fn focus_index(&mut self, index: u8) {
+        let idx = min(usize::from(index.saturating_sub(1)), self.tiles.len() - 1);
+        self.activate_idx(idx);
+    }
+
+    fn focus_up(&mut self) -> bool {
+        self.activate_idx(self.active_tile_idx.saturating_sub(1))
+    }
+
+    fn focus_down(&mut self) -> bool {
+        self.activate_idx(min(self.active_tile_idx + 1, self.tiles.len() - 1))
+    }
+
+    fn focus_top(&mut self) {
+        self.activate_idx(0);
+    }
+
+    fn focus_bottom(&mut self) {
+        self.activate_idx(self.tiles.len() - 1);
+    }
+
+    fn move_up(&mut self) -> bool {
+        let new_idx = self.active_tile_idx.saturating_sub(1);
+        if self.active_tile_idx == new_idx {
+            return false;
+        }
+
+        let mut ys = self.tile_offsets().skip(self.active_tile_idx);
+        let active_y = ys.next().unwrap().y;
+        let next_y = ys.next().unwrap().y;
+        drop(ys);
+
+        self.tiles.swap(self.active_tile_idx, new_idx);
+        self.data.swap(self.active_tile_idx, new_idx);
+        self.active_tile_idx = new_idx;
+
+        // Animate the movement.
+        let new_active_y = self.tile_offset(new_idx).y;
+        self.tiles[new_idx].animate_move_y_from(active_y - new_active_y);
+        self.tiles[new_idx + 1].animate_move_y_from(active_y - next_y);
+
+        true
+    }
+
+    fn move_down(&mut self) -> bool {
+        let new_idx = min(self.active_tile_idx + 1, self.tiles.len() - 1);
+        if self.active_tile_idx == new_idx {
+            return false;
+        }
+
+        let mut ys = self.tile_offsets().skip(self.active_tile_idx);
+        let active_y = ys.next().unwrap().y;
+        let next_y = ys.next().unwrap().y;
+        drop(ys);
+
+        self.tiles.swap(self.active_tile_idx, new_idx);
+        self.data.swap(self.active_tile_idx, new_idx);
+        self.active_tile_idx = new_idx;
+
+        // Animate the movement.
+        let new_active_y = self.tile_offset(new_idx).y;
+        self.tiles[new_idx].animate_move_y_from(active_y - new_active_y);
+        self.tiles[new_idx - 1].animate_move_y_from(next_y - active_y);
+
+        true
+    }
+
+    fn toggle_width(&mut self, tile_idx: Option<usize>, forwards: bool) {
+        let tile_idx = tile_idx.unwrap_or(self.active_tile_idx);
+
+        let preset_idx = if self.is_full_width || self.is_pending_maximized {
+            None
+        } else {
+            self.preset_width_idx
+        };
+
+        let len = self.options.layout.preset_column_widths.len();
+        let preset_idx = if let Some(idx) = preset_idx {
+            (idx + if forwards { 1 } else { len - 1 }) % len
+        } else {
+            let tile = &self.tiles[tile_idx];
+            let current_window = tile.window_expected_or_current_size().w;
+            let current_tile = tile.tile_expected_or_current_size().w;
+
+            let mut it = self
+                .options
+                .layout
+                .preset_column_widths
+                .iter()
+                .map(|preset| self.resolve_preset_width(*preset));
+
+            if forwards {
+                it.position(|resolved| {
+                    match resolved {
+                        // Some allowance for fractional scaling purposes.
+                        ResolvedSize::Tile(resolved) => current_tile + 1. < resolved,
+                        ResolvedSize::Window(resolved) => current_window + 1. < resolved,
+                    }
+                })
+                .unwrap_or(0)
+            } else {
+                it.rposition(|resolved| {
+                    match resolved {
+                        // Some allowance for fractional scaling purposes.
+                        ResolvedSize::Tile(resolved) => resolved + 1. < current_tile,
+                        ResolvedSize::Window(resolved) => resolved + 1. < current_window,
+                    }
+                })
+                .unwrap_or(len - 1)
+            }
+        };
+
+        let preset = self.options.layout.preset_column_widths[preset_idx];
+        self.set_column_width(SizeChange::from(preset), Some(tile_idx), true);
+
+        self.preset_width_idx = Some(preset_idx);
+    }
+
+    fn toggle_full_width(&mut self) {
+        if self.is_pending_maximized {
+            // Treat it as unmaximize.
+            self.is_pending_maximized = false;
+            self.is_full_width = false;
+        } else {
+            self.is_full_width = !self.is_full_width;
+        }
+
+        self.update_tile_sizes(true);
+    }
+
+    fn set_column_width(&mut self, change: SizeChange, tile_idx: Option<usize>, animate: bool) {
+        let current = if self.is_full_width || self.is_pending_maximized {
+            ColumnWidth::Proportion(1.)
+        } else {
+            self.width
+        };
+
+        let current_px = self.resolve_column_width(current);
+
+        // FIXME: fix overflows then remove limits.
+        const MAX_PX: f64 = 100000.;
+        const MAX_F: f64 = 10000.;
+
+        let width = match (current, change) {
+            (_, SizeChange::SetFixed(fixed)) => {
+                // As a special case, setting a fixed column width will compute it in such a way
+                // that the specified (usually active) window gets that width. This is the
+                // intention behind the ability to set a fixed size.
+                let tile_idx = tile_idx.unwrap_or(self.active_tile_idx);
+                let tile = &self.tiles[tile_idx];
+                ColumnWidth::Fixed(
+                    tile.tile_width_for_window_width(f64::from(fixed))
+                        .clamp(1., MAX_PX),
+                )
+            }
+            (_, SizeChange::SetProportion(proportion)) => {
+                ColumnWidth::Proportion((proportion / 100.).clamp(0., MAX_F))
+            }
+            (_, SizeChange::AdjustFixed(delta)) => {
+                let width = (current_px + f64::from(delta)).clamp(1., MAX_PX);
+                ColumnWidth::Fixed(width)
+            }
+            (ColumnWidth::Proportion(current), SizeChange::AdjustProportion(delta)) => {
+                let proportion = (current + delta / 100.).clamp(0., MAX_F);
+                ColumnWidth::Proportion(proportion)
+            }
+            (ColumnWidth::Fixed(_), SizeChange::AdjustProportion(delta)) => {
+                let full = self.working_area.size.w - self.options.layout.gaps;
+                let current = if full == 0. {
+                    1.
+                } else {
+                    (current_px + self.options.layout.gaps + self.extra_size().w) / full
+                };
+                let proportion = (current + delta / 100.).clamp(0., MAX_F);
+                ColumnWidth::Proportion(proportion)
+            }
+        };
+
+        self.width = width;
+        self.preset_width_idx = None;
+        self.is_full_width = false;
+        self.is_pending_maximized = false;
+        self.update_tile_sizes(animate);
+    }
+
+    fn set_window_height(&mut self, change: SizeChange, tile_idx: Option<usize>, animate: bool) {
+        let tile_idx = tile_idx.unwrap_or(self.active_tile_idx);
+
+        // Start by converting all heights to automatic, since only one window in the column can be
+        // non-auto-height. If the current tile is already non-auto, however, we can skip that
+        // step. Which is not only for optimization, but also preserves automatic weights in case
+        // one window is resized in such a way that other windows hit their min size, and then
+        // back.
+        if matches!(self.data[tile_idx].height, WindowHeight::Auto { .. }) {
+            self.convert_heights_to_auto();
+        }
+
+        let current = self.data[tile_idx].height;
+        let tile = &self.tiles[tile_idx];
+        let current_window_px = match current {
+            WindowHeight::Auto { .. } | WindowHeight::Preset(_) => tile.window_size().h,
+            WindowHeight::Fixed(height) => height,
+        };
+        let current_tile_px = tile.tile_height_for_window_height(current_window_px);
+
+        let working_size = self.working_area.size.h;
+        let gaps = self.options.layout.gaps;
+        let extra_size = self.extra_size().h;
+        let full = working_size - gaps;
+        let current_prop = if full == 0. {
+            1.
+        } else {
+            (current_tile_px + gaps) / full
+        };
+
+        // FIXME: fix overflows then remove limits.
+        const MAX_PX: f64 = 100000.;
+
+        let mut window_height = match change {
+            SizeChange::SetFixed(fixed) => f64::from(fixed),
+            SizeChange::SetProportion(proportion) => {
+                let tile_height = (working_size - gaps) * (proportion / 100.) - gaps - extra_size;
+                tile.window_height_for_tile_height(tile_height)
+            }
+            SizeChange::AdjustFixed(delta) => current_window_px + f64::from(delta),
+            SizeChange::AdjustProportion(delta) => {
+                let proportion = current_prop + delta / 100.;
+                let tile_height = (working_size - gaps) * proportion - gaps - extra_size;
+                tile.window_height_for_tile_height(tile_height)
+            }
+        };
+
+        // Clamp the height according to other windows' min sizes, or simply to working area height.
+        let min_height_taken = if self.display_mode == ColumnDisplay::Tabbed {
+            0.
+        } else {
+            self.tiles
+                .iter()
+                .enumerate()
+                .filter(|(idx, _)| *idx != tile_idx)
+                .map(|(_, tile)| f64::max(1., tile.min_size_nonfullscreen().h) + gaps)
+                .sum::<f64>()
+        };
+        let height_left = working_size - extra_size - gaps - min_height_taken - gaps;
+        let height_left = f64::max(1., tile.window_height_for_tile_height(height_left));
+        window_height = f64::min(height_left, window_height);
+
+        // Clamp it against the window height constraints.
+        let win = &self.tiles[tile_idx].window();
+        let min_h = win.min_size().h;
+        let max_h = win.max_size().h;
+
+        if max_h > 0 {
+            window_height = f64::min(window_height, f64::from(max_h));
+        }
+        if min_h > 0 {
+            window_height = f64::max(window_height, f64::from(min_h));
+        }
+
+        self.data[tile_idx].height = WindowHeight::Fixed(window_height.clamp(1., MAX_PX));
+        self.is_pending_maximized = false;
+        self.update_tile_sizes(animate);
+    }
+
+    fn reset_window_height(&mut self, tile_idx: Option<usize>) {
+        if self.display_mode == ColumnDisplay::Tabbed {
+            // When tabbed, reset window height should work on any window, not just the fixed-size
+            // one.
+            for data in &mut self.data {
+                data.height = WindowHeight::auto_1();
+            }
+        } else {
+            let tile_idx = tile_idx.unwrap_or(self.active_tile_idx);
+            self.data[tile_idx].height = WindowHeight::auto_1();
+        }
+
+        self.update_tile_sizes(true);
+    }
+
+    fn toggle_window_height(&mut self, tile_idx: Option<usize>, forwards: bool) {
+        let tile_idx = tile_idx.unwrap_or(self.active_tile_idx);
+
+        // Start by converting all heights to automatic, since only one window in the column can be
+        // non-auto-height. If the current tile is already non-auto, however, we can skip that
+        // step. Which is not only for optimization, but also preserves automatic weights in case
+        // one window is resized in such a way that other windows hit their min size, and then
+        // back.
+        if matches!(self.data[tile_idx].height, WindowHeight::Auto { .. }) {
+            self.convert_heights_to_auto();
+        }
+
+        let len = self.options.layout.preset_window_heights.len();
+        let preset_idx = match self.data[tile_idx].height {
+            WindowHeight::Preset(idx) if !self.is_pending_maximized => {
+                (idx + if forwards { 1 } else { len - 1 }) % len
+            }
+            _ => {
+                let current = self.data[tile_idx].size.h;
+                let tile = &self.tiles[tile_idx];
+
+                let mut it = self
+                    .options
+                    .layout
+                    .preset_window_heights
+                    .iter()
+                    .copied()
+                    .map(|preset| {
+                        let window_height = match self.resolve_preset_height(preset) {
+                            ResolvedSize::Tile(h) => tile.window_height_for_tile_height(h),
+                            ResolvedSize::Window(h) => h,
+                        };
+                        tile.tile_height_for_window_height(window_height.round().clamp(1., 100000.))
+                    });
+
+                if forwards {
+                    it.position(|resolved| {
+                        // Some allowance for fractional scaling purposes.
+                        current + 1. < resolved
+                    })
+                    .unwrap_or(0)
+                } else {
+                    it.rposition(|resolved| {
+                        // Some allowance for fractional scaling purposes.
+                        resolved + 1. < current
+                    })
+                    .unwrap_or(len - 1)
+                }
+            }
+        };
+        self.data[tile_idx].height = WindowHeight::Preset(preset_idx);
+        self.is_pending_maximized = false;
+        self.update_tile_sizes(true);
+    }
+
+    /// Converts all heights in the column to automatic, preserving the apparent heights.
+    ///
+    /// All weights are recomputed to preserve the current tile heights while "centering" the
+    /// weights at the median window height (it gets weight = 1).
+    ///
+    /// One case where apparent heights will not be preserved is when the column is taller than the
+    /// working area.
+    fn convert_heights_to_auto(&mut self) {
+        let heights: Vec<_> = self.tiles.iter().map(|tile| tile.tile_size().h).collect();
+
+        // Weights are invariant to multiplication: a column with weights 2, 2, 1 is equivalent to
+        // a column with weights 4, 4, 2. So we find the median window height and use that as 1.
+        let mut sorted = heights.clone();
+        sorted.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+        let median = sorted[sorted.len() / 2];
+
+        for (data, height) in zip(&mut self.data, heights) {
+            let weight = height / median;
+            data.height = WindowHeight::Auto { weight };
+        }
+    }
+
+    fn set_fullscreen(&mut self, is_fullscreen: bool) {
+        if self.is_pending_fullscreen == is_fullscreen {
+            return;
+        }
+
+        if is_fullscreen {
+            assert!(self.tiles.len() == 1 || self.display_mode == ColumnDisplay::Tabbed);
+        }
+
+        self.is_pending_fullscreen = is_fullscreen;
+        self.update_tile_sizes(true);
+    }
+
+    fn set_maximized(&mut self, maximize: bool) {
+        if self.is_pending_maximized == maximize {
+            return;
+        }
+
+        if maximize {
+            assert!(self.tiles.len() == 1 || self.display_mode == ColumnDisplay::Tabbed);
+        }
+
+        self.is_pending_maximized = maximize;
+        self.update_tile_sizes(true);
+    }
+
+    fn set_column_display(&mut self, display: ColumnDisplay) {
+        if self.display_mode == display {
+            return;
+        }
+
+        // Animate the movement.
+        //
+        // We're doing some shortcuts here because we know that currently normal vs. tabbed can
+        // only cause a vertical shift + a shift to the origin.
+        //
+        // Doing it this way to avoid storing all tile positions in a vector. If more display modes
+        // are added it might be simpler to just collect everything into a smallvec.
+        let prev_origin = self.tiles_origin();
+        self.display_mode = display;
+        let new_origin = self.tiles_origin();
+        let origin_delta = prev_origin - new_origin;
+
+        // When need to walk the tiles in the normal display mode to get the right offsets.
+        self.display_mode = ColumnDisplay::Normal;
+        for (tile, pos) in self.tiles_mut() {
+            let mut y_delta = pos.y - prev_origin.y;
+
+            // Invert the Y motion when transitioning *to* normal display mode.
+            if display == ColumnDisplay::Normal {
+                y_delta *= -1.;
+            }
+
+            let mut delta = origin_delta;
+            delta.y += y_delta;
+            tile.animate_move_from(delta);
+        }
+
+        // Animate the opacity.
+        for (idx, tile) in self.tiles.iter_mut().enumerate() {
+            let is_active = idx == self.active_tile_idx;
+            if !is_active {
+                let (from, to) = if display == ColumnDisplay::Tabbed {
+                    (1., 0.)
+                } else {
+                    (0., 1.)
+                };
+                tile.animate_alpha(from, to, self.options.animations.window_movement.0);
+            }
+        }
+
+        // Animate the appearance of the tab indicator.
+        if display == ColumnDisplay::Tabbed {
+            self.tab_indicator.start_open_animation(
+                self.clock.clone(),
+                self.options.animations.window_movement.0,
+            );
+        }
+
+        // Now switch the display mode for real.
+        self.display_mode = display;
+        self.update_tile_sizes(true);
+    }
+
+    fn tiles_origin(&self) -> Point<f64, Logical> {
+        let mut origin = Point::from((0., 0.));
+
+        match self.sizing_mode() {
+            SizingMode::Normal => (),
+            SizingMode::Maximized => {
+                origin.y += self.parent_area.loc.y;
+                return origin;
+            }
+            SizingMode::Fullscreen => return origin,
+        }
+
+        origin.y += self.working_area.loc.y + self.options.layout.gaps;
+
+        if self.display_mode == ColumnDisplay::Tabbed {
+            origin += self
+                .tab_indicator
+                .content_offset(self.tiles.len(), self.scale);
+        }
+
+        origin
+    }
+
+    // HACK: pass a self.data iterator in manually as a workaround for the lack of method partial
+    // borrowing. Note that this method's return value does not borrow the entire &Self!
+    fn tile_offsets_iter(
+        &self,
+        data: impl Iterator<Item = TileData>,
+    ) -> impl Iterator<Item = Point<f64, Logical>> {
+        // FIXME: this should take into account always-center-single-column, which means that
+        // Column should somehow know when it is being centered due to being the single column on
+        // the workspace or some other reason.
+        let center = self.options.layout.center_focused_column == CenterFocusedColumn::Always;
+        let gaps = self.options.layout.gaps;
+        let tabbed = self.display_mode == ColumnDisplay::Tabbed;
+
+        // Does not include extra size from the tab indicator.
+        let tiles_width = self
+            .data
+            .iter()
+            .map(|data| NotNan::new(data.size.w).unwrap())
+            .max()
+            .map(NotNan::into_inner)
+            .unwrap_or(0.);
+
+        let mut origin = self.tiles_origin();
+
+        // Chain with a dummy value to be able to get one past all tiles' Y.
+        let dummy = TileData {
+            height: WindowHeight::auto_1(),
+            size: Size::default(),
+            interactively_resizing_by_left_edge: false,
+        };
+        let data = data.chain(iter::once(dummy));
+
+        data.map(move |data| {
+            let mut pos = origin;
+
+            if center {
+                pos.x += (tiles_width - data.size.w) / 2.;
+            } else if data.interactively_resizing_by_left_edge {
+                pos.x += tiles_width - data.size.w;
+            }
+
+            if !tabbed {
+                origin.y += data.size.h + gaps;
+            }
+
+            pos
+        })
+    }
+
+    fn tile_offsets(&self) -> impl Iterator<Item = Point<f64, Logical>> + '_ {
+        self.tile_offsets_iter(self.data.iter().copied())
+    }
+
+    fn tile_offset(&self, tile_idx: usize) -> Point<f64, Logical> {
+        self.tile_offsets().nth(tile_idx).unwrap()
+    }
+
+    fn tile_offsets_in_render_order(
+        &self,
+        data: impl Iterator<Item = TileData>,
+    ) -> impl Iterator<Item = Point<f64, Logical>> {
+        let active_idx = self.active_tile_idx;
+        let active_pos = self.tile_offset(active_idx);
+        let offsets = self
+            .tile_offsets_iter(data)
+            .enumerate()
+            .filter_map(move |(idx, pos)| (idx != active_idx).then_some(pos));
+        iter::once(active_pos).chain(offsets)
+    }
+
+    pub fn tiles(&self) -> impl Iterator<Item = (&Tile<W>, Point<f64, Logical>)> + '_ {
+        let offsets = self.tile_offsets_iter(self.data.iter().copied());
+        zip(&self.tiles, offsets)
+    }
+
+    fn tiles_mut(&mut self) -> impl Iterator<Item = (&mut Tile<W>, Point<f64, Logical>)> + '_ {
+        let offsets = self.tile_offsets_iter(self.data.iter().copied());
+        zip(&mut self.tiles, offsets)
+    }
+
+    fn tiles_in_render_order(
+        &self,
+    ) -> impl Iterator<Item = (&Tile<W>, Point<f64, Logical>, bool)> + '_ {
+        let offsets = self.tile_offsets_in_render_order(self.data.iter().copied());
+
+        let (first, rest) = self.tiles.split_at(self.active_tile_idx);
+        let (active, rest) = rest.split_at(1);
+
+        let active = active.iter().map(|tile| (tile, true));
+
+        let rest_visible = self.display_mode != ColumnDisplay::Tabbed;
+        let rest = first.iter().chain(rest);
+        let rest = rest.map(move |tile| (tile, rest_visible));
+
+        let tiles = active.chain(rest);
+        zip(tiles, offsets).map(|((tile, visible), pos)| (tile, pos, visible))
+    }
+
+    fn tiles_in_render_order_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (&mut Tile<W>, Point<f64, Logical>)> + '_ {
+        let offsets = self.tile_offsets_in_render_order(self.data.iter().copied());
+
+        let (first, rest) = self.tiles.split_at_mut(self.active_tile_idx);
+        let (active, rest) = rest.split_at_mut(1);
+
+        let tiles = active.iter_mut().chain(first).chain(rest);
+        zip(tiles, offsets)
+    }
+
+    fn tab_indicator_area(&self) -> Rectangle<f64, Logical> {
+        // We'd like to use the active tile's animated size for the tab indicator, however we need
+        // to be mindful of the case where the active tile is smaller than some other tile in the
+        // column. The column assumes the size of the largest tile.
+        //
+        // We expect users to mainly resize tabbed columns by width, so matching the animated size
+        // is more important here. Besides, we always try to resize all windows in a column to the
+        // same width when possible, and also the animation for going into tabbed mode doesn't move
+        // tiles horizontally as much.
+        //
+        // For height though, it's a different story. First, users probably aren't resizing a
+        // tabbed column by height. Second, we don't match windows by height, so it's easy to have
+        // a smaller active tile than the rest of the column, e.g. by adding a fixed-size dialog.
+        // Then, switching to that dialog and back should ideally keep the tab indicator position
+        // fixed. Third, the animation for making a column tabbed moves tiles vertically, and using
+        // the active tile's animated size in this case only works for the topmost tile, and looks
+        // broken otherwise.
+        let mut max_height = 0.;
+        for tile in &self.tiles {
+            max_height = f64::max(max_height, tile.tile_size().h);
+        }
+
+        let tile = &self.tiles[self.active_tile_idx];
+        let area_size = Size::from((tile.animated_tile_size().w, max_height));
+
+        Rectangle::new(self.tiles_origin(), area_size)
+    }
+
+    pub fn start_open_animation(&mut self, id: &W::Id) -> bool {
+        for tile in &mut self.tiles {
+            if tile.window().id() == id {
+                tile.start_open_animation();
+
+                // Animate the appearance of the tab indicator.
+                if self.display_mode == ColumnDisplay::Tabbed
+                    && self.sizing_mode().is_normal()
+                    && self.tiles.len() == 1
+                    && !self.tab_indicator.config().hide_when_single_tab
+                {
+                    self.tab_indicator.start_open_animation(
+                        self.clock.clone(),
+                        self.options.animations.window_open.anim,
+                    );
+                }
+
+                return true;
+            }
+        }
+
+        false
+    }
+
+    #[cfg(test)]
+    fn verify_invariants(&self) {
+        assert!(!self.tiles.is_empty(), "columns can't be empty");
+        assert!(self.active_tile_idx < self.tiles.len());
+        assert_eq!(self.tiles.len(), self.data.len());
+
+        if !self.pending_sizing_mode().is_normal() {
+            assert!(self.tiles.len() == 1 || self.display_mode == ColumnDisplay::Tabbed);
+        }
+
+        if let Some(idx) = self.preset_width_idx {
+            assert!(idx < self.options.layout.preset_column_widths.len());
+        }
+
+        let is_tabbed = self.display_mode == ColumnDisplay::Tabbed;
+
+        let tile_count = self.tiles.len();
+        if tile_count == 1 {
+            if let WindowHeight::Auto { weight } = self.data[0].height {
+                assert_eq!(
+                    weight, 1.,
+                    "auto height weight must reset to 1 for a single window"
+                );
+            }
+        }
+
+        let working_size = self.working_area.size;
+        let extra_size = self.extra_size();
+        let gaps = self.options.layout.gaps;
+
+        let mut found_fixed = false;
+        let mut total_height = 0.;
+        let mut total_min_height = 0.;
+        for (tile, data) in zip(&self.tiles, &self.data) {
+            assert!(Rc::ptr_eq(&self.options, &tile.options));
+            assert_eq!(self.clock, tile.clock);
+            assert_eq!(self.scale, tile.scale());
+            assert_eq!(
+                self.pending_sizing_mode(),
+                tile.window().pending_sizing_mode()
+            );
+            assert_eq!(self.view_size, tile.view_size());
+            tile.verify_invariants();
+
+            let mut data2 = *data;
+            data2.update(tile);
+            assert_eq!(data, &data2, "tile data must be up to date");
+
+            if matches!(data.height, WindowHeight::Fixed(_)) {
+                assert!(
+                    !found_fixed,
+                    "there can only be one fixed-height window in a column"
+                );
+                found_fixed = true;
+            }
+
+            if let WindowHeight::Preset(idx) = data.height {
+                assert!(self.options.layout.preset_window_heights.len() > idx);
+            }
+
+            let requested_size = tile.window().requested_size().unwrap();
+            let requested_tile_height =
+                tile.tile_height_for_window_height(f64::from(requested_size.h));
+            let min_tile_height = f64::max(1., tile.min_size_nonfullscreen().h);
+
+            if !is_tabbed
+                && self.pending_sizing_mode().is_normal()
+                && self.scale.round() == self.scale
+                && working_size.h.round() == working_size.h
+                && gaps.round() == gaps
+            {
+                let total_height = requested_tile_height + gaps * 2. + extra_size.h;
+                let total_min_height = min_tile_height + gaps * 2. + extra_size.h;
+                let max_height = f64::max(total_min_height, working_size.h);
+                assert!(
+                    total_height <= max_height,
+                    "each tile in a column mustn't go beyond working area height \
+                     (tile height {total_height} > max height {max_height})"
+                );
+            }
+
+            total_height += requested_tile_height;
+            total_min_height += min_tile_height;
+        }
+
+        if !is_tabbed
+            && tile_count > 1
+            && self.scale.round() == self.scale
+            && working_size.h.round() == working_size.h
+            && gaps.round() == gaps
+        {
+            total_height += gaps * (tile_count + 1) as f64 + extra_size.h;
+            total_min_height += gaps * (tile_count + 1) as f64 + extra_size.h;
+            let max_height = f64::max(total_min_height, working_size.h);
+            assert!(
+                total_height <= max_height,
+                "multiple tiles in a column mustn't go beyond working area height \
+                 (total height {total_height} > max height {max_height})"
+            );
+        }
+    }
+}
 
 fn compute_new_view_offset(
     cur_x: f64,
