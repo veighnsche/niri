@@ -7,5 +7,5 @@ mod focus;
 mod outputs;
 
 pub use cursor::CursorSubsystem;
-pub use focus::FocusState;
+pub use focus::{FocusContext, FocusState, LayerFocusCandidate};
 pub use outputs::OutputSubsystem;
