@@ -15,9 +15,11 @@ mod rules;
 mod screencast;
 mod screencopy;
 mod screenshot;
+mod subsystems;
 mod types;
 
 pub use protocols::ProtocolStates;
+pub use subsystems::OutputSubsystem;
 pub use types::*;
 
 use std::cell::{Cell, OnceCell, RefCell};
@@ -248,13 +250,6 @@ pub struct Niri {
     // however it may have none (when there are no outputs connected) or multiple (when mirroring).
     pub layout: Layout<Mapped>,
 
-    // This space does not actually contain any windows, but all outputs are mapped into it
-    // according to their global position.
-    pub global_space: Space<Window>,
-
-    /// Mapped outputs, sorted by their name and position.
-    pub sorted_outputs: Vec<Output>,
-
     // Windows which don't have a buffer attached yet.
     pub unmapped_windows: HashMap<WlSurface, Unmapped>,
 
@@ -275,16 +270,8 @@ pub struct Niri {
     pub blocker_cleared_tx: Sender<Client>,
     pub blocker_cleared_rx: Receiver<Client>,
 
-    pub output_state: HashMap<Output, OutputState>,
-
-    // When false, we're idling with monitors powered off.
-    pub monitors_active: bool,
-
-    /// Whether the laptop lid is closed.
-    ///
-    /// Libinput guarantees that the lid switch starts in open state, and if it was closed during
-    /// startup, libinput will immediately send a closed event.
-    pub is_lid_closed: bool,
+    /// Output management subsystem.
+    pub outputs: OutputSubsystem,
 
     pub devices: HashSet<input::Device>,
     pub tablets: HashMap<input::Device, TabletData>,
@@ -1530,7 +1517,7 @@ impl State {
             backdrop_color[3] = 1.;
             let backdrop_color = Color32F::from(backdrop_color);
 
-            if let Some(state) = self.niri.output_state.get_mut(output) {
+            if let Some(state) = self.niri.outputs.state_mut(output) {
                 if state.backdrop_buffer.color() != backdrop_color {
                     state.backdrop_buffer.set_color(backdrop_color);
                     recolored_outputs.push(output.clone());
@@ -2482,7 +2469,7 @@ impl Niri {
             screen_transition: None,
             debug_damage_tracker: OutputDamageTracker::from_output(&output),
         };
-        let rv = self.output_state.insert(output.clone(), state);
+        let rv = self.outputs.state.insert(output.clone(), state);
         assert!(rv.is_none(), "output was already tracked");
 
         // Must be last since it will call queue_redraw(output) which needs things to be filled-in.
@@ -2495,11 +2482,11 @@ impl Niri {
         }
 
         self.layout.remove_output(output);
-        self.global_space.unmap_output(output);
+        self.outputs.space_mut().unmap_output(output);
         self.reposition_outputs(None);
         self.protocols.gamma_control.output_removed(output);
 
-        let state = self.output_state.remove(output).unwrap();
+        let state = self.outputs.state.remove(output).unwrap();
 
         match state.redraw_state {
             RedrawState::Idle => (),
@@ -2605,21 +2592,21 @@ impl Niri {
 
     /// Schedules an immediate redraw on all outputs if one is not already scheduled.
     pub fn queue_redraw_all(&mut self) {
-        for state in self.output_state.values_mut() {
+        for state in self.outputs.state.values_mut() {
             state.redraw_state = mem::take(&mut state.redraw_state).queue_redraw();
         }
     }
 
     /// Schedules an immediate redraw if one is not already scheduled.
     pub fn queue_redraw(&mut self, output: &Output) {
-        let state = self.output_state.get_mut(output).unwrap();
+        let state = self.outputs.state.get_mut(output).unwrap();
         state.redraw_state = mem::take(&mut state.redraw_state).queue_redraw();
     }
 
     pub fn redraw_queued_outputs(&mut self, backend: &mut Backend) {
         let _span = tracy_client::span!("Niri::redraw_queued_outputs");
 
-        while let Some((output, _)) = self.output_state.iter().find(|(_, state)| {
+        while let Some((output, _)) = self.outputs.state.iter().find(|(_, state)| {
             matches!(
                 state.redraw_state,
                 RedrawState::Queued | RedrawState::WaitingForEstimatedVBlankAndQueued(_)
@@ -2664,7 +2651,7 @@ impl Niri {
 
         // Next, the screen transition texture.
         {
-            let state = self.output_state.get(output).unwrap();
+            let state = self.outputs.state.get(output).unwrap();
             if let Some(transition) = &state.screen_transition {
                 elements.push(transition.render(target).into());
             }
@@ -2685,7 +2672,7 @@ impl Niri {
 
         // If the session is locked, draw the lock surface.
         if self.is_locked() {
-            let state = self.output_state.get(output).unwrap();
+            let state = self.outputs.state.get(output).unwrap();
             if let Some(surface) = state.lock_surface.as_ref() {
                 elements.extend(render_elements_from_surface_tree(
                     renderer,
@@ -2715,7 +2702,7 @@ impl Niri {
         }
 
         // Prepare the background elements.
-        let state = self.output_state.get(output).unwrap();
+        let state = self.outputs.state.get(output).unwrap();
         let backdrop = SolidColorRenderElement::from_buffer(
             &state.backdrop_buffer,
             (0., 0.),
@@ -2914,7 +2901,7 @@ impl Niri {
         let _span = tracy_client::span!("Niri::redraw");
 
         // Verify our invariant.
-        let state = self.output_state.get_mut(output).unwrap();
+        let state = self.outputs.state.get_mut(output).unwrap();
         assert!(matches!(
             state.redraw_state,
             RedrawState::Queued | RedrawState::WaitingForEstimatedVBlankAndQueued(_)
@@ -2928,8 +2915,8 @@ impl Niri {
         self.update_render_elements(Some(output));
 
         let mut res = RenderResult::Skipped;
-        if self.monitors_active {
-            let state = self.output_state.get_mut(output).unwrap();
+        if self.outputs.monitors_active() {
+            let state = self.outputs.state.get_mut(output).unwrap();
             state.unfinished_animations_remain = self.layout.are_animations_ongoing(Some(output));
             state.unfinished_animations_remain |=
                 self.config_error_notification.are_animations_ongoing();
@@ -2956,7 +2943,7 @@ impl Niri {
         }
 
         let is_locked = self.is_locked();
-        let state = self.output_state.get_mut(output).unwrap();
+        let state = self.outputs.state.get_mut(output).unwrap();
 
         if res == RenderResult::Skipped {
             // Update the redraw state on failed render.
@@ -3184,7 +3171,7 @@ impl Niri {
             });
         }
 
-        if let Some(surface) = &self.output_state[output].lock_surface {
+        if let Some(surface) = &self.outputs.state[output].lock_surface {
             with_surface_tree_downward(
                 surface.wl_surface(),
                 (),
@@ -3244,7 +3231,7 @@ impl Niri {
             );
         }
 
-        if let Some(surface) = &self.output_state[output].lock_surface {
+        if let Some(surface) = &self.outputs.state[output].lock_surface {
             send_dmabuf_feedback_surface_tree(
                 surface.wl_surface(),
                 output,
@@ -3306,7 +3293,7 @@ impl Niri {
         self.debug_draw_damage = !self.debug_draw_damage;
 
         if self.debug_draw_damage {
-            for (output, state) in &mut self.output_state {
+            for (output, state) in &mut self.outputs.state {
                 state.debug_damage_tracker = OutputDamageTracker::from_output(output);
             }
         }
@@ -3441,7 +3428,7 @@ impl Niri {
         });
 
         for (output, from_texture) in textures {
-            let state = self.output_state.get_mut(&output).unwrap();
+            let state = self.outputs.state_mut(&output).unwrap();
             state.screen_transition = Some(ScreenTransition::new(
                 from_texture,
                 delay,

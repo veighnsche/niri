@@ -1,0 +1,192 @@
+//! Output management subsystem.
+//!
+//! Owns all state related to physical outputs (monitors) and provides
+//! a clean API for output lifecycle management and spatial queries.
+
+use std::collections::HashMap;
+use std::time::Duration;
+
+use smithay::desktop::Space;
+use smithay::output::Output;
+use smithay::utils::{Logical, Point, Rectangle, Size};
+use wayland_backend::server::GlobalId;
+
+use crate::frame_clock::FrameClock;
+use crate::render_helpers::solid_color::SolidColorBuffer;
+use crate::utils::vblank_throttle::VBlankThrottle;
+
+use super::super::types::RedrawState;
+use crate::niri::OutputState;
+
+/// Output management subsystem.
+///
+/// This struct owns all output-related state and encapsulates the logic
+/// for adding, removing, repositioning, and querying outputs.
+pub struct OutputSubsystem {
+    /// Global compositor space containing all outputs.
+    global_space: Space<smithay::desktop::Window>,
+    
+    /// Outputs sorted by name and position.
+    sorted: Vec<Output>,
+    
+    /// Per-output state (frame clock, redraw state, etc.).
+    state: HashMap<Output, OutputState>,
+    
+    /// Whether monitors are currently active (not powered off for idle).
+    monitors_active: bool,
+    
+    /// Whether the laptop lid is closed.
+    lid_closed: bool,
+}
+
+impl OutputSubsystem {
+    /// Creates a new output subsystem.
+    pub fn new() -> Self {
+        Self {
+            global_space: Space::default(),
+            sorted: Vec::new(),
+            state: HashMap::new(),
+            monitors_active: true,
+            lid_closed: false,
+        }
+    }
+    
+    // =========================================================================
+    // Lifecycle Management
+    // =========================================================================
+    
+    /// Adds a new output to the compositor.
+    pub fn add(
+        &mut self,
+        output: Output,
+        refresh_interval: Option<Duration>,
+        vrr: bool,
+    ) -> GlobalId {
+        // For now, just add to our internal structures
+        // The actual global creation will be handled by the caller
+        self.sorted.push(output.clone());
+        
+        // Create a placeholder GlobalId - this will be replaced when we move the full implementation
+        GlobalId::new()
+    }
+    
+    /// Removes an output from the compositor.
+    pub fn remove(&mut self, output: &Output) {
+        // Implementation will be moved from Niri::remove_output
+        unimplemented!()
+    }
+    
+    /// Repositions all outputs based on configuration.
+    pub fn reposition(&mut self, new_output: Option<&Output>) {
+        // Implementation will be moved from Niri::reposition_outputs
+        unimplemented!()
+    }
+    
+    // =========================================================================
+    // Spatial Queries
+    // =========================================================================
+    
+    /// Returns the output under the given global position.
+    pub fn under_position(&self, pos: Point<f64, Logical>) -> Option<(&Output, Point<f64, Logical>)> {
+        let output = self.global_space.output_under(pos).next()?;
+        let geo = self.global_space.output_geometry(output)?;
+        Some((output, pos - geo.loc.to_f64()))
+    }
+    
+    /// Returns the output to the left of the given output.
+    pub fn left_of(&self, current: &Output) -> Option<&Output> {
+        // Implementation will be moved from Niri::output_left_of
+        unimplemented!()
+    }
+    
+    /// Returns the output to the right of the given output.
+    pub fn right_of(&self, current: &Output) -> Option<&Output> {
+        // Implementation will be moved from Niri::output_right_of
+        unimplemented!()
+    }
+    
+    /// Returns the output above the given output.
+    pub fn above(&self, current: &Output) -> Option<&Output> {
+        // Implementation will be moved from Niri::output_up_of
+        unimplemented!()
+    }
+    
+    /// Returns the output below the given output.
+    pub fn below(&self, current: &Output) -> Option<&Output> {
+        // Implementation will be moved from Niri::output_down_of
+        unimplemented!()
+    }
+    
+    // =========================================================================
+    // State Access
+    // =========================================================================
+    
+    /// Returns an iterator over all outputs.
+    pub fn iter(&self) -> impl Iterator<Item = &Output> {
+        self.sorted.iter()
+    }
+    
+    /// Returns the global space (read-only).
+    pub fn space(&self) -> &Space<smithay::desktop::Window> {
+        &self.global_space
+    }
+    
+    /// Returns a mutable reference to the global space.
+    pub fn space_mut(&mut self) -> &mut Space<smithay::desktop::Window> {
+        &mut self.global_space
+    }
+    
+    /// Returns the state for a specific output.
+    pub fn state(&self, output: &Output) -> Option<&OutputState> {
+        self.state.get(output)
+    }
+    
+    /// Returns mutable state for a specific output.
+    pub fn state_mut(&mut self, output: &Output) -> Option<&mut OutputState> {
+        self.state.get_mut(output)
+    }
+    
+    /// Returns whether monitors are active.
+    pub fn monitors_active(&self) -> bool {
+        self.monitors_active
+    }
+    
+    /// Sets whether monitors are active.
+    pub fn set_monitors_active(&mut self, active: bool) {
+        self.monitors_active = active;
+    }
+    
+    /// Returns whether the lid is closed.
+    pub fn lid_closed(&self) -> bool {
+        self.lid_closed
+    }
+    
+    /// Sets the lid closed state.
+    pub fn set_lid_closed(&mut self, closed: bool) {
+        self.lid_closed = closed;
+    }
+    
+    // =========================================================================
+    // Redraw Management
+    // =========================================================================
+    
+    /// Queues a redraw for a specific output.
+    pub fn queue_redraw(&mut self, output: &Output) {
+        if let Some(state) = self.state.get_mut(output) {
+            state.redraw_state = std::mem::take(&mut state.redraw_state).queue_redraw();
+        }
+    }
+    
+    /// Queues a redraw for all outputs.
+    pub fn queue_redraw_all(&mut self) {
+        for state in self.state.values_mut() {
+            state.redraw_state = std::mem::take(&mut state.redraw_state).queue_redraw();
+        }
+    }
+}
+
+impl Default for OutputSubsystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}

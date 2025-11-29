@@ -33,7 +33,7 @@ impl Niri {
         &'a self,
         renderer: &'a mut GlesRenderer,
     ) -> impl Iterator<Item = (Output, [OutputScreenshot; 3])> + 'a {
-        self.global_space.outputs().cloned().filter_map(|output| {
+        self.outputs.space().outputs().cloned().filter_map(|output| {
             let size = output.current_mode().unwrap().size;
             let transform = output.current_transform();
             let size = transform.transform_size(size);
@@ -262,13 +262,13 @@ impl Niri {
 
         self.update_render_elements(None);
 
-        let outputs: Vec<_> = self.global_space.outputs().cloned().collect();
+        let outputs: Vec<_> = self.outputs.space().outputs().cloned().collect();
 
         // FIXME: support multiple outputs, needs fixing multi-scale handling and cropping.
         ensure!(outputs.len() == 1);
 
         let output = outputs.into_iter().next().unwrap();
-        let geom = self.global_space.output_geometry(&output).unwrap();
+        let geom = self.outputs.space().output_geometry(&output).unwrap();
 
         let output_scale = output.current_scale().integer_scale();
         let geom = geom.to_physical(output_scale);

@@ -109,7 +109,7 @@ pub fn refresh(state: &mut State) {
 
     // Remove workspace groups for outputs that no longer exist.
     protocol_state.workspace_groups.retain(|output, data| {
-        if state.niri.sorted_outputs.contains(output) {
+        if state.niri.outputs.iter().any(|o| o == output) {
             return true;
         }
 
@@ -139,7 +139,7 @@ pub fn refresh(state: &mut State) {
     }
 
     // Update workspace groups and create new ones, sending workspace_enter events as needed.
-    for output in &state.niri.sorted_outputs {
+    for output in state.niri.outputs.iter() {
         changed |= refresh_workspace_group(protocol_state, output);
     }
 

@@ -843,7 +843,7 @@ impl Cast {
             .event_loop
             .insert_source(timer, move |_, _, state| {
                 // Guard against output disconnecting before the timer has a chance to run.
-                if state.niri.output_state.contains_key(&output) {
+                if state.niri.outputs.state(&output).is_some() {
                     state.niri.queue_redraw(&output);
                 }
 

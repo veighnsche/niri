@@ -702,7 +702,7 @@ impl Tty {
                 self.refresh_ipc_outputs(niri);
 
                 niri.notify_activity();
-                niri.monitors_active = true;
+                niri.outputs.set_monitors_active(true);
                 self.set_monitors_active(true);
                 niri.queue_redraw_all();
             }
@@ -1025,7 +1025,7 @@ impl Tty {
             let device = self.devices.get(&node).unwrap();
 
             // Follow the logic in on_output_config_changed().
-            let disable_laptop_panels = self.should_disable_laptop_panels(niri.is_lid_closed);
+            let disable_laptop_panels = self.should_disable_laptop_panels(niri.outputs.lid_closed());
             let should_disable = |conn: &str| disable_laptop_panels && is_laptop_panel(conn);
 
             let config = self.config.borrow();
@@ -1452,7 +1452,7 @@ impl Tty {
 
         // Some buggy monitors replug upon powering off, so powering on here would prevent such
         // monitors from powering off. Therefore, we avoid unconditionally powering on.
-        if !niri.monitors_active {
+        if !niri.outputs.monitors_active() {
             if let Err(err) = compositor.clear() {
                 warn!("error clearing drm surface: {err:?}");
             }
@@ -1488,13 +1488,13 @@ impl Tty {
         let res = device.surfaces.insert(crtc, surface);
         assert!(res.is_none(), "crtc must not have already existed");
 
-        niri.add_output(output.clone(), Some(refresh_interval(mode)), vrr_enabled);
+        niri.outputs.add(output.clone(), Some(refresh_interval(mode)), vrr_enabled);
 
-        if niri.monitors_active {
+        if niri.outputs.monitors_active() {
             // Redraw the new monitor.
             niri.event_loop.insert_idle(move |state| {
                 // Guard against output disconnecting before the idle has a chance to run.
-                if state.niri.output_state.contains_key(&output) {
+                if state.niri.outputs.state(&output).is_some() {
                     state.niri.queue_redraw(&output);
                 }
             });
@@ -1616,7 +1616,8 @@ impl Tty {
             .message(&message, 0);
 
         let Some(output) = niri
-            .global_space
+            .outputs
+            .space()
             .outputs()
             .find(|output| {
                 let tty_state: &TtyOutputState = output.user_data().get().unwrap();
@@ -1628,7 +1629,7 @@ impl Tty {
             return;
         };
 
-        let Some(output_state) = niri.output_state.get_mut(&output) else {
+        let Some(output_state) = niri.outputs.state_mut(&output) else {
             error!("missing output state for {name}");
             return;
         };

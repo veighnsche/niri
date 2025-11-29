@@ -20,10 +20,11 @@ use super::Niri;
 impl Niri {
     /// Returns the output under the given position and the position within that output.
     pub fn output_under(&self, pos: Point<f64, Logical>) -> Option<(&Output, Point<f64, Logical>)> {
-        let output = self.global_space.output_under(pos).next()?;
+        let output = self.outputs.space().output_under(pos).next()?;
         let pos_within_output = pos
             - self
-                .global_space
+                .outputs
+                .space()
                 .output_geometry(output)
                 .unwrap()
                 .loc
@@ -35,20 +36,20 @@ impl Niri {
     /// Returns the output under the current cursor position.
     pub fn output_under_cursor(&self) -> Option<Output> {
         let pos = self.seat.get_pointer().unwrap().current_location();
-        self.global_space.output_under(pos).next().cloned()
+        self.outputs.space().output_under(pos).next().cloned()
     }
 
     /// Returns the output to the left of the given output.
     pub fn output_left_of(&self, current: &Output) -> Option<Output> {
-        let current_geo = self.global_space.output_geometry(current)?;
+        let current_geo = self.outputs.space().output_geometry(current)?;
         let extended_geo = Rectangle::new(
             Point::from((i32::MIN / 2, current_geo.loc.y)),
             Size::from((i32::MAX, current_geo.size.h)),
         );
 
-        self.global_space
+        self.outputs.space()
             .outputs()
-            .map(|output| (output, self.global_space.output_geometry(output).unwrap()))
+            .map(|output| (output, self.outputs.space().output_geometry(output).unwrap()))
             .filter(|(_, geo)| center(*geo).x < center(current_geo).x && geo.overlaps(extended_geo))
             .min_by_key(|(_, geo)| center(current_geo).x - center(*geo).x)
             .map(|(output, _)| output)
@@ -57,15 +58,15 @@ impl Niri {
 
     /// Returns the output to the right of the given output.
     pub fn output_right_of(&self, current: &Output) -> Option<Output> {
-        let current_geo = self.global_space.output_geometry(current)?;
+        let current_geo = self.outputs.space().output_geometry(current)?;
         let extended_geo = Rectangle::new(
             Point::from((i32::MIN / 2, current_geo.loc.y)),
             Size::from((i32::MAX, current_geo.size.h)),
         );
 
-        self.global_space
+        self.outputs.space()
             .outputs()
-            .map(|output| (output, self.global_space.output_geometry(output).unwrap()))
+            .map(|output| (output, self.outputs.space().output_geometry(output).unwrap()))
             .filter(|(_, geo)| center(*geo).x > center(current_geo).x && geo.overlaps(extended_geo))
             .min_by_key(|(_, geo)| center(*geo).x - center(current_geo).x)
             .map(|(output, _)| output)
@@ -74,15 +75,15 @@ impl Niri {
 
     /// Returns the output above the given output.
     pub fn output_up_of(&self, current: &Output) -> Option<Output> {
-        let current_geo = self.global_space.output_geometry(current)?;
+        let current_geo = self.outputs.space().output_geometry(current)?;
         let extended_geo = Rectangle::new(
             Point::from((current_geo.loc.x, i32::MIN / 2)),
             Size::from((current_geo.size.w, i32::MAX)),
         );
 
-        self.global_space
+        self.outputs.space()
             .outputs()
-            .map(|output| (output, self.global_space.output_geometry(output).unwrap()))
+            .map(|output| (output, self.outputs.space().output_geometry(output).unwrap()))
             .filter(|(_, geo)| center(*geo).y < center(current_geo).y && geo.overlaps(extended_geo))
             .min_by_key(|(_, geo)| center(current_geo).y - center(*geo).y)
             .map(|(output, _)| output)
@@ -91,15 +92,15 @@ impl Niri {
 
     /// Returns the output below the given output.
     pub fn output_down_of(&self, current: &Output) -> Option<Output> {
-        let current_geo = self.global_space.output_geometry(current)?;
+        let current_geo = self.outputs.space().output_geometry(current)?;
         let extended_geo = Rectangle::new(
             Point::from((current_geo.loc.x, i32::MIN / 2)),
             Size::from((current_geo.size.w, i32::MAX)),
         );
 
-        self.global_space
+        self.outputs.space()
             .outputs()
-            .map(|output| (output, self.global_space.output_geometry(output).unwrap()))
+            .map(|output| (output, self.outputs.space().output_geometry(output).unwrap()))
             .filter(|(_, geo)| center(*geo).y > center(current_geo).y && geo.overlaps(extended_geo))
             .min_by_key(|(_, geo)| center(*geo).y - center(current_geo).y)
             .map(|(output, _)| output)
@@ -108,23 +109,21 @@ impl Niri {
 
     /// Returns the previous output in the sorted order.
     pub fn output_previous_of(&self, current: &Output) -> Option<Output> {
-        self.sorted_outputs
-            .iter()
+        self.outputs.iter()
             .rev()
             .skip_while(|&output| output != current)
             .nth(1)
-            .or(self.sorted_outputs.last())
+            .or(self.outputs.iter().last())
             .filter(|&output| output != current)
             .cloned()
     }
 
     /// Returns the next output in the sorted order.
     pub fn output_next_of(&self, current: &Output) -> Option<Output> {
-        self.sorted_outputs
-            .iter()
+        self.outputs.iter()
             .skip_while(|&output| output != current)
             .nth(1)
-            .or(self.sorted_outputs.first())
+            .or(self.outputs.iter().first())
             .filter(|&output| output != current)
             .cloned()
     }
@@ -178,12 +177,12 @@ impl Niri {
         let map_to_output = config.input.touch.map_to_output.as_ref();
         map_to_output
             .and_then(|name| self.output_by_name_match(name))
-            .or_else(|| self.global_space.outputs().next())
+            .or_else(|| self.outputs.space().outputs().next())
     }
 
     /// Returns the output matching the given name.
     pub fn output_by_name_match(&self, target: &str) -> Option<&Output> {
-        self.global_space
+        self.outputs.space()
             .outputs()
             .find(|output| output_matches_name(output, target))
     }

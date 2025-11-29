@@ -20,6 +20,8 @@ use smithay::reexports::calloop::{Interest, LoopSignal, Mode, PostAction};
 use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::WmCapabilities;
 use smithay::reexports::wayland_server::protocol::wl_shm;
 use smithay::reexports::wayland_server::{Client, Display};
+
+use super::OutputSubsystem;
 use smithay::utils::{ClockSource, Monotonic};
 use smithay::wayland::compositor::CompositorState;
 use smithay::wayland::cursor_shape::CursorShapeManagerState;
@@ -275,9 +277,6 @@ impl Niri {
             clock: animation_clock,
 
             layout,
-            global_space: Space::default(),
-            sorted_outputs: Vec::default(),
-            output_state: HashMap::new(),
             unmapped_windows: HashMap::new(),
             unmapped_layer_surfaces: HashSet::new(),
             mapped_layer_surfaces: HashMap::new(),
@@ -285,8 +284,7 @@ impl Niri {
             dmabuf_pre_commit_hook: HashMap::new(),
             blocker_cleared_tx,
             blocker_cleared_rx,
-            monitors_active: true,
-            is_lid_closed: false,
+            outputs: OutputSubsystem::new(),
 
             devices: HashSet::new(),
             tablets: HashMap::new(),
