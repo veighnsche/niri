@@ -98,7 +98,12 @@ pub mod canvas;
 // TEAM_055: Renamed from workspace_types to row_types
 pub mod row_types;  // TEAM_021: Minimal row types for external compatibility
 // TEAM_063: Layout implementation split into submodules
+// TEAM_064: Interactive move and DnD types moved to layout_impl/types.rs
 mod layout_impl;
+// Re-export internal types for use in this module
+use layout_impl::types::{InteractiveMoveState, InteractiveMoveData, DndHold, DndHoldTarget};
+// Re-export public types
+pub use layout_impl::types::DndData;
 // DEPRECATED: workspace module removed - functionality migrated to Canvas2D
 
 // TEAM_004: Golden snapshot infrastructure
@@ -363,76 +368,8 @@ pub struct Options {
     pub deactivate_unfocused_windows: bool,
 }
 
-#[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
-enum InteractiveMoveState<W: LayoutElement> {
-    /// Initial rubberbanding; the window remains in the layout.
-    Starting {
-        /// The window we're moving.
-        window_id: W::Id,
-        /// Current pointer delta from the starting location.
-        pointer_delta: Point<f64, Logical>,
-        /// Pointer location within the visual window geometry as ratio from geometry size.
-        ///
-        /// This helps the pointer remain inside the window as it resizes.
-        pointer_ratio_within_window: (f64, f64),
-    },
-    /// Moving; the window is no longer in the layout.
-    Moving(InteractiveMoveData<W>),
-}
-
-#[derive(Debug)]
-struct InteractiveMoveData<W: LayoutElement> {
-    /// The window being moved.
-    pub(self) tile: Tile<W>,
-    /// Output where the window is currently located/rendered.
-    pub(self) output: Output,
-    /// Current pointer position within output.
-    pub(self) pointer_pos_within_output: Point<f64, Logical>,
-    /// Window column width.
-    pub(self) width: ColumnWidth,
-    /// Whether the window column was full-width.
-    pub(self) is_full_width: bool,
-    /// Whether the window targets the floating layout.
-    pub(self) is_floating: bool,
-    /// Pointer location within the visual window geometry as ratio from geometry size.
-    ///
-    /// This helps the pointer remain inside the window as it resizes.
-    pub(self) pointer_ratio_within_window: (f64, f64),
-    /// Config overrides for the output where the window is currently located.
-    ///
-    /// Cached here to be accessible while an output is removed.
-    pub(self) output_config: Option<niri_config::LayoutPart>,
-    /// Config overrides for the workspace where the window is currently located.
-    ///
-    /// To avoid sudden window changes when starting an interactive move, it will remember the
-    /// config overrides for the workspace where the move originated from. As soon as the window
-    /// moves over some different workspace though, this override will reset.
-    pub(self) workspace_config: Option<(RowId, niri_config::LayoutPart)>,
-}
-
-#[derive(Debug)]
-pub struct DndData<W: LayoutElement> {
-    /// Output where the pointer is currently located.
-    output: Output,
-    /// Current pointer position within output.
-    pointer_pos_within_output: Point<f64, Logical>,
-    /// Ongoing DnD hold to activate something.
-    hold: Option<DndHold<W>>,
-}
-
-#[derive(Debug)]
-struct DndHold<W: LayoutElement> {
-    /// Time when we started holding on the target.
-    start_time: Duration,
-    target: DndHoldTarget<W::Id>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum DndHoldTarget<WindowId> {
-    Window(WindowId),
-    Workspace(RowId),
-}
+// TEAM_064: InteractiveMoveState, InteractiveMoveData, DndData, DndHold, DndHoldTarget
+// moved to layout_impl/types.rs
 
 #[derive(Debug, Clone, Copy)]
 pub struct InteractiveResizeData {
@@ -581,37 +518,7 @@ impl SizingMode {
     }
 }
 
-impl<W: LayoutElement> InteractiveMoveState<W> {
-    fn moving(&self) -> Option<&InteractiveMoveData<W>> {
-        match self {
-            InteractiveMoveState::Moving(move_) => Some(move_),
-            _ => None,
-        }
-    }
-
-    fn moving_mut(&mut self) -> Option<&mut InteractiveMoveData<W>> {
-        match self {
-            InteractiveMoveState::Moving(move_) => Some(move_),
-            _ => None,
-        }
-    }
-}
-
-impl<W: LayoutElement> InteractiveMoveData<W> {
-    fn tile_render_location(&self, zoom: f64) -> Point<f64, Logical> {
-        let scale = Scale::from(self.output.current_scale().fractional_scale());
-        let window_size = self.tile.window_size();
-        let pointer_offset_within_window = Point::from((
-            window_size.w * self.pointer_ratio_within_window.0,
-            window_size.h * self.pointer_ratio_within_window.1,
-        ));
-        let pos = self.pointer_pos_within_output
-            - (pointer_offset_within_window + self.tile.window_loc() - self.tile.render_offset())
-                .upscale(zoom);
-        // Round to physical pixels.
-        pos.to_physical_precise_round(scale).to_logical(scale)
-    }
-}
+// TEAM_064: InteractiveMoveState and InteractiveMoveData impl blocks moved to layout_impl/types.rs
 
 impl ActivateWindow {
     pub fn map_smart(self, f: impl FnOnce() -> bool) -> bool {
