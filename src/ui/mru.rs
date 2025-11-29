@@ -24,7 +24,7 @@ use smithay::output::Output;
 use smithay::utils::{Logical, Point, Rectangle, Scale, Size, Transform};
 
 use crate::animation::{Animation, Clock};
-use crate::layout::focus_ring::{FocusRing, FocusRingRenderElement};
+use crate::layout::elements::focus_ring::{FocusRing, FocusRingRenderElement};
 use crate::layout::{Layout, LayoutElement as _, LayoutElementRenderElement};
 use crate::niri::Niri;
 use crate::niri_render_elements;

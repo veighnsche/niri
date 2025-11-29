@@ -7,7 +7,7 @@ use niri_ipc::ColumnDisplay;
 use smithay::utils::{Logical, Rectangle, Size};
 
 use super::{Column, ColumnWidth};
-use crate::layout::tab_indicator::TabIndicator;
+use crate::layout::elements::tab_indicator::TabIndicator;
 use crate::layout::tile::Tile;
 use crate::layout::{LayoutElement, Options, SizingMode};
 

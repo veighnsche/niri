@@ -8,9 +8,9 @@ use smithay::backend::renderer::element::{Element, Kind};
 use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::utils::{Logical, Point, Rectangle, Scale, Size};
 
-use super::focus_ring::{FocusRing, FocusRingRenderElement};
-use super::opening_window::{OpenAnimation, OpeningWindowRenderElement};
-use super::shadow::Shadow;
+use super::elements::focus_ring::{FocusRing, FocusRingRenderElement};
+use super::elements::opening_window::{OpenAnimation, OpeningWindowRenderElement};
+use super::elements::shadow::Shadow;
 use super::{
     HitType, LayoutElement, LayoutElementRenderElement, LayoutElementRenderSnapshot, Options,
     SizeFrac, RESIZE_ANIMATION_THRESHOLD,

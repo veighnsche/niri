@@ -55,11 +55,11 @@ use crate::utils::{ResizeEdge, ensure_min_max_size, ensure_min_max_size_maybe_ze
 use crate::window::ResolvedWindowRules;
 
 use super::animated_value::AnimatedValue;
-use super::closing_window::ClosingWindow;
+use super::elements::closing_window::ClosingWindow;
 use super::column::{Column, resolve_preset_size};
 use super::tile::Tile;
 use super::types::{InteractiveResize, ResolvedSize};
-use super::tab_indicator::TabIndicator;
+use super::elements::tab_indicator::TabIndicator;
 use super::{LayoutElement, Options, ConfigureIntent};
 use crate::animation::Clock;
 use crate::utils::transaction::TransactionBlocker;

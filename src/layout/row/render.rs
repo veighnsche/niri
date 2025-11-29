@@ -7,8 +7,8 @@ use std::iter::zip;
 use smithay::utils::{Logical, Point, Rectangle, Scale};
 
 use super::Row;
-use crate::layout::closing_window::ClosingWindowRenderElement;
-use crate::layout::tab_indicator::TabIndicatorRenderElement;
+use crate::layout::elements::closing_window::ClosingWindowRenderElement;
+use crate::layout::elements::tab_indicator::TabIndicatorRenderElement;
 use crate::layout::tile::TileRenderElement;
 use crate::layout::LayoutElement;
 use crate::niri_render_elements;

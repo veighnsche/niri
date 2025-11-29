@@ -686,39 +686,38 @@ cargo test layout::  # ✅ 187 passed
 
 ---
 
-### Phase 1: Create `elements/` Module (2 hours, LOW RISK)
+### Phase 1: Create `elements/` Module (2 hours, LOW RISK) ✅ COMPLETE (TEAM_062)
 
 **Why first**: Just file moves + import updates. No method changes.
 
 **Steps:**
-1. [ ] Create `src/layout/elements/mod.rs`
-2. [ ] Move files:
-   - [ ] `closing_window.rs` → `elements/closing_window.rs`
-   - [ ] `opening_window.rs` → `elements/opening_window.rs`
-   - [ ] `focus_ring.rs` → `elements/focus_ring.rs`
-   - [ ] `shadow.rs` → `elements/shadow.rs`
-   - [ ] `tab_indicator.rs` → `elements/tab_indicator.rs`
-   - [ ] `insert_hint_element.rs` → `elements/insert_hint.rs`
-3. [ ] Update `mod.rs` to declare `pub mod elements;`
-4. [ ] Add re-exports in `elements/mod.rs`:
-   ```rust
-   pub mod closing_window;
-   pub mod opening_window;
-   pub mod focus_ring;
-   pub mod shadow;
-   pub mod tab_indicator;
-   pub mod insert_hint;
-   
-   pub use closing_window::ClosingWindow;
-   pub use focus_ring::FocusRing;
-   // etc.
-   ```
-5. [ ] Update all imports across codebase
+1. [x] Create `src/layout/elements/mod.rs`
+2. [x] Move files:
+   - [x] `closing_window.rs` → `elements/closing_window.rs`
+   - [x] `opening_window.rs` → `elements/opening_window.rs`
+   - [x] `focus_ring.rs` → `elements/focus_ring.rs`
+   - [x] `shadow.rs` → `elements/shadow.rs`
+   - [x] `tab_indicator.rs` → `elements/tab_indicator.rs`
+   - [x] `insert_hint_element.rs` → `elements/insert_hint.rs`
+3. [x] Update `mod.rs` to declare `pub mod elements;`
+4. [x] Add re-exports in `elements/mod.rs`
+5. [x] Update all imports across codebase:
+   - `src/layout/tile.rs`
+   - `src/layout/row/mod.rs`
+   - `src/layout/row/render.rs`
+   - `src/layout/column/mod.rs`
+   - `src/layout/column/core.rs`
+   - `src/layout/column/render.rs`
+   - `src/layout/floating.rs`
+   - `src/layout/monitor/mod.rs` (including render element macro)
+   - `src/ui/mru.rs`
+   - `src/layer/mapped.rs`
+   - `src/layout/elements/tab_indicator.rs` (internal super::super:: fix)
 
 **Verification:**
 ```bash
-cargo check
-cargo test
+cargo check    # ✅ Passes (warnings only)
+cargo test     # ✅ 270 passed
 ```
 
 ---

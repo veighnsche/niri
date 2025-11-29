@@ -9,7 +9,7 @@ use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::desktop::space::SpaceElement;
 use smithay::utils::{Logical, Point, Rectangle, Scale, Serial, Size};
 
-use super::closing_window::{ClosingWindow, ClosingWindowRenderElement};
+use super::elements::closing_window::{ClosingWindow, ClosingWindowRenderElement};
 // TEAM_003: Import ColumnWidth, InteractiveResize, ResolvedSize from types module
 use super::types::{ColumnWidth, InteractiveResize, ResolvedSize};
 use super::tile::{Tile, TileRenderElement, TileRenderSnapshot};

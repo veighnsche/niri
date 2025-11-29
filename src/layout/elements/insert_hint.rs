@@ -2,6 +2,7 @@ use niri_config::CornerRadius;
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
 use super::focus_ring::{FocusRing, FocusRingRenderElement};
+// Note: This import is within the same elements/ module, so super:: is correct
 use crate::render_helpers::renderer::NiriRenderer;
 
 #[derive(Debug)]

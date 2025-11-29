@@ -7,7 +7,7 @@ use smithay::utils::{Logical, Point, Rectangle, Size};
 
 use super::{Column, MoveAnimation};
 use crate::animation::Animation;
-use crate::layout::tab_indicator::TabInfo;
+use crate::layout::elements::tab_indicator::TabInfo;
 use crate::layout::LayoutElement;
 
 impl<W: LayoutElement> Column<W> {

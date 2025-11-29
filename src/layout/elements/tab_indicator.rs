@@ -4,8 +4,8 @@ use std::mem;
 use niri_config::{CornerRadius, Gradient, GradientRelativeTo, TabIndicatorPosition};
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
-use super::tile::Tile;
-use super::LayoutElement;
+use super::super::tile::Tile;
+use super::super::LayoutElement;
 use crate::animation::{Animation, Clock};
 use crate::niri_render_elements;
 use crate::render_helpers::border::BorderRenderElement;

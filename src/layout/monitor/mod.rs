@@ -17,7 +17,7 @@ use smithay::utils::{Logical, Rectangle, Size};
 
 use crate::animation::Clock;
 use crate::layout::canvas::Canvas2D;
-use crate::layout::insert_hint_element::InsertHintElement;
+use crate::layout::elements::insert_hint::InsertHintElement;
 // TEAM_060: Using RowId directly instead of WorkspaceId alias
 use crate::layout::row_types::{RowId, compute_working_area};
 use crate::layout::row::Row;
@@ -99,8 +99,8 @@ niri_render_elements! {
     MonitorInnerRenderElement<R> => {
         Canvas = smithay::backend::renderer::element::utils::CropRenderElement<
             crate::layout::canvas::Canvas2DRenderElement<R>>,
-        InsertHint = smithay::backend::renderer::element::utils::CropRenderElement<crate::layout::insert_hint_element::InsertHintRenderElement>,
-        UncroppedInsertHint = crate::layout::insert_hint_element::InsertHintRenderElement,
+        InsertHint = smithay::backend::renderer::element::utils::CropRenderElement<crate::layout::elements::insert_hint::InsertHintRenderElement>,
+        UncroppedInsertHint = crate::layout::elements::insert_hint::InsertHintRenderElement,
         Shadow = crate::render_helpers::shadow::ShadowRenderElement,
         SolidColor = crate::render_helpers::solid_color::SolidColorRenderElement,
     }

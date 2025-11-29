@@ -10,7 +10,7 @@ use smithay::wayland::shell::wlr_layer::{ExclusiveZone, Layer};
 
 use super::ResolvedLayerRules;
 use crate::animation::Clock;
-use crate::layout::shadow::Shadow;
+use crate::layout::elements::shadow::Shadow;
 use crate::niri_render_elements;
 use crate::render_helpers::renderer::NiriRenderer;
 use crate::render_helpers::shadow::ShadowRenderElement;

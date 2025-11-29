@@ -77,17 +77,13 @@ use crate::utils::{
 };
 use crate::window::ResolvedWindowRules;
 
-pub mod closing_window;
 // TEAM_002: Column module extracted from scrolling.rs
 pub mod column;
+// TEAM_062: Render elements grouped into elements/ module
+pub mod elements;
 pub mod floating;
-pub mod focus_ring;
-pub mod insert_hint_element;
 pub mod monitor;
-pub mod opening_window;
 // TEAM_062: scrolling.rs moved to deprecated/ - replaced by Row
-pub mod shadow;
-pub mod tab_indicator;
 pub mod tile;
 // TEAM_003: Shared types for layout modules
 pub mod types;

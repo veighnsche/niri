@@ -19,7 +19,7 @@ use niri_ipc::ColumnDisplay;
 use smithay::utils::{Logical, Rectangle, Size};
 
 pub use self::tile_data::{TileData, WindowHeight};
-use super::tab_indicator::TabIndicator;
+use super::elements::tab_indicator::TabIndicator;
 use super::tile::Tile;
 // TEAM_003: Import ColumnWidth and ResolvedSize from types module
 pub use super::types::ColumnWidth;
