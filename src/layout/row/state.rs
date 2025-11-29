@@ -2,6 +2,7 @@
 //!
 //! Read-only state inspection methods for Row.
 
+use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{Logical, Point, Rectangle};
 
 use super::super::column::Column;
@@ -151,5 +152,30 @@ impl<W: LayoutElement> Row<W> {
     /// TEAM_024: Added for workspace compatibility
     pub fn windows_mut(&mut self) -> impl Iterator<Item = &mut W> + '_ {
         self.tiles_mut().map(|tile| tile.window_mut())
+    }
+
+    // =========================================================================
+    // Surface finders
+    // =========================================================================
+
+    /// Find a window by Wayland surface.
+    /// TEAM_036: Implemented - searches all tiles for matching surface
+    pub fn find_wl_surface(&self, wl_surface: &WlSurface) -> Option<&W> {
+        self.tiles()
+            .find(|tile| tile.window().is_wl_surface(wl_surface))
+            .map(|tile| tile.window())
+    }
+
+    /// Find a window by Wayland surface (mutable).
+    /// TEAM_036: Implemented - searches all tiles for matching surface
+    pub fn find_wl_surface_mut(&mut self, wl_surface: &WlSurface) -> Option<&mut W> {
+        for column in &mut self.columns {
+            for tile in &mut column.tiles {
+                if tile.window().is_wl_surface(wl_surface) {
+                    return Some(tile.window_mut());
+                }
+            }
+        }
+        None
     }
 }

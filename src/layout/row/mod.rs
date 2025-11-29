@@ -31,6 +31,7 @@
 mod column_data;
 mod fullscreen;
 mod gesture;
+mod hit_test;
 mod layout;
 mod navigation;
 mod operations;
@@ -964,21 +965,7 @@ impl<W: LayoutElement> Row<W> {
     // TEAM_064: Fullscreen/maximize methods moved to fullscreen.rs:
     // set_fullscreen, toggle_fullscreen, set_maximized, toggle_maximized, get_fullscreen_size_for_window
     
-    pub fn activate_window(&mut self, window: &W::Id) -> bool {
-        // Find the column containing this window
-        let column_idx = self.columns.iter().position(|col| col.contains(window));
-        let Some(column_idx) = column_idx else {
-            return false;
-        };
-        let column = &mut self.columns[column_idx];
-
-        // Activate the window within its column
-        column.activate_window(window);
-        // Activate the column within the row
-        self.activate_column(column_idx);
-
-        true
-    }
+    // TEAM_064: activate_window moved to navigation.rs
     
     // TEAM_035: Updated signature to accept window ID and return bool
     pub fn start_open_animation(&mut self, window: &W::Id) -> bool {
@@ -1000,99 +987,7 @@ impl<W: LayoutElement> Row<W> {
     }
 
     // TEAM_064: active_window_mut, is_urgent moved to state.rs
-
-    /// Find window under the given point.
-    /// TEAM_036: Implemented based on ScrollingSpace::window_under
-    pub fn window_under(&self, pos: Point<f64, Logical>) -> Option<(&W, super::HitType)> {
-        let scale = self.scale;
-        let view_off = Point::from((-self.view_pos(), 0.));
-        
-        for (col, col_x) in self.columns_in_render_order() {
-            let col_off = Point::from((col_x, 0.));
-            let col_render_off = col.render_offset();
-
-            // Hit the tab indicator.
-            if col.display_mode == ColumnDisplay::Tabbed && col.sizing_mode().is_normal() {
-                let col_pos = view_off + col_off + col_render_off;
-                let col_pos = col_pos.to_physical_precise_round(scale).to_logical(scale);
-
-                if let Some(idx) = col.tab_indicator.hit(
-                    col.tab_indicator_area(),
-                    col.tiles.len(),
-                    scale,
-                    pos - col_pos,
-                ) {
-                    let hit = super::HitType::Activate {
-                        is_tab_indicator: true,
-                    };
-                    return Some((col.tiles[idx].window(), hit));
-                }
-            }
-
-            for (tile, tile_off, visible) in col.tiles_in_render_order() {
-                if !visible {
-                    continue;
-                }
-
-                let tile_pos =
-                    view_off + col_off + col_render_off + tile_off + tile.render_offset();
-                // Round to physical pixels.
-                let tile_pos = tile_pos.to_physical_precise_round(scale).to_logical(scale);
-
-                if let Some(rv) = super::HitType::hit_tile(tile, tile_pos, pos) {
-                    return Some(rv);
-                }
-            }
-        }
-
-        None
-    }
-
-    /// Find resize edges under the given point.
-    /// TEAM_036: Implemented based on original Workspace::resize_edges_under
-    pub fn resize_edges_under(&self, pos: Point<f64, Logical>) -> Option<ResizeEdge> {
-        let scale = self.scale;
-        let view_off = Point::from((-self.view_pos(), 0.));
-        
-        for (col, col_x) in self.columns_in_render_order() {
-            let col_off = Point::from((col_x, 0.));
-            let col_render_off = col.render_offset();
-
-            for (tile, tile_off, visible) in col.tiles_in_render_order() {
-                if !visible {
-                    continue;
-                }
-
-                let tile_pos =
-                    view_off + col_off + col_render_off + tile_off + tile.render_offset();
-                // Round to physical pixels.
-                let tile_pos = tile_pos.to_physical_precise_round(scale).to_logical(scale);
-
-                let pos_within_tile = pos - tile_pos;
-                
-                // Check if point is within this tile
-                if tile.hit(pos_within_tile).is_some() {
-                    let size = tile.tile_size().to_f64();
-                    
-                    // Determine resize edges based on position within tile (thirds)
-                    let mut edges = ResizeEdge::empty();
-                    if pos_within_tile.x < size.w / 3. {
-                        edges |= ResizeEdge::LEFT;
-                    } else if 2. * size.w / 3. < pos_within_tile.x {
-                        edges |= ResizeEdge::RIGHT;
-                    }
-                    if pos_within_tile.y < size.h / 3. {
-                        edges |= ResizeEdge::TOP;
-                    } else if 2. * size.h / 3. < pos_within_tile.y {
-                        edges |= ResizeEdge::BOTTOM;
-                    }
-                    return Some(edges);
-                }
-            }
-        }
-
-        None
-    }
+    // TEAM_064: window_under, resize_edges_under moved to hit_test.rs
 
     /// Update shaders for all tiles in the row.
     /// TEAM_031: Added for monitor config compatibility
@@ -1284,26 +1179,7 @@ impl<W: LayoutElement> Row<W> {
         target_x - current_x
     }
 
-    /// Find a Wayland surface.
-    /// TEAM_036: Implemented - searches all tiles for matching surface
-    pub fn find_wl_surface(&self, wl_surface: &WlSurface) -> Option<&W> {
-        self.tiles()
-            .find(|tile| tile.window().is_wl_surface(wl_surface))
-            .map(|tile| tile.window())
-    }
-
-    /// Find a Wayland surface mutably.
-    /// TEAM_036: Implemented - searches all tiles for matching surface
-    pub fn find_wl_surface_mut(&mut self, wl_surface: &WlSurface) -> Option<&mut W> {
-        for column in &mut self.columns {
-            for tile in &mut column.tiles {
-                if tile.window().is_wl_surface(wl_surface) {
-                    return Some(tile.window_mut());
-                }
-            }
-        }
-        None
-    }
+    // TEAM_064: find_wl_surface, find_wl_surface_mut moved to state.rs
 
     /// Get popup target rectangle.
     /// TEAM_025: Stub implementation
@@ -1313,13 +1189,7 @@ impl<W: LayoutElement> Row<W> {
         None
     }
 
-    /// Activate window without raising.
-    /// TEAM_025: Stub implementation
-    /// TEAM_035: Updated return type to bool
-    pub fn activate_window_without_raising(&mut self, _window: &W::Id) -> bool {
-        // TEAM_025: TODO - implement activation without raising
-        false
-    }
+    // TEAM_064: activate_window_without_raising moved to navigation.rs
 
     /// Get tiles with IPC layouts.
     /// TEAM_025: Stub implementation

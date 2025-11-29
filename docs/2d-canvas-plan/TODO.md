@@ -3,7 +3,7 @@
 > **Check this file first** before starting work.
 > This is the single source of truth for what needs to be done.
 
-**Last updated**: TEAM_063 (Nov 29, 2025)
+**Last updated**: TEAM_064 (Nov 29, 2025)
 
 ---
 
@@ -683,6 +683,15 @@ src/layout/  (~50 focused files instead of ~20 bloated ones)
 cargo check    # ✅ Passes (warnings only)
 cargo test layout::  # ✅ 187 passed
 ```
+
+**⚠️ NOTE: `deprecated/scrolling.rs` Deletion**
+> This file is kept for reference during the refactor. It should be **deleted** once:
+> 1. All Row methods have been implemented and verified against ScrollingSpace
+> 2. All golden tests pass (confirming behavioral parity)
+> 3. The Canvas2D refactor is complete and merged to main
+> 
+> **Target**: Delete after Phase 4 completion or when no longer needed for reference.
+> **Current status**: Still useful as reference for method implementations.
 
 ---
 
@@ -1569,86 +1578,85 @@ impl<W: LayoutElement> Row<W> {
 
 **Verification**: `cargo check && cargo test layout::`
 
-#### Step 1.3: Extract Tile Accessors (30 min, LOW RISK)
-**Goal**: Move tile iteration methods.
+#### Step 1.3: Extract Tile Accessors (30 min, LOW RISK) ✅ COMPLETE (TEAM_064)
+**Goal**: Move tile iteration and hit testing methods.
 
-**Methods to extract → `row/tiles.rs`** (~15 methods):
-- `tiles()`, `tiles_mut()`
-- `tiles_with_offsets()`, `tiles_with_render_positions()`
-- `find_tile()`, `find_tile_mut()`
-- `find_wl_surface()`, `find_wl_surface_mut()`
-- `window_under()`, `resize_edges_under()`
+**Methods extracted:**
+- `window_under()`, `resize_edges_under()` → `row/hit_test.rs` (new)
+- `find_wl_surface()`, `find_wl_surface_mut()` → `row/state.rs`
+- *(Note: `tiles()`, `tiles_mut()` already in state.rs; `tiles_with_render_positions()` already in layout.rs)*
 
-**Verification**: `cargo check && cargo test layout::`
+**Verification**: `cargo check && cargo test layout::` ✅
 
-#### Step 1.4: Extract Column Accessors (20 min, LOW RISK)
+#### Step 1.4: Extract Column Accessors (20 min, LOW RISK) ✅ ALREADY COMPLETE
 **Goal**: Move column iteration methods.
 
-**Methods to extract → `row/columns.rs`** (~10 methods):
-- `columns()`, `columns_mut()`
-- `column_at()`, `column_at_mut()`
-- `active_column()`, `active_column_mut()`
-- `column_x()`, `column_width()`
+**Methods already extracted:**
+- `columns()` → `row/state.rs`
+- `active_column()`, `active_column_mut()` → `row/state.rs`
+- `column_x()` → `row/view_offset.rs`
+- `columns_in_render_order()` → `row/render.rs`
 
-**Verification**: `cargo check && cargo test layout::`
+**Verification**: Already passing ✅
 
-#### Step 1.5: Extract Fullscreen/Maximize (30 min, MEDIUM RISK)
+#### Step 1.5: Extract Fullscreen/Maximize (30 min, MEDIUM RISK) ✅ COMPLETE (TEAM_064)
 **Goal**: Move fullscreen/maximize operations.
 
-**Methods to extract → `row/fullscreen.rs`** (~10 methods):
+**Methods extracted → `row/fullscreen.rs`** (~5 methods):
 - `set_fullscreen()`, `toggle_fullscreen()`
 - `set_maximized()`, `toggle_maximized()`
-- `unset_fullscreen()`, `unset_maximized()`
+- `get_fullscreen_size_for_window()`
 
-**Verification**: `cargo check && cargo test layout:: && cargo xtask test-all golden`
+**Verification**: `cargo check && cargo test layout:: && cargo xtask test-all golden` ✅
 
-#### Step 1.6: Extract Width/Height Operations (30 min, MEDIUM RISK)
+#### Step 1.6: Extract Width/Height Operations (30 min, MEDIUM RISK) ✅ COMPLETE (TEAM_064)
 **Goal**: Move resize operations.
 
-**Methods to extract → `row/sizing.rs`** (~15 methods):
-- `set_column_width()`, `toggle_width()`, `toggle_full_width()`
-- `set_window_width()`, `set_window_height()`
+**Methods extracted → `row/sizing.rs`** (~8 methods):
+- `toggle_width()`, `toggle_full_width()`
+- `set_column_width()`, `set_window_width()`
 - `toggle_window_width()`, `toggle_window_height()`
 - `reset_window_height()`
 - `expand_column_to_available_width()`
 
-**Verification**: `cargo check && cargo test layout:: && cargo xtask test-all golden`
+**Verification**: `cargo check && cargo test layout:: && cargo xtask test-all golden` ✅
 
-#### Step 1.7: Extract Activation Methods (20 min, LOW RISK)
+#### Step 1.7: Extract Activation Methods (20 min, LOW RISK) ✅ COMPLETE (TEAM_064)
 **Goal**: Move focus/activation methods.
 
-**Methods to extract → `row/activation.rs`** (~8 methods):
-- `activate_window()`, `activate_column()`
-- `activate_prev_column()`, `activate_next_column()`
-- `set_active_column_idx()`
+**Methods moved → `row/navigation.rs`** (merged with existing navigation module):
+- `activate_window()` - activates window and its column
+- `activate_window_without_raising()` - stub for stacking order (rows don't have stacking)
+- *(Note: `activate_column()`, focus methods already existed in navigation.rs)*
 
-**Verification**: `cargo check && cargo test layout::`
+**Verification**: `cargo check && cargo test layout::` ✅
 
-#### Step 1.8: Extract DnD/Gesture Methods (20 min, LOW RISK)
+#### Step 1.8: Extract DnD/Gesture Methods (20 min, LOW RISK) ✅ ALREADY COMPLETE (TEAM_007)
 **Goal**: Move DnD scroll gesture methods.
 
-**Methods to extract → `row/dnd.rs`** (~5 methods):
+**Methods already in `row/gesture.rs`** (~15 methods):
 - `dnd_scroll_gesture_begin()`, `dnd_scroll_gesture_end()`
 - `dnd_scroll_gesture_scroll()`
-- `view_offset_gesture_end()`
+- `view_offset_gesture_begin()`, `view_offset_gesture_update()`, `view_offset_gesture_end()`
+- `compute_gesture_snap()` and related helpers
 
-**Verification**: `cargo check && cargo test layout::`
+**Verification**: Already passing ✅
 
 ### Summary: row/mod.rs Split
 
-| Step | File | Methods | Risk | Time |
-|------|------|---------|------|------|
-| 1.1 | column_data.rs | 1 struct | None | 15min |
-| 1.2 | state.rs | ~20 | Low | 30min |
-| 1.3 | tiles.rs | ~15 | Low | 30min |
-| 1.4 | columns.rs | ~10 | Low | 20min |
-| 1.5 | fullscreen.rs | ~10 | Medium | 30min |
-| 1.6 | sizing.rs | ~15 | Medium | 30min |
-| 1.7 | activation.rs | ~8 | Low | 20min |
-| 1.8 | dnd.rs | ~5 | Low | 20min |
-| **Total** | | **~84** | | **~3h** |
+| Step | File | Methods | Risk | Time | Status |
+|------|------|---------|------|------|--------|
+| 1.1 | column_data.rs | 1 struct | None | 15min | ✅ Done |
+| 1.2 | state.rs | ~25 | Low | 30min | ✅ Done |
+| 1.3 | hit_test.rs | ~4 | Low | 30min | ✅ Done |
+| 1.4 | (already done) | ~10 | Low | 20min | ✅ Done |
+| 1.5 | fullscreen.rs | ~5 | Medium | 30min | ✅ Done |
+| 1.6 | sizing.rs | ~8 | Medium | 30min | ✅ Done |
+| 1.7 | navigation.rs | ~15 | Low | 20min | ✅ Done |
+| 1.8 | gesture.rs | ~15 | Low | 20min | ✅ Done (TEAM_007) |
+| **Total** | | **~83** | | **~3h** | **8/8 Done** |
 
-**Target**: `row/mod.rs` from 2161 LOC → ~600 LOC
+**Target**: `row/mod.rs` from 2161 LOC → ~600 LOC (currently **1487 LOC** - 31% reduction)
 
 ---
 

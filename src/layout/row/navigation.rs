@@ -1,5 +1,6 @@
 // TEAM_007: Navigation extracted from mod.rs
 // TEAM_008: Added activate_column
+// TEAM_064: Added activate_window, activate_window_without_raising
 //!
 //! This module handles column focus navigation within a row.
 
@@ -7,6 +8,36 @@ use super::Row;
 use crate::layout::LayoutElement;
 
 impl<W: LayoutElement> Row<W> {
+    // =========================================================================
+    // Window activation
+    // =========================================================================
+
+    /// Activates a window by ID, focusing both the window within its column
+    /// and the column within the row.
+    pub fn activate_window(&mut self, window: &W::Id) -> bool {
+        // Find the column containing this window
+        let column_idx = self.columns.iter().position(|col| col.contains(window));
+        let Some(column_idx) = column_idx else {
+            return false;
+        };
+        let column = &mut self.columns[column_idx];
+
+        // Activate the window within its column
+        column.activate_window(window);
+        // Activate the column within the row
+        self.activate_column(column_idx);
+
+        true
+    }
+
+    /// Activate window without raising it in the stacking order.
+    /// TEAM_025: Stub implementation - rows don't have stacking order
+    pub fn activate_window_without_raising(&mut self, _window: &W::Id) -> bool {
+        // TEAM_025: TODO - implement activation without raising
+        // For rows, this is a no-op since rows don't have stacking order
+        false
+    }
+
     // =========================================================================
     // Column activation
     // =========================================================================
