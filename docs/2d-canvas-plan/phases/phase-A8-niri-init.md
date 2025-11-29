@@ -13,6 +13,8 @@ Extract `Niri::new()` constructor into `src/niri/init.rs`.
 
 This is the final phase of Part A. After this, `niri.rs` should be ~600 LOC.
 
+User: Remember that when a item is too big of a refactor than planned. that I want you to make it smaller and do it in multiple steps. Write it down in this folder as broken down steps in the phase file...
+
 ---
 
 ## Work Units

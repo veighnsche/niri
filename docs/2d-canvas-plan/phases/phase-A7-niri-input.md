@@ -13,6 +13,8 @@ Extract pointer/cursor management and window/layer rules into two files:
 - `src/niri/pointer.rs` — Pointer constraints, inactivity, focus-follows-mouse
 - `src/niri/rules.rs` — Window and layer rule recomputation
 
+User: Remember that when a item is too big of a refactor than planned. that I want you to make it smaller and do it in multiple steps. Write it down in this folder as broken down steps in the phase file...
+
 ---
 
 ## Work Units

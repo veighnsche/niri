@@ -14,6 +14,8 @@ Extract screen capture functionality into three files:
 - `src/niri/screencopy.rs` — zwlr_screencopy protocol
 - `src/niri/screencast.rs` — PipeWire screencasting (feature-gated)
 
+User: Remember that when a item is too big of a refactor than planned. that I want you to make it smaller and do it in multiple steps. Write it down in this folder as broken down steps in the phase file...
+
 ---
 
 ## Work Units

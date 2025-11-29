@@ -13,6 +13,8 @@ Extract all session lock methods from `niri.rs` into `src/niri/lock.rs`.
 
 The lock system is a self-contained state machine with clear boundaries.
 
+User: Remember that when a item is too big of a refactor than planned. that I want you to make it smaller and do it in multiple steps. Write it down in this folder as broken down steps in the phase file...
+
 ---
 
 ## Work Units

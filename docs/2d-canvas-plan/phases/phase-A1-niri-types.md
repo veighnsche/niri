@@ -13,6 +13,8 @@ Create `src/niri/` module directory and extract all pure data types from `niri.r
 
 This is the foundation phase — it establishes the module structure for all subsequent phases.
 
+User: Remember that when a item is too big of a refactor than planned. that I want you to make it smaller and do it in multiple steps. Write it down in this folder as broken down steps in the phase file...
+
 ---
 
 ## Work Units
