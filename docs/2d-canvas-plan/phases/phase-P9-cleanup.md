@@ -1,158 +1,164 @@
-# Phase P9: Final Cleanup
+# Phase P9: Final Cleanup and Documentation
 
 > **Status**: ⏳ PENDING  
 > **Time Estimate**: ~30 minutes  
 > **Risk Level**: 🟢 Low  
-> **Prerequisite**: Phases P1-P8 complete
+> **Prerequisite**: Phases P1-P7 complete (P8 optional)
 
 ---
 
 ## Goal
 
 Final cleanup pass to:
-1. Move any remaining small utilities
-2. Clean up unused imports
-3. Verify all modules are <500 LOC
-4. Update documentation
-5. Verify target achieved: mod.rs <700 LOC
+1. Verify all subsystems are working
+2. Clean up unused imports and dead code
+3. Add documentation to new subsystems
+4. Update project documentation
+5. Verify target achieved: Niri fields < 50
 
 ---
 
-## Expected State After P8
+## Expected State After P7
 
 ```
 src/niri/
-├── mod.rs        ~1724 LOC  ← Still over target!
-├── config.rs      ~400 LOC
-├── render.rs      ~845 LOC  ← Over 500!
-├── output.rs      ~587 LOC  ← Over 500!
-├── init.rs        ~518 LOC  ← Over 500!
-├── focus.rs       ~300 LOC
-├── cursor.rs      ~200 LOC
-├── dbus.rs        ~200 LOC
-├── hit_test.rs    ~428 LOC
-├── screenshot.rs  ~369 LOC
-├── lock.rs        ~291 LOC
-├── screencast.rs  ~290 LOC
-├── types.rs       ~312 LOC
-├── frame_callbacks ~252 LOC
-├── screencopy.rs  ~210 LOC
-├── pointer.rs     ~193 LOC
-├── rules.rs        ~77 LOC
-└── mru.rs          ~60 LOC
+├── mod.rs (~400)           # Niri + State structs, coordination
+├── subsystems/
+│   ├── mod.rs (~50)        # Subsystem re-exports
+│   ├── outputs.rs (~400)   # OutputSubsystem
+│   ├── cursor.rs (~300)    # CursorSubsystem
+│   ├── focus.rs (~350)     # FocusModel
+│   ├── streaming.rs (~200) # StreamingSubsystem
+│   └── ui.rs (~200)        # UiOverlays
+├── protocols.rs (~150)     # ProtocolStates container
+├── config.rs (~400)        # Config reload
+├── init.rs (~450)          # Niri::new
+├── render.rs (~400)        # Rendering
+├── hit_test.rs (~400)      # Hit testing
+├── lock.rs (~290)          # Session lock
+├── screenshot.rs (~350)    # Screenshots
+├── screencopy.rs (~200)    # Screencopy
+├── screencast.rs (~250)    # Screencast
+├── frame_callbacks.rs (~250) # Frame callbacks
+├── pointer.rs (~200)       # Pointer constraints
+├── rules.rs (~80)          # Window rules
+├── mru.rs (~60)            # MRU switcher
+└── types.rs (~300)         # Shared types
 ```
 
 ---
 
 ## Work Units
 
-### Unit 1: Assess Remaining mod.rs Content
+### Unit 1: Verify Subsystem Integration
 
-After P8, mod.rs should contain only:
-- `Niri` struct definition (~237 lines)
-- `State` struct definition (~5 lines)
-- `NewClient` and `ClientState` structs (~20 lines)
-- Core State methods that can't be moved:
-  - `new()` - in init.rs ✓
-  - `refresh_and_flush_clients()` (~30 lines)
-  - `refresh()` (~50 lines)
-  - `set_lid_closed()` (~10 lines)
-  - `notify_blocker_cleared()` (~10 lines)
-  - `confirm_mru()` (~5 lines) - might go to mru.rs
-- Core Niri methods that can't be moved:
-  - `insert_client()` (~20 lines)
-  - `inhibit_power_key()` (~25 lines)
-  - `find_output_and_workspace_index()` (~20 lines)
-  - `find_window_by_id()` (~10 lines)
-  - Various small utilities
-
-**Action**: Identify what's actually left and whether any can still be moved.
-
----
-
-### Unit 2: Move Small Utilities
-
-Candidates for moving:
-
-#### To mru.rs:
-- `confirm_mru()` from State
-
-#### To output.rs:
-- `find_output_and_workspace_index()`
-- `on_ipc_outputs_changed()` (if not in dbus.rs)
-
-#### To lock.rs:
-- `inhibit_power_key()` (D-Bus login1 related)
-
-#### To types.rs:
-- `NewClient` struct
-- `ClientState` struct
-- `ClientData` impl
-
----
-
-### Unit 3: Handle Over-Limit Files
-
-Some files may exceed 500 LOC:
-
-#### render.rs (~845 LOC)
-Consider splitting:
-- `render_elements.rs` - OutputRenderElements type, scale_relocate_crop
-- `render_impl.rs` - render(), render_layer()
-- `redraw.rs` - redraw(), queue_redraw*()
-
-#### output.rs (~587 LOC)
-Consider:
-- Keeping as-is (87 lines over is acceptable)
-- Moving VRR-related code to separate file
-
-#### init.rs (~518 LOC)
-Acceptable - only 18 lines over limit.
-
----
-
-### Unit 4: Clean Up Unused Imports
+Check that all subsystems are properly integrated:
 
 ```bash
+# Verify compilation
+cargo check
+
+# Run all tests
+cargo test
+
+# Check for subsystem-related issues
+grep -rn "TODO.*subsystem" src/niri/
+```
+
+---
+
+### Unit 2: Clean Up Dead Code
+
+Remove code that's no longer needed after subsystem extraction:
+
+```bash
+# Find unused functions
+cargo clippy -- -W dead_code
+
 # Find unused imports
 cargo check 2>&1 | grep "unused import"
-
-# Fix them in each file
 ```
 
-Common cleanup:
-- Remove imports for moved functions
-- Remove duplicate imports
-- Organize imports (std, external, crate)
-
 ---
 
-### Unit 5: Verify Line Counts
+### Unit 3: Add Subsystem Documentation
 
-```bash
-wc -l src/niri/*.rs | sort -n
+Ensure each subsystem has proper module-level docs:
+
+```rust
+//! Output management subsystem.
+//!
+//! This module owns all state related to physical outputs (monitors):
+//! - `global_space`: The compositor's global coordinate space
+//! - `sorted_outputs`: Outputs sorted by name and position
+//! - `state`: Per-output state (frame clock, redraw, etc.)
+//! - `monitors_active`: Whether monitors are powered on
+//! - `lid_closed`: Laptop lid state
+//!
+//! # Example
+//!
+//! ```ignore
+//! // Add an output
+//! niri.outputs.add(output, refresh_interval, vrr, &display_handle, &config);
+//!
+//! // Query outputs
+//! if let Some((output, pos)) = niri.outputs.under_position(cursor_pos) {
+//!     // ...
+//! }
+//! ```
 ```
 
-Target state:
-- mod.rs: <700 LOC ✓
-- All other files: <600 LOC (soft limit 500)
+---
+
+### Unit 4: Update Phase Documentation
+
+Update `phases/README.md`:
+- Mark completed phases as DONE
+- Update line counts
+- Document any deviations
 
 ---
 
-### Unit 6: Update Documentation
+### Unit 5: Create Architecture Documentation
 
-1. Update `phases/README.md`:
-   - Mark all phases as DONE
-   - Update final line counts
-   - Document any deviations from plan
+Create `src/niri/README.md` or update module docs:
 
-2. Update team file with final status
+```markdown
+# niri/ Module Architecture
 
-3. Consider adding module-level documentation to each file
+This module implements the core compositor state, organized into subsystems.
+
+## Subsystems
+
+### OutputSubsystem (`subsystems/outputs.rs`)
+Manages physical outputs (monitors), their positions, and per-output state.
+
+### CursorSubsystem (`subsystems/cursor.rs`)
+Handles cursor visibility, positioning, and the cursor state machine.
+
+### FocusModel (`subsystems/focus.rs`)
+Computes and tracks keyboard focus based on priority rules.
+
+### StreamingSubsystem (`subsystems/streaming.rs`)
+Manages PipeWire streams for screencast and screencopy.
+
+### UiOverlays (`subsystems/ui.rs`)
+Groups modal UI elements (screenshot, hotkey, exit dialog, MRU).
+
+### ProtocolStates (`protocols.rs`)
+Container for all Smithay protocol states.
+
+## Design Principles
+
+1. **Ownership**: Each subsystem owns its state (private fields)
+2. **Encapsulation**: Minimal public API
+3. **Testability**: Subsystems can be tested in isolation
+4. **Clear boundaries**: One responsibility per subsystem
+```
 
 ---
 
-### Unit 7: Final Verification
+### Unit 6: Final Verification
 
 ```bash
 # Full compilation check
@@ -163,92 +169,121 @@ cargo test
 
 # Check for warnings
 cargo clippy
+
+# Verify line counts
+wc -l src/niri/*.rs src/niri/subsystems/*.rs | sort -n
+
+# Count Niri fields (should be < 50)
+grep -c "pub " src/niri/mod.rs
 ```
 
 ---
 
 ## Verification Checklist
 
-- [ ] mod.rs < 700 LOC
-- [ ] No file > 650 LOC (allowing some flexibility)
-- [ ] No unused imports
+- [ ] All subsystems compile and work
+- [ ] `Niri` struct has < 50 fields (down from 100+)
+- [ ] Each subsystem < 500 LOC
+- [ ] No dead code or unused imports
+- [ ] All modules have documentation
 - [ ] `cargo check` passes cleanly
 - [ ] `cargo test` passes (270 tests)
 - [ ] `cargo clippy` has no new warnings
-- [ ] README.md updated with final state
 
 ---
 
 ## Success Criteria
 
 ### Achieved ✓
-- mod.rs reduced from 3554 to <700 LOC (~80% reduction)
-- 19 focused modules instead of 1 monolith
-- Each module has a clear single responsibility
-- All tests pass
-- Clean compilation with minimal warnings
 
-### Final Architecture
+| Metric | Before | After | Improvement |
+|--------|--------|-------|-------------|
+| Niri fields | 100+ | <50 | 50%+ reduction |
+| Largest impl block | 60+ methods | <20 | Split into subsystems |
+| Testability | Requires full compositor | Subsystems testable | ✓ |
+| Code organization | God object | Domain subsystems | ✓ |
 
-```
-src/niri/
-├── mod.rs (~600)       # Niri + State structs, core initialization
-├── types.rs (~350)     # All data types
-├── config.rs (~400)    # Config reload
-├── render.rs (~500)    # Rendering (after potential split)
-├── output.rs (~550)    # Output management
-├── init.rs (~520)      # Niri::new
-├── cursor.rs (~200)    # Cursor movement
-├── focus.rs (~300)     # Keyboard focus
-├── dbus.rs (~200)      # D-Bus handlers
-├── hit_test.rs (~430)  # Hit testing
-├── screenshot.rs (~370)# Screenshots
-├── lock.rs (~290)      # Session lock
-├── screencast.rs (~290)# Screencast
-├── frame_callbacks(~250)# Frame callbacks
-├── screencopy.rs (~210)# Screencopy
-├── pointer.rs (~200)   # Pointer constraints
-├── rules.rs (~80)      # Window rules
-└── mru.rs (~60)        # MRU switcher
-                       ─────────
-                       ~5300 LOC total (vs 7204 before)
+### Final Niri Struct
+
+```rust
+pub struct Niri {
+    // Core infrastructure (~10 fields)
+    pub config: Rc<RefCell<Config>>,
+    pub event_loop: LoopHandle<'static, State>,
+    pub display_handle: DisplayHandle,
+    pub clock: Clock,
+    pub start_time: Instant,
+    // ...
+    
+    // Domain subsystems (~6 fields)
+    pub outputs: OutputSubsystem,
+    pub cursor: CursorSubsystem,
+    pub focus: FocusModel,
+    pub streaming: StreamingSubsystem,
+    pub ui: UiOverlays,
+    pub protocols: ProtocolStates,
+    
+    // Already modular (~5 fields)
+    pub layout: Layout<Mapped>,
+    pub seat: Seat<State>,
+    pub popups: PopupManager,
+    // ...
+    
+    // Remaining (~20-30 fields)
+    // Things that don't fit neatly into subsystems
+}
 ```
 
 ---
 
-## What Remains in mod.rs
+## Architecture Diagram
 
-After all phases, mod.rs should contain only:
-
-1. **Struct definitions** (~260 lines):
-   - `Niri` struct
-   - `State` struct
-
-2. **Core lifecycle methods** (~100 lines):
-   - `State::refresh_and_flush_clients()`
-   - `State::refresh()`
-   - `State::set_lid_closed()`
-   - `State::notify_blocker_cleared()`
-
-3. **Small utilities** (~50 lines):
-   - `Niri::insert_client()`
-   - `Niri::find_window_by_id()`
-   - Various one-liner delegators
-
-4. **Module re-exports** (~50 lines):
-   - `mod` declarations
-   - `pub use` statements
-
-5. **Imports** (~100 lines):
-   - Reduced from original ~200 lines
-
-**Total**: ~560-650 LOC
+```
+┌─────────────────────────────────────────────────────────────┐
+│                          State                               │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │                          Niri                           ││
+│  │  ┌───────────────┐  ┌───────────────┐  ┌─────────────┐ ││
+│  │  │ OutputSubsys  │  │ CursorSubsys  │  │ FocusModel  │ ││
+│  │  │  - space      │  │  - manager    │  │  - current  │ ││
+│  │  │  - outputs    │  │  - visibility │  │  - layer    │ ││
+│  │  │  - state      │  │  - contents   │  │  - inhibit  │ ││
+│  │  └───────────────┘  └───────────────┘  └─────────────┘ ││
+│  │  ┌───────────────┐  ┌───────────────┐  ┌─────────────┐ ││
+│  │  │ StreamingSub  │  │  UiOverlays   │  │ProtocolStat │ ││
+│  │  │  - casts      │  │  - screenshot │  │  - xdg_shell│ ││
+│  │  │  - pipewire   │  │  - hotkey     │  │  - layer    │ ││
+│  │  │  - mapped     │  │  - exit       │  │  - seat     │ ││
+│  │  └───────────────┘  └───────────────┘  └─────────────┘ ││
+│  │  ┌─────────────────────────────────────────────────────┐││
+│  │  │                     Layout                          │││
+│  │  │           (already its own module)                  │││
+│  │  └─────────────────────────────────────────────────────┘││
+│  └─────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │                        Backend                          ││
+│  └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Lessons Learned
 
-Document any insights for future refactoring:
-1. What patterns worked well
-2. What was harder than expected
-3. What could be improved in the architecture
+Document insights for future work:
+
+1. **Subsystem pattern works**: Grouping related state + behavior is effective
+2. **Start with low-risk phases**: ProtocolStates was a good warm-up
+3. **Focus model is complex**: May need further iteration
+4. **Distributed impl is anti-pattern**: Avoided this trap
+5. **Testing improves**: Subsystems are independently testable
+
+---
+
+## Future Improvements
+
+Consider for later:
+- [ ] Add unit tests for each subsystem
+- [ ] Extract more subsystems (Input, Window lifecycle)
+- [ ] Implement Context pattern from Phase P8
+- [ ] Further split large files (render.rs, init.rs)

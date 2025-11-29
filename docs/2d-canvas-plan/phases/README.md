@@ -1,195 +1,275 @@
-# niri/mod.rs Refactor — Master Plan v2
+# niri/mod.rs Refactor — Domain-Driven Decomposition
 
-> **Status**: 🔴 **IN PROGRESS**  
-> **Goal**: Reduce `mod.rs` from 3554 LOC to <700 LOC  
-> **Current**: 3554 LOC | **Target**: ~600 LOC
+> **Status**: 🔴 **NOT STARTED**  
+> **Goal**: Transform God Object into composable subsystems  
+> **Approach**: Domain-Driven Decomposition (not file reorganization)
 
 ---
 
-## 🚨 The Problem
+## 🚨 The Real Problem
 
-Despite having 13 extracted modules, `mod.rs` is still **3554 lines**!
+The current `Niri` struct is a **God Object** with:
+- **237 lines** of field definitions
+- **100+ fields** mixing unrelated domains
+- **60+ methods** scattered across 13 files via distributed `impl Niri` blocks
 
-```
-Current State:
-├── mod.rs         3554 LOC  ← THIS IS THE PROBLEM
-├── init.rs         518 LOC  ✓
-├── hit_test.rs     428 LOC  ✓
-├── render.rs       415 LOC  ✓
-├── screenshot.rs   369 LOC  ✓
-├── lock.rs         291 LOC  ✓
-├── screencast.rs   290 LOC  ✓
-├── output.rs       287 LOC  ✓
-├── types.rs        260 LOC  ✓
-├── frame_callbacks 252 LOC  ✓
-├── screencopy.rs   210 LOC  ✓
-├── pointer.rs      193 LOC  ✓
-├── rules.rs         77 LOC  ✓
-└── mru.rs           60 LOC  ✓
-                   ─────────
-                   7204 LOC total
+**Moving methods to different files doesn't fix this.** It's still one massive struct that everything depends on.
+
+### What's Wrong with Distributed impl Blocks
+
+```rust
+// output.rs
+impl Niri { fn output_under() {...} }
+
+// render.rs  
+impl Niri { fn pointer_element() {...} }
+
+// cursor.rs
+impl Niri { fn move_cursor() {...} }
 ```
 
----
+This achieves:
+- ✅ Smaller files
+- ❌ No reduction in coupling
+- ❌ No improvement in testability
+- ❌ No encapsulation
+- ❌ No separation of concerns
 
-## Root Cause Analysis
-
-### Why is mod.rs still huge?
-
-Looking at what's left, we have **TWO categories** of functions:
-
-#### 1. `impl State` methods (~1700 LOC)
-These need access to BOTH `backend` AND `niri`:
-- Config handling (~350 lines)
-- Cursor/focus movement (~300 lines)  
-- Keyboard focus (~260 lines)
-- DBus message handlers (~200 lines)
-- Screenshot UI (~100 lines)
-
-#### 2. `impl Niri` methods (~1300 LOC)
-These only need `&mut self` on Niri:
-- Output management (~300 lines) - blocked by `OutputState` type
-- Render functions (~400 lines) - blocked by `OutputRenderElements` type
-- Surface scanout (~230 lines)
-- Misc utilities (~100 lines)
-
-#### 3. Type Definitions (~500 LOC)
-- `Niri` struct (~237 lines) - stays here
-- `OutputState` struct (~52 lines) - **BLOCKS output extraction**
-- `State` struct (~5 lines) - stays here
-- `OutputRenderElements` macro (~25 lines) - **BLOCKS render extraction**
-- Helper types and functions
+Every module still accesses every field of `Niri`. There's no architectural improvement.
 
 ---
 
-## The Strategy: Unblock → Extract
+## The Solution: Domain Subsystems
 
-### Key Insight
-Two types are blocking major extractions:
-1. **`OutputState`** - Move to `types.rs` → Unblocks output.rs expansion
-2. **`OutputRenderElements`** - Move to `render.rs` → Unblocks render() extraction
+Instead of one God Object, decompose into **owned subsystems** where each:
+- Owns its related state
+- Exposes a minimal public API
+- Can be tested in isolation
+- Has clear boundaries
 
-### Phase Plan
+### Current vs Proposed
 
-| Phase | Description | Lines Moved | Blocker Resolved |
-|-------|-------------|-------------|------------------|
-| **P1** | Move OutputState to types.rs | ~52 | Unblocks output.rs |
-| **P2** | Move output mgmt to output.rs | ~300 | - |
-| **P3** | Move OutputRenderElements to render.rs | ~25 | Unblocks render.rs |
-| **P4** | Move render functions to render.rs | ~400 | - |
-| **P5** | Create cursor.rs for State cursor methods | ~200 | - |
-| **P6** | Create focus.rs for keyboard focus | ~260 | - |
-| **P7** | Create config.rs for reload_config | ~350 | - |
-| **P8** | Create dbus.rs for message handlers | ~200 | - |
-| **P9** | Cleanup: move small utilities | ~100 | - |
+| Aspect | Current (Distributed impl) | Proposed (Subsystems) |
+|--------|---------------------------|----------------------|
+| Coupling | All methods touch all fields | Methods only touch owned state |
+| Testability | Requires full compositor | Subsystems testable in isolation |
+| Encapsulation | None (all `pub`) | Subsystems hide implementation |
+| Discoverability | "Where is cursor code?" → grep | `niri.cursor.*` |
+| Adding features | Touches god object | Touches subsystem |
 
-**Expected Result**: mod.rs ~600 LOC (structs + core methods only)
+---
+
+## Phase Plan
+
+| Phase | Description | Subsystem Created | Risk |
+|-------|-------------|-------------------|------|
+| **P1** | Extract ProtocolStates container | `ProtocolStates` | 🟢 Low |
+| **P2** | Extract OutputSubsystem | `OutputSubsystem` | 🟡 Medium |
+| **P3** | Extract CursorSubsystem | `CursorSubsystem` | 🟡 Medium |
+| **P4** | Extract FocusModel | `FocusModel` | 🔴 High |
+| **P5** | Extract StreamingSubsystem | `StreamingSubsystem` | 🟢 Low |
+| **P6** | Extract UiOverlays | `UiOverlays` | 🟢 Low |
+| **P7** | Extract ConfigManager | `ConfigManager` | 🟡 Medium |
+| **P8** | Refactor State to use Context pattern | `StateContext` | 🟡 Medium |
+| **P9** | Final cleanup and documentation | - | 🟢 Low |
+
+---
+
+## Target Architecture
+
+### Before (God Object)
+```rust
+pub struct Niri {
+    // 100+ fields mixed together
+    pub config: Rc<RefCell<Config>>,
+    pub cursor_manager: CursorManager,
+    pub cursor_texture_cache: CursorTextureCache,
+    pub pointer_visibility: PointerVisibility,
+    pub pointer_contents: PointContents,
+    pub pointer_inactivity_timer: Option<RegistrationToken>,
+    // ... 95+ more fields
+}
+```
+
+### After (Composable Subsystems)
+```rust
+pub struct Niri {
+    // Core infrastructure
+    pub config: Rc<RefCell<Config>>,
+    pub event_loop: LoopHandle<'static, State>,
+    pub display_handle: DisplayHandle,
+    pub clock: Clock,
+    
+    // Domain subsystems (owned, encapsulated)
+    pub outputs: OutputSubsystem,
+    pub cursor: CursorSubsystem,
+    pub focus: FocusModel,
+    pub streaming: StreamingSubsystem,
+    pub ui: UiOverlays,
+    
+    // Already modular
+    pub layout: Layout<Mapped>,
+    pub seat: Seat<State>,
+    
+    // Grouped protocol states
+    pub protocols: ProtocolStates,
+}
+```
 
 ---
 
 ## Detailed Phases
 
-### [Phase P1: OutputState → types.rs](phase-P1-output-state.md)
-- Move `OutputState` struct to `types.rs`
-- Move `CLEAR_COLOR_LOCKED` constant
-- Update imports throughout codebase
-- **Risk**: Low (pure data movement)
-- **Time**: ~20 minutes
-
-### [Phase P2: Output Management → output.rs](phase-P2-output-mgmt.md)  
-- Move `reposition_outputs()` (~120 lines)
-- Move `add_output()` (~95 lines)
-- Move `remove_output()` (~85 lines)
-- **Risk**: Medium (complex dependencies)
-- **Time**: ~45 minutes
-
-### [Phase P3: OutputRenderElements → render.rs](phase-P3-render-types.md)
-- Move `niri_render_elements!` macro invocation
-- Move `OutputRenderElements` type
-- Move `scale_relocate_crop` helper
-- **Risk**: Medium (macro complexity)
+### [Phase P1: ProtocolStates Container](phase-P1-protocol-states.md)
+Group 25+ Smithay protocol states into one container struct.
+- **Creates**: `ProtocolStates` struct
+- **Risk**: 🟢 Low (pure mechanical grouping)
 - **Time**: ~30 minutes
 
-### [Phase P4: Render Functions → render.rs](phase-P4-render-impl.md)
-- Move `render()` (~250 lines)
-- Move `render_layer()` (~25 lines)  
-- Move `redraw()` (~130 lines)
-- Move `queue_redraw*` functions
-- **Risk**: Medium (many dependencies)
-- **Time**: ~1 hour
+### [Phase P2: OutputSubsystem](phase-P2-output-subsystem.md)
+Extract output-related fields and methods into owned subsystem.
+- **Creates**: `OutputSubsystem` struct with encapsulated state
+- **Risk**: 🟡 Medium (most impactful change)
+- **Time**: ~2 hours
 
-### [Phase P5: Create cursor.rs](phase-P5-cursor.md)
-- Create new `cursor.rs` module
-- Move `move_cursor()` and related State methods
-- Move `move_cursor_to_rect()`, `move_cursor_to_focused_tile()`
-- Move `maybe_warp_cursor_to_focus*()` methods
-- **Risk**: Medium (State access patterns)
-- **Time**: ~45 minutes
-
-### [Phase P6: Create focus.rs](phase-P6-focus.md)
-- Create new `focus.rs` module
-- Move `update_keyboard_focus()` (~260 lines - HUGE)
-- Move `focus_default_monitor()`, `focus_window()`
-- Move `refresh_popup_grab()`
-- **Risk**: High (complex focus logic)
-- **Time**: ~1 hour
-
-### [Phase P7: Create config.rs](phase-P7-config.md)
-- Create new `config.rs` module
-- Move `reload_config()` (~300 lines - HUGE)
-- Move `reload_output_config()` (~100 lines)
-- Move keyboard config methods
-- **Risk**: High (many config interactions)
+### [Phase P3: CursorSubsystem](phase-P3-cursor-subsystem.md)
+Extract cursor/pointer state into state machine with proper API.
+- **Creates**: `CursorSubsystem` struct
+- **Risk**: 🟡 Medium (state machine design)
 - **Time**: ~1.5 hours
 
-### [Phase P8: Create dbus.rs](phase-P8-dbus.md)
-- Create new `dbus.rs` module
-- Move `on_pw_msg()`, `on_screen_cast_msg()`
-- Move `on_screen_shot_msg()`, `on_introspect_msg()`
-- Move `on_login1_msg()`, `on_locale1_msg()`
-- **Risk**: Low (isolated handlers)
-- **Time**: ~30 minutes
+### [Phase P4: FocusModel](phase-P4-focus-model.md)
+Extract focus logic into dedicated domain model.
+- **Creates**: `FocusModel` struct
+- **Risk**: 🔴 High (complex focus logic)
+- **Time**: ~2 hours
+
+### [Phase P5: StreamingSubsystem](phase-P5-streaming.md)
+Group PipeWire, casts, screencopy into streaming subsystem.
+- **Creates**: `StreamingSubsystem` struct
+- **Risk**: 🟢 Low (already somewhat isolated)
+- **Time**: ~1 hour
+
+### [Phase P6: UiOverlays](phase-P6-ui-overlays.md)
+Group UI overlay state (screenshot, hotkey, exit dialog, MRU).
+- **Creates**: `UiOverlays` struct
+- **Risk**: 🟢 Low (minimal coupling)
+- **Time**: ~45 minutes
+
+### [Phase P7: ConfigManager](phase-P7-config-manager.md)
+Extract config reload logic into dedicated manager.
+- **Creates**: `ConfigManager` or config reload methods
+- **Risk**: 🟡 Medium (many interactions)
+- **Time**: ~1.5 hours
+
+### [Phase P8: State Context Pattern](phase-P8-state-context.md)
+Refactor `State` to pass context instead of `&mut self`.
+- **Refactors**: `impl State` methods to use context pattern
+- **Risk**: 🟡 Medium (API changes)
+- **Time**: ~2 hours
 
 ### [Phase P9: Final Cleanup](phase-P9-cleanup.md)
-- Move remaining small utilities
-- Clean up unused imports
-- Verify all modules <500 LOC
-- Update documentation
-- **Risk**: Low
+Documentation, remove dead code, final verification.
+- **Risk**: 🟢 Low
 - **Time**: ~30 minutes
 
 ---
 
 ## Success Criteria
 
-### Phase Complete ✓
-- [ ] mod.rs < 700 LOC
-- [ ] Each module < 500 LOC
+### Architecture Goals ✓
+- [ ] `Niri` struct < 50 fields (down from 100+)
+- [ ] Each subsystem independently testable
+- [ ] Clear ownership boundaries
+- [ ] No distributed `impl Niri` blocks for unrelated functionality
+
+### Technical Goals ✓
 - [ ] `cargo check` passes
 - [ ] All 270 tests pass
 - [ ] No circular dependencies
+- [ ] Each module < 500 LOC
 
-### Final Architecture
+### Final File Structure
 ```
 src/niri/
-├── mod.rs (~600)        # Niri + State structs, core initialization
-├── types.rs (~350)      # All data types including OutputState
-├── output.rs (~600)     # All output management
-├── render.rs (~650)     # All rendering including OutputRenderElements
-├── cursor.rs (~250)     # Cursor movement (State methods)
-├── focus.rs (~300)      # Keyboard focus (State methods)
-├── config.rs (~450)     # Config reload (State methods)
-├── dbus.rs (~250)       # DBus handlers (State methods)
-├── hit_test.rs (~430)   # Hit testing (unchanged)
-├── lock.rs (~290)       # Session lock (unchanged)
-├── screenshot.rs (~400) # Screenshots (unchanged)
-├── screencopy.rs (~210) # Screencopy (unchanged)
-├── screencast.rs (~320) # Screencast (unchanged)
-├── frame_callbacks (~250) # Frame callbacks (unchanged)
-├── pointer.rs (~200)    # Pointer constraints (unchanged)
-├── rules.rs (~80)       # Window rules (unchanged)
-├── mru.rs (~60)         # MRU switcher (unchanged)
-└── init.rs (~520)       # Niri::new (unchanged)
+├── mod.rs (~400)           # Niri + State structs, coordination
+├── subsystems/
+│   ├── mod.rs (~50)        # Subsystem re-exports
+│   ├── outputs.rs (~400)   # OutputSubsystem
+│   ├── cursor.rs (~300)    # CursorSubsystem
+│   ├── focus.rs (~350)     # FocusModel
+│   ├── streaming.rs (~300) # StreamingSubsystem
+│   └── ui.rs (~200)        # UiOverlays
+├── protocols.rs (~150)     # ProtocolStates container
+├── config.rs (~350)        # Config reload logic
+├── init.rs (~450)          # Niri::new
+├── render.rs (~400)        # Rendering coordination
+├── hit_test.rs (~400)      # Hit testing
+├── lock.rs (~290)          # Session lock
+├── screenshot.rs (~350)    # Screenshots
+├── screencopy.rs (~200)    # Screencopy protocol
+├── screencast.rs (~250)    # Screencast
+├── frame_callbacks.rs (~250) # Frame callbacks
+├── pointer.rs (~200)       # Pointer constraints
+├── rules.rs (~80)          # Window rules
+├── mru.rs (~60)            # MRU switcher
+└── types.rs (~300)         # Shared types
+```
+
+---
+
+## Key Design Principles
+
+### 1. Ownership, Not Access
+```rust
+// ❌ Bad: Niri owns cursor fields, methods scattered
+impl Niri {
+    pub cursor_manager: CursorManager,      // in Niri
+    pub fn move_cursor() { ... }             // in cursor.rs
+}
+
+// ✅ Good: CursorSubsystem owns everything cursor-related
+pub struct CursorSubsystem {
+    manager: CursorManager,
+    visibility: PointerVisibility,
+    // ... all cursor state private
+}
+impl CursorSubsystem {
+    pub fn move_to(&mut self, pos: Point) { ... }
+}
+```
+
+### 2. Minimal Public API
+```rust
+// ❌ Bad: All fields public
+pub struct OutputSubsystem {
+    pub global_space: Space<Window>,
+    pub sorted_outputs: Vec<Output>,
+    pub output_state: HashMap<Output, OutputState>,
+}
+
+// ✅ Good: Private fields, intentional API
+pub struct OutputSubsystem {
+    global_space: Space<Window>,
+    sorted_outputs: Vec<Output>,
+    state: HashMap<Output, OutputState>,
+}
+impl OutputSubsystem {
+    pub fn add(&mut self, output: Output, config: &OutputConfig) { ... }
+    pub fn remove(&mut self, output: &Output) { ... }
+    pub fn under_position(&self, pos: Point) -> Option<&Output> { ... }
+}
+```
+
+### 3. Testable in Isolation
+```rust
+#[test]
+fn test_focus_priority() {
+    // Can test FocusModel without full compositor
+    let mut focus = FocusModel::default();
+    focus.set_layer_focus(Some(layer_surface));
+    assert_eq!(focus.current(), KeyboardFocus::LayerShell { ... });
+}
 ```
 
 ---
@@ -201,7 +281,7 @@ src/niri/
 | `cargo check` | Verify compilation |
 | `cargo test` | Run all tests |
 | `wc -l src/niri/*.rs` | Check line counts |
-| `grep -n "^impl " src/niri/mod.rs` | Find impl blocks |
+| `grep -c "pub " src/niri/mod.rs` | Count public fields |
 
 ---
 
