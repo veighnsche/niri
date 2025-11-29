@@ -1,60 +1,44 @@
-# Subsystem Encapsulation Phases
+# Modular Refactor Phases
 
-> **Goal**: Reduce public API surface by moving logic INTO subsystems, achieving true encapsulation.
-
-## Overview
-
-The `src/niri/` module suffers from the "god object" anti-pattern:
-- 143 public functions scattered across files
-- Subsystems are hollow shells (data only, no logic)
-- Inconsistent patterns between subsystems
-
-These phases systematically fix this by:
-1. Making subsystem fields private
-2. Moving logic INTO subsystems
-3. Exposing minimal, focused public APIs
+> **Goal**: Break monolithic files into focused, maintainable modules.
 
 ---
 
-## Phase Documents
+## Current Focus: Input Module Refactor
 
-| Phase | Subsystem | Status | Est. Time |
-|-------|-----------|--------|-----------|
-| [S1](phase-S1-subsystem-encapsulation.md) | Overview & Principles | ✅ Complete | - |
-| [S1.2](phase-S1.2-output-subsystem.md) | OutputSubsystem | 🔄 In Progress | 3 hrs |
-| [S1.3](phase-S1.3-cursor-subsystem.md) | CursorSubsystem | ⏳ Pending | 2.5 hrs |
-| [S1.4](phase-S1.4-focus-state.md) | FocusState | ✅ Already Good | 35 min |
-| [S1.5](phase-S1.5-streaming-subsystem.md) | StreamingSubsystem | ⏳ Pending | 4 hrs |
+The `src/input/mod.rs` file is 5123 lines.
 
-**Total estimated time: ~10 hours**
+### Overview
+- [I1: Input Refactor Overview](phase-I1-input-refactor.md) — Summary & critical assessment
 
----
+### Sub-phases (in order)
 
-## Dependency Order
+| Phase | Focus | Benefit | Time |
+|-------|-------|---------|------|
+| [I1.1](phase-I1.1-extract-binds.md) | Bind resolution | ⭐⭐⭐ Pure/testable | 1h |
+| [I1.2](phase-I1.2-extract-device.md) | Device management | ⭐⭐ Isolated | 45m |
+| [I1.3](phase-I1.3-extract-handlers.md) | Event handlers | ⭐ Navigability | 2h |
+| [I1.4](phase-I1.4-actions-decision.md) | Actions split? | ❓ **USER DECISION** | - |
+| [I1.5](phase-I1.5-extract-helpers.md) | Helper functions | ⭐⭐ Pure/testable | 30m |
 
-```
-S1.2 OutputSubsystem (no dependencies)
-  │
-  ├── S1.3 CursorSubsystem (depends on output space)
-  │
-  └── S1.5 StreamingSubsystem (depends on outputs, layout)
-
-S1.4 FocusState (independent, already complete)
-```
+**Total: ~4-5 hours**
 
 ---
 
-## Target Metrics
+## Completed: niri/ Module Refactor
 
-| Metric | Before | After |
-|--------|--------|-------|
-| `pub fn` in mod.rs | 58 | <20 |
-| `pub fn` in niri/*.rs | 143 | <60 |
-| LOC in mod.rs | 2427 | <800 |
-| Subsystem logic % | 0% | 100% |
+The `src/niri/` refactor is complete. See [src/niri/README.md](/src/niri/README.md) for architecture.
+
+**Results:**
+- Reduced from 6604 LOC monolith to modular structure
+- 75% reduction in Niri struct fields
+- Clear subsystem boundaries
 
 ---
 
 ## Archive
 
-Previous phase documents (P1-P9) are in [archive/](archive/). These were the original refactor plan that created the subsystem *structure* but not the *content*.
+Previous phase documents are in [archive/](archive/):
+- **S1.x**: Subsystem encapsulation phases (completed)
+- **P1-P9**: Original niri refactor plan (completed)
+- **Phase 0-5**: 2D Canvas implementation phases
