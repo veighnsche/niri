@@ -77,5 +77,5 @@ use crate::utils::output_size;
 /// This function is still needed by monitor configuration
 pub fn compute_working_area(output: &Output) -> Rectangle<f64, Logical> {
     // TEAM_022: Use the layer shell handler directly
-    Rectangle::from_loc_and_size((0.0, 0.0), output_size(output))
+    Rectangle::from_size(output_size(output))
 }

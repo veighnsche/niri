@@ -23,8 +23,8 @@ impl<W: LayoutElement> Canvas2D<W> {
     ) -> Vec<Canvas2DRenderElement<R>> {
         let mut rv = vec![];
         // TEAM_049: Apply camera offset to render elements for proper scrolling
-        let camera = self.camera_position();
-        let scale = Scale::from(self.scale);
+        let _camera = self.camera_position();
+        let _scale = Scale::from(self.scale);
 
         // Render rows in order (active row last so it appears on top)
         let active_row_idx = self.active_row_idx;

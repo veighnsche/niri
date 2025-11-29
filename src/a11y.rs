@@ -118,7 +118,7 @@ impl Niri {
         let _span = tracy_client::span!("refresh_a11y");
 
         let mut announcement = None;
-        let ws_id = self.layout.active_row().map(|ws| {
+        let ws_id = self.layout.active_row().map(|_ws| {
             // Generate a RowId from the row - for now we'll use a simple approach
             // TODO: TEAM_023: Implement proper row ID generation
             crate::layout::row_types::RowId::specific(0)
@@ -128,7 +128,7 @@ impl Niri {
                 let (_, idx, ws) = self
                     .layout
                     .workspaces()
-                    .find(|(_, _, ws)| {
+                    .find(|(_, _, _ws)| {
                         // Generate the same ID for comparison
                         let generated_id = crate::layout::row_types::RowId::specific(0);
                         generated_id == ws_id

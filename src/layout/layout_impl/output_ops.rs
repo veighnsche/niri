@@ -82,9 +82,9 @@ impl<W: LayoutElement> Layout<W> {
                     active_monitor_idx,
                 }
             }
-            MonitorSet::NoOutputs { canvas } => {
+            MonitorSet::NoOutputs { canvas: _ } => {
                 // TEAM_055: Renamed from last_active_workspace_id to last_active_row_id
-                let row_id_to_activate = self.last_active_row_id.remove(&output.name());
+                let _row_id_to_activate = self.last_active_row_id.remove(&output.name());
 
                 let monitor = Monitor::new(
                     output,

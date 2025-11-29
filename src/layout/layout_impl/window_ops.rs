@@ -125,7 +125,7 @@ impl<W: LayoutElement> Layout<W> {
                 Some(&mon.output)
             }
             MonitorSet::NoOutputs { canvas } => {
-                let (ws_idx, target) = match target {
+                let (ws_idx, _target) = match target {
                     AddWindowTarget::Auto => {
                         // In Canvas2D, we always add to the active row (row 0 by default)
                         (0, RowAddWindowTarget::Auto)

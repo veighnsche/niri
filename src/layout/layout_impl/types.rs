@@ -146,6 +146,7 @@ impl<W: LayoutElement> DndData<W> {
     }
 
     /// Returns a reference to the hold data if present.
+    #[allow(dead_code)]
     pub(crate) fn hold(&self) -> Option<&DndHold<W>> {
         self.hold.as_ref()
     }
@@ -156,6 +157,7 @@ impl<W: LayoutElement> DndData<W> {
     }
 
     /// Updates the DnD data with new position.
+    #[allow(dead_code)]
     pub(crate) fn update(
         &mut self,
         output: Output,

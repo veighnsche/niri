@@ -604,7 +604,7 @@ impl Niri {
         // Get monitor elements.
         let mon = self.layout.monitor_for_output(output).unwrap();
         // Overview mode has been removed, zoom is always 1.0
-        let utils::scale::closest_representable_scale::FRACTIONAL_SCALE_DENOM = 1.0;
+        let _zoom = 1.0;
         let monitor_elements = mon.render_elements(renderer, target, focus_ring);
         // render_workspace_shadows removed - workspace shadows no longer exist
         let insert_hint_elements = mon.render_insert_hint_between_workspaces(renderer);

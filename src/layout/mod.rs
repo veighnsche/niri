@@ -603,7 +603,7 @@ impl<W: LayoutElement> Layout<W> {
         // Create a Canvas2D for the NoOutputs variant
         // TEAM_039: Use 1280x720 as default size to match original Workspace behavior
         let view_size = Size::from((1280.0, 720.0));
-        let parent_area = Rectangle::from_loc_and_size((0.0, 0.0), view_size);
+        let parent_area = Rectangle::from_size(view_size);
         let working_area = parent_area;
         let scale = 1.0;
 
@@ -636,13 +636,13 @@ impl<W: LayoutElement> Layout<W> {
         }
     }
 
-    fn with_options_and_workspaces(clock: Clock, config: &Config, options: Options) -> Self {
+    fn with_options_and_workspaces(clock: Clock, _config: &Config, options: Options) -> Self {
         let opts = Rc::new(options);
 
         // Create a Canvas2D for the NoOutputs variant
         // TEAM_039: Use 1280x720 as default size to match original Workspace behavior
         let view_size = Size::from((1280.0, 720.0));
-        let parent_area = Rectangle::from_loc_and_size((0.0, 0.0), view_size);
+        let parent_area = Rectangle::from_size(view_size);
         let working_area = parent_area;
         let scale = 1.0;
 
@@ -730,7 +730,7 @@ impl<W: LayoutElement> Layout<W> {
 
     pub fn monitor_for_workspace(&self, workspace_name: &str) -> Option<&Monitor<W>> {
         self.monitors().find(|monitor| {
-            monitor.canvas.rows().any(|(utils::scale::MIN_LOGICAL_AREA, ws)| {
+            monitor.canvas.rows().any(|(_idx, ws)| {
                 ws.name()
                     .is_some_and(|name| name.eq_ignore_ascii_case(workspace_name))
             })

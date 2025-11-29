@@ -395,7 +395,7 @@ impl CompositorHandler for State {
         // This might be a popup.
         self.niri.protocols.popups.commit(surface);
         if let Some(popup) = self.niri.protocols.popups.find_popup(surface) {
-            if let Err(err) = self.niri.protocols.popups.track_popup(popup) {
+            if let Err(_err) = self.niri.protocols.popups.track_popup(popup) {
                 // Redraw all outputs since we don't have the specific output here
                 self.niri.queue_redraw_all();
             }

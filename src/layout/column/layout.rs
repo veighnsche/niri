@@ -163,6 +163,7 @@ impl<W: LayoutElement> Column<W> {
         zip(tiles, offsets).map(|((tile, visible), pos)| (tile, pos, visible))
     }
 
+    #[allow(dead_code)]
     pub(crate) fn tiles_in_render_order_mut(
         &mut self,
     ) -> impl Iterator<Item = (&mut Tile<W>, Point<f64, Logical>)> + '_ {

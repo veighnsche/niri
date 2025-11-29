@@ -304,7 +304,7 @@ impl<W: LayoutElement> Layout<W> {
                     width,
                     is_full_width,
                     is_floating: was_floating,
-                    is_maximized,
+                    is_maximized: _is_maximized,
                 } = self
                     .remove_window(window, crate::utils::transaction::Transaction::new())
                     .unwrap();

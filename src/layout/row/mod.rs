@@ -713,7 +713,7 @@ impl<W: LayoutElement> Row<W> {
         &self,
         width: Option<PresetSize>,
         height: Option<PresetSize>,
-        is_floating: bool,
+        _is_floating: bool,
         rules: &ResolvedWindowRules,
         (min_size, max_size): (Size<i32, Logical>, Size<i32, Logical>),
     ) -> Size<i32, Logical> {

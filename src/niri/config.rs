@@ -179,7 +179,7 @@ impl StateConfigExt for super::State {
     /// Sets XKB configuration.
     fn set_xkb_config(&mut self, xkb: XkbConfig) {
         let keyboard = self.niri.seat.get_keyboard().unwrap();
-        keyboard.set_xkb_config(self, xkb);
+        let _ = keyboard.set_xkb_config(self, xkb);
     }
 }
 

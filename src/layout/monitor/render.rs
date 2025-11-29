@@ -76,7 +76,7 @@ impl<W: LayoutElement> Monitor<W> {
                 });
 
                 // Update the insert hint element size
-                let view_rect = Rectangle::from_loc_and_size((0., 0.), self.view_size);
+                let view_rect = Rectangle::from_size(self.view_size);
                 self.insert_hint_element.update_render_elements(
                     area.size,
                     view_rect,
@@ -155,7 +155,7 @@ impl<W: LayoutElement> Monitor<W> {
 
         self.canvas
             .rows()
-            .map(|(utils::scale::MIN_LOGICAL_AREA, row)| {
+            .map(|(_idx, row)| {
                 let row_height = row.row_height();
                 let y_offset = row.y_offset();
                 let geo = Rectangle::new(

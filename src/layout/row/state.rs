@@ -3,7 +3,7 @@
 //! Read-only state inspection methods for Row.
 
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
-use smithay::utils::{Logical, Point, Rectangle};
+use smithay::utils::{Logical, Rectangle};
 
 use super::super::column::Column;
 use super::super::tile::Tile;
@@ -111,7 +111,7 @@ impl<W: LayoutElement> Row<W> {
     pub fn active_tile_visual_rectangle(&self) -> Option<Rectangle<f64, Logical>> {
         self.active_column()
             .and_then(|col| col.tiles_iter().nth(col.active_tile_idx))
-            .map(|tile| Rectangle::from_loc_and_size(Point::new(0.0, 0.0), tile.tile_size()))
+            .map(|tile| Rectangle::from_size(tile.tile_size()))
     }
 
     // =========================================================================

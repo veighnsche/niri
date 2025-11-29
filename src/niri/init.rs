@@ -13,7 +13,6 @@ use calloop::timer::{TimeoutAction, Timer};
 use calloop::LoopHandle;
 use smithay::reexports::calloop::generic::Generic;
 use smithay::reexports::calloop::{Interest, LoopSignal, Mode, PostAction};
-use smithay::reexports::wayland_protocols_misc::server_decoration as _server_decoration;
 use smithay::reexports::wayland_server::{Client, Display};
 #[cfg(test)]
 use smithay::wayland::single_pixel_buffer::SinglePixelBufferState;
@@ -67,6 +66,7 @@ impl Niri {
 
         let (blocker_cleared_tx, blocker_cleared_rx) = mpsc::channel();
 
+        #[allow(dead_code)]
         fn client_is_unrestricted(client: &Client) -> bool {
             !client.get_data::<ClientState>().unwrap().restricted
         }
@@ -95,7 +95,7 @@ impl Niri {
         let mut seat = protocols
             .seat
             .new_wl_seat(&display_handle, backend.seat_name());
-        let mod_key = backend.mod_key(&config_);
+        let _mod_key = backend.mod_key(&config_);
         let keyboard = match seat.add_keyboard(
             config_.input.keyboard.xkb.to_xkb_config(),
             config_.input.keyboard.repeat_delay.into(),

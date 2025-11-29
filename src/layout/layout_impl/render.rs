@@ -118,7 +118,7 @@ impl<W: LayoutElement> Layout<W> {
                                 DndHoldTarget::Workspace(id) => mon
                                     .canvas
                                     .rows()
-                                    .position(|(utils::scale::MIN_LOGICAL_AREA, ws)| ws.id() == *id)
+                                    .position(|(_idx, ws)| ws.id() == *id)
                                     .unwrap(),
                             };
 

@@ -33,7 +33,6 @@ use std::{env, mem, thread};
 use anyhow::Context;
 use calloop::futures::Scheduler;
 pub use config::StateConfigExt;
-use config::StateConfigExt as _;
 use niri_config::{
     Config, FloatOrInt, Key, OutputName, TrackLayout, WarpMouseToFocusMode,
     WorkspaceReference, Xkb,
@@ -67,12 +66,11 @@ use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
 use smithay::reexports::calloop::{
     LoopHandle, LoopSignal, RegistrationToken,
 };
-use smithay::reexports::wayland_protocols_misc::server_decoration as _server_decoration;
 use smithay::reexports::wayland_server::backend::{
     ClientData, ClientId, DisconnectReason, GlobalId,
 };
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
-use smithay::reexports::wayland_server::{Client, Display, DisplayHandle, Resource};
+use smithay::reexports::wayland_server::{Client, Display, DisplayHandle};
 use smithay::utils::{
     IsAlive as _, Logical, Point, Rectangle, Scale, Size,
     Transform, SERIAL_COUNTER,
@@ -885,6 +883,7 @@ impl State {
     }
 
     /// Updates MRU timestamp with debounce.
+    #[allow(dead_code)]
     fn update_mru_timestamp(&mut self, mapped: &mut Mapped) {
         let stamp = get_monotonic_time();
         let debounce = self.niri.config.borrow().recent_windows.debounce_ms;
@@ -2141,7 +2140,7 @@ impl Niri {
         &self,
         workspace_reference: WorkspaceReference,
     ) -> Option<(Option<Output>, usize)> {
-        let (target_row_index, target_row) = match workspace_reference {
+        let (target_row_index, _target_row) = match workspace_reference {
             WorkspaceReference::Index(index) => {
                 return Some((None, index.saturating_sub(1) as usize));
             }
@@ -2344,6 +2343,7 @@ impl ClientData for ClientState {
     fn disconnected(&self, _client_id: ClientId, _reason: DisconnectReason) {}
 }
 
+#[allow(dead_code)]
 fn scale_relocate_crop<E: Element>(
     elem: E,
     output_scale: Scale<f64>,
