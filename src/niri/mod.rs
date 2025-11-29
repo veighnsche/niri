@@ -884,6 +884,29 @@ impl State {
         }
     }
 
+    /// Cleans up stale on-demand layer focus.
+    fn cleanup_layer_on_demand_focus(&mut self) {
+        self.niri.focus.cleanup_layer_on_demand(|surface| {
+            // Must be alive
+            if !surface.alive() {
+                return false;
+            }
+            
+            // Must have on-demand interactivity
+            if surface.cached_state().keyboard_interactivity
+                != wlr_layer::KeyboardInteractivity::OnDemand
+            {
+                return false;
+            }
+            
+            // Must be mapped and not in backdrop
+            match self.niri.mapped_layer_surfaces.get(surface) {
+                Some(mapped) => !mapped.place_within_backdrop(),
+                None => false, // Unmapped
+            }
+        });
+    }
+
     /// Builds popup grab information for focus context.
     fn build_popup_grab_info(&self) -> Option<(WlSurface, smithay::wayland::shell::wlr_layer::Layer)> {
         self.niri.popup_grab.as_ref().map(|(surface, layer)| {
@@ -1071,32 +1094,13 @@ impl State {
     }
 
     pub fn update_keyboard_focus(&mut self) {
-        // Clean up on-demand layer surface focus if necessary.
-        if let Some(surface) = &self.niri.focus.layer_on_demand() {
-            // Still alive and has on-demand interactivity.
-            let mut good = surface.alive()
-                && surface.cached_state().keyboard_interactivity
-                    == wlr_layer::KeyboardInteractivity::OnDemand;
-
-            if let Some(mapped) = self.niri.mapped_layer_surfaces.get(surface) {
-                // Check if it moved to the overview backdrop.
-                if mapped.place_within_backdrop() {
-                    good = false;
-                }
-            } else {
-                // The layer surface is alive but it got unmapped.
-                good = false;
-            }
-
-            if !good {
-                self.niri.focus.set_layer_on_demand(None);
-            }
-        }
-
-        // Compute the current focus.
+        // Clean up stale on-demand focus
+        self.cleanup_layer_on_demand_focus();
+        
+        // Compute new focus
         let ctx = self.build_focus_context();
         let new_focus = self.niri.focus.compute_focus(&ctx);
-
+        
         // Handle focus change if different
         let old_focus = self.niri.focus.current().clone();
         if old_focus != new_focus {

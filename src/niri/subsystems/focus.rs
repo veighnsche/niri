@@ -225,6 +225,25 @@ impl FocusState {
         self.layer_on_demand = surface;
     }
     
+    /// Cleans up on-demand layer focus if the surface is no longer valid.
+    ///
+    /// Returns true if the on-demand focus was cleared.
+    pub fn cleanup_layer_on_demand<F>(&mut self, is_valid: F) -> bool 
+    where
+        F: FnOnce(&LayerSurface) -> bool,
+    {
+        let should_clear = self.layer_on_demand.as_ref().map_or(false, |surface| {
+            !is_valid(surface)
+        });
+        
+        if should_clear {
+            self.layer_on_demand = None;
+            true
+        } else {
+            false
+        }
+    }
+    
     // =========================================================================
     // Idle Inhibitors
     // =========================================================================
