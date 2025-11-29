@@ -2552,7 +2552,7 @@ impl State {
                 }
             }
 
-            if is_mru_open || self.niri.mods_with_mouse_binds.contains(&modifiers) {
+            if is_mru_open || self.niri.input.mods_with_mouse_binds().contains(&modifiers) {
                 if let Some(bind) = match button {
                     Some(MouseButton::Left) => Some(Trigger::MouseLeft),
                     Some(MouseButton::Right) => Some(Trigger::MouseRight),
@@ -2860,10 +2860,10 @@ impl State {
             let modifiers = modifiers_from_state(mods);
             let should_handle = should_handle_in_overview
                 || is_mru_open
-                || self.niri.mods_with_wheel_binds.contains(&modifiers);
+                || self.niri.input.mods_with_wheel_binds().contains(&modifiers);
             if should_handle {
                 let horizontal = horizontal_amount_v120.unwrap_or(0.);
-                let ticks = self.niri.horizontal_wheel_tracker.accumulate(horizontal);
+                let ticks = self.niri.input.horizontal_wheel_mut().accumulate(horizontal);
                 if ticks != 0 {
                     let (bind_left, bind_right) =
                         if should_handle_in_overview && modifiers.is_empty() {
@@ -2924,7 +2924,7 @@ impl State {
                 }
 
                 let vertical = vertical_amount_v120.unwrap_or(0.);
-                let ticks = self.niri.vertical_wheel_tracker.accumulate(vertical);
+                let ticks = self.niri.input.vertical_wheel_mut().accumulate(vertical);
                 if ticks != 0 {
                     let (bind_up, bind_down) = if should_handle_in_overview && modifiers.is_empty()
                     {
@@ -3008,8 +3008,8 @@ impl State {
 
                 return;
             } else {
-                self.niri.horizontal_wheel_tracker.reset();
-                self.niri.vertical_wheel_tracker.reset();
+                self.niri.input.horizontal_wheel_mut().reset();
+                self.niri.input.vertical_wheel_mut().reset();
             }
         }
 
@@ -3029,9 +3029,10 @@ impl State {
 
                 let action = self
                     .niri
-                    .overview_scroll_swipe_gesture
+                    .input
+                    .overview_swipe_mut()
                     .update(horizontal, vertical);
-                let is_vertical = self.niri.overview_scroll_swipe_gesture.is_vertical();
+                let is_vertical = self.niri.input.overview_swipe().is_vertical();
 
                 if action.end() {
                     if is_vertical {
@@ -3099,8 +3100,8 @@ impl State {
                 return;
             } else {
                 let mut redraw = false;
-                if self.niri.overview_scroll_swipe_gesture.reset() {
-                    if self.niri.overview_scroll_swipe_gesture.is_vertical() {
+                if self.niri.input.overview_swipe_mut().reset() {
+                    if self.niri.input.overview_swipe().is_vertical() {
                         redraw |= self
                             .niri
                             .layout
@@ -3119,10 +3120,11 @@ impl State {
                 }
             }
 
-            if is_mru_open || self.niri.mods_with_finger_scroll_binds.contains(&modifiers) {
+            if is_mru_open || self.niri.input.mods_with_finger_scroll_binds().contains(&modifiers) {
                 let ticks = self
                     .niri
-                    .horizontal_finger_scroll_tracker
+                    .input
+                    .horizontal_finger_mut()
                     .accumulate(horizontal);
                 if ticks != 0 {
                     let config = self.niri.config.borrow();
@@ -3152,7 +3154,8 @@ impl State {
 
                 let ticks = self
                     .niri
-                    .vertical_finger_scroll_tracker
+                    .input
+                    .vertical_finger_mut()
                     .accumulate(vertical);
                 if ticks != 0 {
                     let config = self.niri.config.borrow();
@@ -3182,8 +3185,8 @@ impl State {
 
                 return;
             } else {
-                self.niri.horizontal_finger_scroll_tracker.reset();
-                self.niri.vertical_finger_scroll_tracker.reset();
+                self.niri.input.horizontal_finger_mut().reset();
+                self.niri.input.vertical_finger_mut().reset();
             }
         }
 
@@ -3481,7 +3484,7 @@ impl State {
         }
 
         if event.fingers() == 3 {
-            self.niri.gesture_swipe_3f_cumulative = Some((0., 0.));
+            self.niri.input.set_swipe_3f(Some((0., 0.)));
 
             // We handled this event.
             return;
@@ -3536,14 +3539,16 @@ impl State {
         // Overview mode has been removed, this is always false
         let is_overview_open = false;
 
-        if let Some((cx, cy)) = &mut self.niri.gesture_swipe_3f_cumulative {
-            *cx += delta_x;
-            *cy += delta_y;
+        if let Some((cx, cy)) = self.niri.input.swipe_3f() {
+            let mut cx = cx;
+            let mut cy = cy;
+            
+            // Update cumulative values
+            self.niri.input.add_swipe_3f(delta_x, delta_y);
 
             // Check if the gesture moved far enough to decide. Threshold copied from GNOME Shell.
-            let (cx, cy) = (*cx, *cy);
             if cx * cx + cy * cy >= 16. * 16. {
-                self.niri.gesture_swipe_3f_cumulative = None;
+                self.niri.input.set_swipe_3f(None);
 
                 if let Some(output) = self.niri.output_under_cursor() {
                     if cx.abs() > cy.abs() {
@@ -3623,7 +3628,7 @@ impl State {
     }
 
     fn on_gesture_swipe_end<I: InputBackend>(&mut self, event: I::GestureSwipeEndEvent) {
-        self.niri.gesture_swipe_3f_cumulative = None;
+        self.niri.input.set_swipe_3f(None);
 
         let mut handled = false;
         let res = self.niri.layout.workspace_switch_gesture_end(Some(true));

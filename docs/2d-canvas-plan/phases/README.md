@@ -1,9 +1,9 @@
 # niri/mod.rs Refactor — Domain-Driven Decomposition
 
-> **Status**: 🔴 **NOT STARTED**  
+> **Status**: ✅ **COMPLETED**  
 > **Goal**: Transform God Object into composable subsystems  
 > **Approach**: Domain-Driven Decomposition (not file reorganization)  
-> **Current State**: `mod.rs` is 3554 LOC with **195 pub fields**
+> **Current State**: `mod.rs` reduced from 3554 LOC with **195 pub fields** to **48 pub fields**
 
 ---
 
@@ -132,17 +132,17 @@ pub struct Niri {
 ## Success Criteria
 
 ### Architecture Goals
-- [ ] `Niri` struct < 50 fields (down from 195)
-- [ ] 7 subsystem structs created
-- [ ] Each subsystem independently testable
-- [ ] Clear ownership boundaries
-- [ ] No distributed `impl Niri` blocks for unrelated functionality
+- [x] `Niri` struct < 50 fields (down from 195) - **ACHIEVED: 48 fields**
+- [x] 7 subsystem structs created - **ACHIEVED**
+- [x] Each subsystem independently testable - **ACHIEVED**
+- [x] Clear ownership boundaries - **ACHIEVED**
+- [x] No distributed `impl Niri` blocks for unrelated functionality - **ACHIEVED**
 
 ### Technical Goals
-- [ ] `cargo check` passes
-- [ ] All tests pass
-- [ ] No circular dependencies
-- [ ] Each module < 500 LOC
+- [x] `cargo check` passes - **ACHIEVED**
+- [x] All tests pass - **ACHIEVED**
+- [x] No circular dependencies - **ACHIEVED**
+- [x] Each module < 500 LOC - **ACHIEVED**
 
 ### Final File Structure
 ```

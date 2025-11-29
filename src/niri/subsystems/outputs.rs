@@ -2,6 +2,35 @@
 //!
 //! Owns all state related to physical outputs (monitors) and provides
 //! a clean API for output lifecycle management and spatial queries.
+//!
+//! # Responsibilities
+//!
+//! - **Global space**: Compositor-wide coordinate space and output positioning
+//! - **Output state**: Per-output frame clocks, redraw state, and damage tracking
+//! - **Spatial queries**: Find outputs under positions, compute working areas
+//! - **Power management**: Monitor power state and lid detection
+//!
+//! # Example
+//!
+//! ```ignore
+//! // Add a new output
+//! niri.outputs.add(output, refresh_interval, vrr, &display_handle, &config);
+//!
+//! // Find output under cursor
+//! if let Some((output, pos)) = niri.outputs.under_position(cursor_pos) {
+//!     niri.queue_redraw(&output);
+//! }
+//!
+//! // Update all outputs
+//! for (output, state) in niri.outputs.iter() {
+//!     state.frame_clock.update_now();
+//! }
+//!
+//! // Check if any monitors are active
+//! if !niri.outputs.monitors_active() {
+//!     // Handle all monitors off
+//! }
+//! ```
 
 use std::collections::HashMap;
 use std::time::Duration;

@@ -68,8 +68,8 @@ use crate::cursor::CursorManager;
 use crate::handlers::XDG_ACTIVATION_TOKEN_TIMEOUT;
 use crate::input::scroll_swipe_gesture::ScrollSwipeGesture;
 use crate::input::scroll_tracker::ScrollTracker;
-use crate::input::{mods_with_finger_scroll_binds, mods_with_mouse_binds, mods_with_wheel_binds};
-use crate::niri::{Niri, ClientState, ProtocolStates};
+use crate::niri::{LockState, Niri, ClientState, ProtocolStates};
+use crate::niri::subsystems::InputTracking;
 use crate::ipc::server::IpcServer;
 use crate::layout::Layout;
 use crate::protocols::ext_workspace::ExtWorkspaceManagerState;
@@ -81,7 +81,7 @@ use crate::protocols::screencopy::ScreencopyManagerState;
 use crate::protocols::virtual_pointer::VirtualPointerManagerState;
 use crate::window::mapped::MappedId;
 use super::{State,
-    KeyboardFocus, LockState, NewClient, PointContents, PointerVisibility,
+    KeyboardFocus, NewClient, PointContents, PointerVisibility,
 };
 
 // =============================================================================
@@ -167,9 +167,6 @@ impl Niri {
             keyboard.set_modifier_state(modifier_state);
         }
         seat.add_pointer();
-        let mods_with_mouse_binds = mods_with_mouse_binds(mod_key, &config_.binds);
-        let mods_with_wheel_binds = mods_with_wheel_binds(mod_key, &config_.binds);
-        let mods_with_finger_scroll_binds = mods_with_finger_scroll_binds(mod_key, &config_.binds);
 
         let ui = UiOverlays::new(&config_, &animation_clock, &config);
 
@@ -257,6 +254,7 @@ impl Niri {
             blocker_cleared_tx,
             blocker_cleared_rx,
             outputs: OutputSubsystem::new(),
+            input: InputTracking::new(&config_),
 
             devices: HashSet::new(),
             tablets: HashMap::new(),
@@ -275,17 +273,6 @@ impl Niri {
             xkb_from_locale1: None,
             cursor: CursorSubsystem::new(cursor_manager),
             notified_activity_this_iteration: false,
-            gesture_swipe_3f_cumulative: None,
-            overview_scroll_swipe_gesture: ScrollSwipeGesture::new(),
-            vertical_wheel_tracker: ScrollTracker::new(120),
-            horizontal_wheel_tracker: ScrollTracker::new(120),
-            mods_with_mouse_binds,
-            mods_with_wheel_binds,
-
-            // 10 is copied from Clutter: DISCRETE_SCROLL_STEP.
-            vertical_finger_scroll_tracker: ScrollTracker::new(10),
-            horizontal_finger_scroll_tracker: ScrollTracker::new(10),
-            mods_with_finger_scroll_binds,
 
             lock_state: LockState::Unlocked,
             locked_hint: None,
@@ -309,8 +296,6 @@ impl Niri {
             ipc_outputs_changed: false,
 
             satellite: None,
-
-            streaming: StreamingSubsystem::new(),
         };
 
         // Initialize streaming subsystem components.
