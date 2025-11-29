@@ -67,7 +67,10 @@ Instead of one God Object, decompose into **owned subsystems** where each:
 | **[P1](phase-P1-protocol-states.md)** | Extract ProtocolStates container | ~35 | 🟢 Low | 30m |
 | **[P2](phase-P2-output-subsystem.md)** | Extract OutputSubsystem | ~8 | 🟡 Medium | 2h |
 | **[P3](phase-P3-cursor-subsystem.md)** | Extract CursorSubsystem | ~10 | 🟡 Medium | 1.5h |
-| **[P4](phase-P4-focus-model.md)** | Extract FocusModel | ~5 | 🔴 High | 2h |
+| **[P4a](phase-P4a-focus-state.md)** | Extract FocusState container | ~4 | 🟢 Low | 30m |
+| **[P4b](phase-P4b-focus-computation.md)** | Extract focus computation logic | 0 | 🟡 Medium | 45m |
+| **[P4c](phase-P4c-focus-change.md)** | Extract focus change handling | 0 | 🟡 Medium | 30m |
+| **[P4d](phase-P4d-layer-cleanup.md)** | Extract layer on-demand cleanup | 0 | 🟢 Low | 15m |
 | **[P5](phase-P5-streaming.md)** | Extract StreamingSubsystem | ~6 | 🟢 Low | 1h |
 | **[P6](phase-P6-ui-overlays.md)** | Extract UiOverlays | ~8 | 🟢 Low | 45m |
 | **[P7](phase-P7-config-manager.md)** | Refactor Config Reload | 0 | 🟡 Medium | 1.5h |
@@ -77,7 +80,7 @@ Instead of one God Object, decompose into **owned subsystems** where each:
 **Expected result**: Niri from **195 fields → ~40 fields**  
 **Total estimated time**: ~11 hours
 
-> **Note**: Phase P8 (StateContext) was removed — it's over-engineering with questionable benefit.
+> **Note**: Phase P4 was split into P4a-P4d to reduce risk. Phase P8 (StateContext) was removed — it's over-engineering.
 
 ---
 
