@@ -163,7 +163,7 @@ impl Layout {
     }
 
     fn add_window(&mut self, mut window: TestWindow, width: Option<PresetSize>) {
-        let ws = self.layout.active_workspace().unwrap();
+        let ws = self.layout.active_row().unwrap();
         let min_size = window.min_size();
         let max_size = window.max_size();
         window.request_size(
@@ -192,7 +192,7 @@ impl Layout {
         mut window: TestWindow,
         width: Option<PresetSize>,
     ) {
-        let ws = self.layout.active_workspace().unwrap();
+        let ws = self.layout.active_row().unwrap();
         let min_size = window.min_size();
         let max_size = window.max_size();
         window.request_size(
@@ -272,7 +272,7 @@ impl TestCase for Layout {
             .monitor_for_output(&self.output)
             .unwrap()
             .render_elements(renderer, RenderTarget::Output, true)
-            .flat_map(|(_, _, iter)| iter)
+            .into_iter()
             .map(|elem| Box::new(elem) as _)
             .collect()
     }
