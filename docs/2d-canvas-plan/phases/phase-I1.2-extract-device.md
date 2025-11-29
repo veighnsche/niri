@@ -1,6 +1,6 @@
 # Phase I1.2: Extract Device Management
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE (TEAM_085)  
 > **Time Estimate**: ~45 minutes  
 > **Risk Level**: 🟢 Low  
 > **Architectural Benefit**: ⭐⭐ Medium - isolates libinput configuration
@@ -81,6 +81,17 @@ pub fn apply_libinput_settings(config: &niri_config::Input, device: &mut input::
 
 ## Verification
 
-- [ ] Device add/remove works
-- [ ] Libinput settings apply correctly
-- [ ] `cargo check` passes
+- [x] Device add/remove works
+- [x] Libinput settings apply correctly
+- [x] `cargo check` passes
+
+## Implementation Notes (TEAM_085)
+
+**Improvements made:**
+- Extracted helper function `apply_scroll_method()` to reduce code duplication
+- Split `apply_libinput_settings()` into per-device-type functions
+- Better code organization with clear separation
+
+**Files:**
+- `src/input/device.rs` - 286 lines (new)
+- `src/input/mod.rs` - reduced from 4963 to 4655 lines (-308 lines)

@@ -1,10 +1,10 @@
-# TEAM_085: Extract Bind Resolution (Phase I1.1)
+# TEAM_085: Input Refactor (Phases I1.1 & I1.2)
 
-## Status: Complete ✅
+## Status: In Progress 🔄
 
 ## Summary
 
-Extracted pure bind resolution functions from `src/input/mod.rs` into `src/input/binds.rs`.
+Extracting modules from `src/input/mod.rs` following the Phase I1 plan.
 
 ## Work Done
 
@@ -63,4 +63,72 @@ Extracted pure bind resolution functions from `src/input/mod.rs` into `src/input
 - [x] Backwards compatible re-exports
 - [x] Team file complete
 
-Ready for Phase I1.2 (Extract Device Management).
+---
+
+## Phase I1.2: Extract Device Management ✅
+
+1. **Created `src/input/device.rs`** (286 lines):
+   - `on_device_added()` - Handle device hotplug
+   - `on_device_removed()` - Handle device removal
+   - `apply_libinput_settings()` - Apply config to libinput devices
+   - Per-device-type helpers: `apply_touchpad_settings()`, `apply_mouse_settings()`, etc.
+   - `apply_scroll_method()` - Shared helper to reduce duplication
+
+2. **Updated `mod.rs`**:
+   - Added `mod device;`
+   - Re-exported `apply_libinput_settings`
+   - Removed ~308 lines of duplicate code
+
+**LOC Progress:**
+- Started: 5123 lines
+- After I1.1: 4963 lines (-160)
+- After I1.2: 4655 lines (-308)
+- **Total reduction: 468 lines (9%)**
+
+---
+
+## Phase I1.3: Extract Event Handlers 🔄
+
+### Completed:
+1. **Created `src/input/touch.rs`** (226 lines):
+   - `on_touch_down()`, `on_touch_up()`, `on_touch_motion()`
+   - `on_touch_frame()`, `on_touch_cancel()`
+
+2. **Created `src/input/gesture.rs`** (317 lines):
+   - `on_gesture_swipe_begin/update/end()`
+   - `on_gesture_pinch_begin/update/end()`
+   - `on_gesture_hold_begin/end()`
+
+### Completed:
+3. **Created `src/input/tablet.rs`** (237 lines):
+   - `on_tablet_tool_axis()`, `on_tablet_tool_tip()`
+   - `on_tablet_tool_proximity()`, `on_tablet_tool_button()`
+
+4. **Created `src/input/keyboard.rs`** (274 lines):
+   - `on_keyboard()`, `start_key_repeat()`, `hide_cursor_if_needed()`
+
+5. **Created `src/input/pointer.rs`** (1105 lines):
+   - `on_pointer_motion()`, `on_pointer_motion_absolute()`
+   - `on_pointer_button()`, `on_pointer_axis()`
+
+**LOC Progress:**
+- Started: 5123 lines
+- After I1.1 (binds): 4963 lines
+- After I1.2 (device): 4655 lines
+- After touch.rs: ~4430 lines
+- After gesture.rs: ~4171 lines
+- After tablet.rs: ~3920 lines
+- After keyboard.rs: ~3705 lines
+- After pointer.rs: **2627 lines**
+- **Total reduction: 2496 lines (49%)**
+
+---
+
+## Handoff
+
+- [x] Code compiles (`cargo check`)
+- [x] All extracted modules working
+- [x] Backwards compatible re-exports
+- [x] Team file complete
+
+## Phase I1.3 COMPLETE ✅
