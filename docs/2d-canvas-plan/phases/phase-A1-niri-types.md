@@ -1,7 +1,7 @@
 # Phase A1: Extract niri/types.rs
 
-> **Status**: 🔄 CURRENT
-> **Estimated Time**: 45 minutes
+> **Status**: ✅ COMPLETE
+> **Actual Time**: 20 minutes
 > **Risk Level**: 🟢 Low (pure data types, no behavior)
 > **Prerequisite**: None
 
@@ -13,39 +13,33 @@ Create `src/niri/` module directory and extract all pure data types from `niri.r
 
 This is the foundation phase — it establishes the module structure for all subsequent phases.
 
-User: Remember that when a item is too big of a refactor than planned. that I want you to make it smaller and do it in multiple steps. Write it down in this folder as broken down steps in the phase file...
+> **Note**: If any step is too big, break it down further in this file.
 
 ---
 
 ## Work Units
 
-### Unit 1: Create Module Structure (5 min)
+### Unit 1: Create Module Structure ✅
 
-Create the directory and mod.rs:
+**Key insight**: Can't have both `src/niri.rs` and `src/niri/` directory. Must rename file.
 
 ```bash
 mkdir -p src/niri
+mv src/niri.rs src/niri/mod.rs
 ```
 
-Create `src/niri/mod.rs`:
+Add module header to `src/niri/mod.rs` (at top):
 ```rust
-//! Niri compositor state modules.
+//! Niri compositor state.
 //!
-//! This module contains the implementation of the Niri compositor,
-//! split into focused submodules for maintainability.
+//! This module contains the main `Niri` struct and related types.
 
 mod types;
 
 pub use types::*;
 ```
 
-Add to `src/niri.rs` (near top, after other mod declarations):
-```rust
-mod niri;
-pub use crate::niri::*;
-```
-
-**Verify**: `cargo check` should pass.
+**Verify**: `cargo check` should pass (with duplicate type errors expected).
 
 ---
 
@@ -280,11 +274,11 @@ Delete the original type definitions from `niri.rs`.
 
 ## Verification Checklist
 
-- [ ] `src/niri/mod.rs` exists
-- [ ] `src/niri/types.rs` exists with all types
-- [ ] `cargo check` passes
-- [ ] `cargo test` passes
-- [ ] No duplicate type definitions
+- [x] `src/niri/mod.rs` exists (was `src/niri.rs`, renamed)
+- [x] `src/niri/types.rs` exists with all types
+- [x] `cargo check` passes
+- [x] `cargo test` passes (270 tests)
+- [x] No duplicate type definitions
 
 ---
 
@@ -292,9 +286,24 @@ Delete the original type definitions from `niri.rs`.
 
 | File | Change |
 |------|--------|
-| `src/niri/mod.rs` | Created |
-| `src/niri/types.rs` | Created (~200 LOC) |
-| `src/niri.rs` | Removed type definitions, added imports |
+| `src/niri.rs` | Renamed to `src/niri/mod.rs` |
+| `src/niri/mod.rs` | Added module header + `mod types; pub use types::*;` |
+| `src/niri/types.rs` | Created (~230 LOC) with extracted types |
+
+### Types Extracted
+
+- `PointerVisibility`
+- `DndIcon`
+- `CenterCoords`
+- `RedrawState` (with `queue_redraw` impl)
+- `LockState`
+- `LockRenderState`
+- `KeyboardFocus` (with `surface`, `into_surface`, `is_layout`, `is_overview` impls)
+- `PointContents`
+- `CastTarget`
+- `PopupGrabState`
+- `PendingMruCommit`
+- `SurfaceFrameThrottlingState` (internal)
 
 ---
 

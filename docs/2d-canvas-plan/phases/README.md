@@ -24,8 +24,8 @@ New to the codebase? Follow these steps:
 
 | Phase | Status | File | Description |
 |-------|--------|------|-------------|
-| [**Phase A1**](phase-A1-niri-types.md) | 🔄 **CURRENT** | niri/types.rs | Extract pure data types |
-| [Phase A2](phase-A2-niri-output.md) | ⏳ PENDING | niri/output.rs | Output management |
+| [Phase A1](phase-A1-niri-types.md) | ✅ **DONE** | niri/types.rs | Extract pure data types |
+| [**Phase A2**](phase-A2-niri-output.md) | 🔄 **CURRENT** | niri/output.rs | Output management |
 | [Phase A3](phase-A3-niri-hit-test.md) | ⏳ PENDING | niri/hit_test.rs | Hit testing queries |
 | [Phase A4](phase-A4-niri-lock.md) | ⏳ PENDING | niri/lock.rs | Session lock |
 | [Phase A5](phase-A5-niri-render.md) | ⏳ PENDING | niri/render.rs + frame_callbacks.rs | Rendering |
