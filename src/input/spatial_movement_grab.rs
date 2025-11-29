@@ -65,7 +65,7 @@ impl SpatialMovementGrab {
 
         state
             .niri
-            .cursor_manager
+            .cursor.manager
             .set_cursor_image(CursorImageStatus::default_named());
     }
 }

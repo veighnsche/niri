@@ -162,7 +162,7 @@ impl State {
                 // I guess it'd make sense to check that no higher-layer on-demand surface
                 // has focus, but Smithay's Layer doesn't implement Ord so this would be a
                 // little annoying.
-                self.niri.layer_shell_on_demand_focus = Some(layer.clone());
+                self.niri.focus.layer_on_demand = Some(layer.clone());
             }
         } else {
             // The surface is unmapped.

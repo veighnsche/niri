@@ -78,7 +78,7 @@ impl MoveGrab {
 
         if self.start_data.is_pointer() {
             data.niri
-                .cursor_manager
+                .cursor.manager
                 .set_cursor_image(CursorImageStatus::default_named());
         }
 
@@ -100,7 +100,7 @@ impl MoveGrab {
 
         if self.start_data.is_pointer() {
             data.niri
-                .cursor_manager
+                .cursor.manager
                 .set_cursor_image(CursorImageStatus::Named(CursorIcon::Move));
         }
 
@@ -127,7 +127,7 @@ impl MoveGrab {
 
         if self.start_data.is_pointer() {
             data.niri
-                .cursor_manager
+                .cursor.manager
                 .set_cursor_image(CursorImageStatus::Named(CursorIcon::AllScroll));
         }
 

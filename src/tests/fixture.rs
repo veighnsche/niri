@@ -71,14 +71,14 @@ impl Fixture {
     pub fn niri_output(&self, n: u8) -> Output {
         let niri = &self.state.server.state.niri;
         let idx = usize::from(n - 1);
-        let output = niri.global_space.outputs().nth(idx).unwrap();
+        let output = niri.outputs.global_space.outputs().nth(idx).unwrap();
         output.clone()
     }
 
     pub fn niri_focus_output(&mut self, n: u8) {
         let niri = &mut self.state.server.state.niri;
         let idx = usize::from(n - 1);
-        let output = niri.global_space.outputs().nth(idx).unwrap();
+        let output = niri.outputs.global_space.outputs().nth(idx).unwrap();
         niri.layout.focus_output(output);
     }
 

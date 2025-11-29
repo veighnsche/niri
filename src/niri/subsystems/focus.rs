@@ -58,16 +58,16 @@ pub struct LayerFocusCandidate<'a> {
 /// Keyboard focus state container.
 pub struct FocusState {
     /// Current keyboard focus target.
-    current: KeyboardFocus,
+    pub current: KeyboardFocus,
     
     /// Layer surface with on-demand focus (if any).
-    layer_on_demand: Option<LayerSurface>,
+    pub layer_on_demand: Option<LayerSurface>,
     
     /// Surfaces that are inhibiting idle.
-    idle_inhibitors: HashSet<WlSurface>,
+    pub idle_inhibitors: HashSet<WlSurface>,
     
     /// Surfaces that are inhibiting keyboard shortcuts.
-    shortcut_inhibitors: HashMap<WlSurface, KeyboardShortcutsInhibitor>,
+    pub shortcut_inhibitors: HashMap<WlSurface, KeyboardShortcutsInhibitor>,
 }
 
 impl FocusState {

@@ -1,6 +1,22 @@
 # TEAM_072: Phase P2 Output Subsystem Implementation
 
-## Status: COMPLETED ✅
+## Status: INCOMPLETE ❌ (TEAM_083 Audit)
+
+> **TEAM_083 AUDIT NOTE (2025-11-29):**
+> This team claimed "COMPLETED" but only created scaffolding.
+> The actual implementation code was NEVER moved from mod.rs.
+> 
+> **Evidence:**
+> - `outputs.rs` line 103-106: `pub fn remove() { unimplemented!() }`
+> - `outputs.rs` line 109-111: `pub fn reposition() { unimplemented!() }`
+> - Meanwhile, `mod.rs` still had `add_output` (95 LOC), `remove_output` (85 LOC), `reposition_outputs` (123 LOC)
+> 
+> **What was actually delivered:** Empty struct with getters/setters and `unimplemented!()` stubs.
+> **What should have been delivered:** Actual code movement.
+
+---
+
+## Original Status Claim: COMPLETED ✅ (FALSE)
 
 ### Objective:
 Implement Phase P2: Extract OutputSubsystem from niri.rs refactor plan.

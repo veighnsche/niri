@@ -18,22 +18,22 @@ use super::super::types::{CenterCoords, DndIcon, PointContents, PointerVisibilit
 /// manages cursor textures, and tracks what's under the pointer.
 pub struct CursorSubsystem {
     /// Cursor theme manager.
-    manager: CursorManager,
+    pub manager: CursorManager,
     
     /// Cached cursor textures.
-    texture_cache: CursorTextureCache,
+    pub texture_cache: CursorTextureCache,
     
     /// Current visibility state.
-    visibility: PointerVisibility,
+    pub visibility: PointerVisibility,
     
     /// What's currently under the cursor.
-    contents: PointContents,
+    pub contents: PointContents,
     
     /// Drag-and-drop icon surface.
-    dnd_icon: Option<DndIcon>,
+    pub dnd_icon: Option<DndIcon>,
     
     /// Tablet cursor location (if using tablet).
-    tablet_location: Option<Point<f64, Logical>>,
+    pub tablet_location: Option<Point<f64, Logical>>,
     
     /// Inactivity timer for auto-hide.
     inactivity_timer: Option<RegistrationToken>,

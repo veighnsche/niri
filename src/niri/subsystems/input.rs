@@ -70,15 +70,18 @@ impl InputTracking {
     pub fn new(config: &niri_config::Config) -> Self {
         use crate::input::{mods_with_mouse_binds, mods_with_wheel_binds, mods_with_finger_scroll_binds};
         
+        // Default scroll tick value (15 is commonly used)
+        const SCROLL_TICK: i8 = 15;
+        
         Self {
             gesture_swipe_3f: None,
             overview_swipe: ScrollSwipeGesture::new(),
-            vertical_wheel: ScrollTracker::new(),
-            horizontal_wheel: ScrollTracker::new(),
+            vertical_wheel: ScrollTracker::new(SCROLL_TICK),
+            horizontal_wheel: ScrollTracker::new(SCROLL_TICK),
             mods_with_mouse_binds: mods_with_mouse_binds(config),
             mods_with_wheel_binds: mods_with_wheel_binds(config),
-            vertical_finger: ScrollTracker::new(),
-            horizontal_finger: ScrollTracker::new(),
+            vertical_finger: ScrollTracker::new(SCROLL_TICK),
+            horizontal_finger: ScrollTracker::new(SCROLL_TICK),
             mods_with_finger_scroll_binds: mods_with_finger_scroll_binds(config),
         }
     }

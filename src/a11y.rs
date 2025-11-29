@@ -278,7 +278,7 @@ impl Niri {
     }
 
     fn a11y_focus(&self) -> NodeId {
-        match self.keyboard_focus {
+        match self.focus.current {
             KeyboardFocus::ScreenshotUi => ID_SCREENSHOT_UI,
             KeyboardFocus::ExitConfirmDialog => ID_EXIT_CONFIRM_DIALOG,
             KeyboardFocus::Overview => ID_OVERVIEW,

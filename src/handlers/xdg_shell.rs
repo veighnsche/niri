@@ -218,11 +218,11 @@ impl XdgShellHandler for State {
                 if intersection.intersects(ResizeEdge::LEFT_RIGHT) {
                     // FIXME: don't activate once we can pass specific windows to actions.
                     self.niri.layout.activate_window(&window);
-                    self.niri.layer_shell_on_demand_focus = None;
+                    self.niri.focus.layer_on_demand = None;
                     self.niri.layout.toggle_full_width();
                 }
                 if intersection.intersects(ResizeEdge::TOP_BOTTOM) {
-                    self.niri.layer_shell_on_demand_focus = None;
+                    self.niri.focus.layer_on_demand = None;
                     self.niri.layout.reset_window_height(Some(&window));
                 }
                 // FIXME: granular.
@@ -323,7 +323,7 @@ impl XdgShellHandler for State {
                 if layers.layers_on(Layer::Overlay).any(|l| {
                     (l.cached_state().keyboard_interactivity
                         == wlr_layer::KeyboardInteractivity::Exclusive
-                        || Some(l) == self.niri.layer_shell_on_demand_focus.as_ref())
+                        || Some(l) == self.niri.focus.layer_on_demand.as_ref())
                         && self.niri.mapped_layer_surfaces.contains_key(l)
                 }) {
                     trace!("ignoring toplevel popup grab because the overlay layer has focus");
@@ -336,7 +336,7 @@ impl XdgShellHandler for State {
                     && layers.layers_on(Layer::Top).any(|l| {
                         (l.cached_state().keyboard_interactivity
                             == wlr_layer::KeyboardInteractivity::Exclusive
-                            || Some(l) == self.niri.layer_shell_on_demand_focus.as_ref())
+                            || Some(l) == self.niri.focus.layer_on_demand.as_ref())
                             && self.niri.mapped_layer_surfaces.contains_key(l)
                     })
                 {
@@ -1066,7 +1066,7 @@ impl State {
                 .as_deref()
                 .and_then(|name| {
                     self.niri
-                        .global_space
+                        .outputs.global_space
                         .outputs()
                         .find(|output| output_matches_name(output, name))
                 })
@@ -1271,7 +1271,7 @@ impl State {
         layer_surface: &LayerSurface,
         output: &Output,
     ) {
-        let output_geo = self.niri.global_space.output_geometry(output).unwrap();
+        let output_geo = self.niri.outputs.global_space.output_geometry(output).unwrap();
         let map = layer_map_for_output(output);
         let Some(layer_geo) = map.layer_geometry(layer_surface) else {
             return;

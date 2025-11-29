@@ -35,9 +35,9 @@ impl Niri {
         let output = output_under_cursor
             .as_ref()
             .or_else(|| self.layout.active_output())
-            .or_else(|| self.global_space.outputs().next())?;
+            .or_else(|| self.outputs.global_space.outputs().next())?;
 
-        let state = self.output_state.get(output)?;
+        let state = self.outputs.state.get(output)?;
         state.lock_surface.as_ref().map(|s| s.wl_surface()).cloned()
     }
 }
@@ -79,10 +79,10 @@ impl Niri {
 
         info!("locking session");
 
-        if self.output_state.is_empty() {
+        if self.outputs.state.is_empty() {
             // There are no outputs, lock the session right away.
             self.ui.screenshot.close();
-            self.cursor_manager
+            self.cursor.manager
                 .set_cursor_image(CursorImageStatus::default_named());
 
             let lock = confirmation.ext_session_lock().clone();
@@ -118,7 +118,7 @@ impl Niri {
         }
 
         // Check if there are any outputs whose lock surfaces had not had a commit yet.
-        for state in self.output_state.values() {
+        for state in self.outputs.state.values() {
             let Some(surface) = &state.lock_surface else {
                 // Surface not created yet.
                 return;
@@ -144,11 +144,11 @@ impl Niri {
                 self.event_loop.remove(deadline_token);
 
                 self.ui.screenshot.close();
-                self.cursor_manager
+                self.cursor.manager
                     .set_cursor_image(CursorImageStatus::default_named());
                 self.cancel_mru();
 
-                if self.output_state.is_empty() {
+                if self.outputs.state.is_empty() {
                     // There are no outputs, lock the session right away.
                     let lock = confirmation.ext_session_lock().clone();
                     confirmation.lock();
@@ -175,7 +175,7 @@ impl Niri {
             self.event_loop.remove(deadline_token);
         }
 
-        for output_state in self.output_state.values_mut() {
+        for output_state in self.outputs.state.values_mut() {
             output_state.lock_surface = None;
         }
         self.queue_redraw_all();
@@ -281,7 +281,7 @@ impl Niri {
             return;
         }
 
-        let Some(output_state) = self.output_state.get_mut(output) else {
+        let Some(output_state) = self.outputs.state.get_mut(output) else {
             error!("missing output state");
             return;
         };

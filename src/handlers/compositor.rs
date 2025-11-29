@@ -251,7 +251,7 @@ impl CompositorHandler for State {
                         if new_focus == Some(&window) {
                             // We activated the newly opened window.
                             self.maybe_warp_cursor_to_focus();
-                            self.niri.layer_shell_on_demand_focus = None;
+                            self.niri.focus.layer_on_demand = None;
                         }
 
                         self.niri.queue_redraw(&output);
@@ -415,7 +415,7 @@ impl CompositorHandler for State {
 
         // This might be a cursor surface.
         if matches!(
-            &self.niri.cursor_manager.cursor_image(),
+            &self.niri.cursor.manager.cursor_image(),
             CursorImageStatus::Surface(s) if s == &root_surface
         ) {
             // In case the cursor surface has been committed handle the role specific
@@ -446,8 +446,8 @@ impl CompositorHandler for State {
         }
 
         // This might be a DnD icon surface.
-        if matches!(&self.niri.dnd_icon, Some(icon) if icon.surface == root_surface) {
-            let dnd_icon = self.niri.dnd_icon.as_mut().unwrap();
+        if matches!(&self.niri.cursor.dnd_icon, Some(icon) if icon.surface == root_surface) {
+            let dnd_icon = self.niri.cursor.dnd_icon.as_mut().unwrap();
 
             // In case the dnd surface has been committed handle the role specific
             // buffer offset by applying the offset on the dnd icon offset
@@ -470,7 +470,7 @@ impl CompositorHandler for State {
         }
 
         // This might be a lock surface.
-        for (output, state) in &self.niri.output_state {
+        for (output, state) in &self.niri.outputs.state {
             if let Some(lock_surface) = &state.lock_surface {
                 if lock_surface.wl_surface() == &root_surface {
                     if matches!(self.niri.lock_state, LockState::WaitingForSurfaces { .. }) {

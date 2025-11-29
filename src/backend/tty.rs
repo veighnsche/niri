@@ -1452,7 +1452,7 @@ impl Tty {
 
         // Some buggy monitors replug upon powering off, so powering on here would prevent such
         // monitors from powering off. Therefore, we avoid unconditionally powering on.
-        if !niri.outputs.monitors_active() {
+        if !niri.outputs.monitors_active {
             if let Err(err) = compositor.clear() {
                 warn!("error clearing drm surface: {err:?}");
             }
@@ -1490,7 +1490,7 @@ impl Tty {
 
         niri.outputs.add(output.clone(), Some(refresh_interval(mode)), vrr_enabled);
 
-        if niri.outputs.monitors_active() {
+        if niri.outputs.monitors_active {
             // Redraw the new monitor.
             niri.event_loop.insert_idle(move |state| {
                 // Guard against output disconnecting before the idle has a chance to run.
@@ -1536,7 +1536,7 @@ impl Tty {
         debug!("disconnecting connector: {:?}", surface.name.connector);
 
         let output = niri
-            .global_space
+            .outputs.global_space
             .outputs()
             .find(|output| {
                 let tty_state: &TtyOutputState = output.user_data().get().unwrap();
@@ -1745,7 +1745,7 @@ impl Tty {
         let name = output.name();
         span.emit_text(&name);
 
-        let Some(output_state) = niri.output_state.get_mut(&output) else {
+        let Some(output_state) = niri.outputs.state.get_mut(&output) else {
             error!("missing output state for {name}");
             return;
         };
@@ -1834,7 +1834,7 @@ impl Tty {
 
         // Visualize the damage, if enabled.
         if niri.debug_draw_damage {
-            let output_state = niri.output_state.get_mut(output).unwrap();
+            let output_state = niri.outputs.state.get_mut(output).unwrap();
             draw_damage(&mut output_state.debug_damage_tracker, &mut elements);
         }
 
@@ -1861,7 +1861,7 @@ impl Tty {
                 flags.remove(FrameFlags::ALLOW_CURSOR_PLANE_SCANOUT);
             }
             if debug.skip_cursor_only_updates_during_vrr {
-                let output_state = niri.output_state.get(output).unwrap();
+                let output_state = niri.outputs.state.get(output).unwrap();
                 if output_state.frame_clock.vrr() {
                     flags.insert(FrameFlags::SKIP_CURSOR_ONLY_UPDATES);
                 }
@@ -1901,7 +1901,7 @@ impl Tty {
 
                     match drm_compositor.queue_frame(data) {
                         Ok(()) => {
-                            let output_state = niri.output_state.get_mut(output).unwrap();
+                            let output_state = niri.outputs.state.get_mut(output).unwrap();
                             let new_state = RedrawState::WaitingForVBlank {
                                 redraw_needed: false,
                             };
@@ -2123,7 +2123,7 @@ impl Tty {
                 let vrr_enabled = surface.is_some_and(|surface| surface.compositor.vrr_enabled());
 
                 let logical = niri
-                    .global_space
+                    .outputs.global_space
                     .outputs()
                     .find(|output| {
                         let tty_state: &TtyOutputState = output.user_data().get().unwrap();
@@ -2199,7 +2199,7 @@ impl Tty {
     pub fn set_output_on_demand_vrr(&mut self, niri: &mut Niri, output: &Output, enable_vrr: bool) {
         let _span = tracy_client::span!("Tty::set_output_on_demand_vrr");
 
-        let output_state = niri.output_state.get_mut(output).unwrap();
+        let output_state = niri.outputs.state.get_mut(output).unwrap();
         output_state.on_demand_vrr_enabled = enable_vrr;
         if output_state.frame_clock.vrr() == enable_vrr {
             return;
@@ -2310,7 +2310,7 @@ impl Tty {
         self.update_output_config_on_resume = false;
 
         // Figure out if we should disable laptop panels.
-        let disable_laptop_panels = self.should_disable_laptop_panels(niri.is_lid_closed);
+        let disable_laptop_panels = self.should_disable_laptop_panels(niri.outputs.lid_closed);
         let should_disable = |connector: &str| disable_laptop_panels && is_laptop_panel(connector);
 
         let mut to_disconnect = vec![];
@@ -2373,7 +2373,7 @@ impl Tty {
                 }
 
                 let output = niri
-                    .global_space
+                    .outputs.global_space
                     .outputs()
                     .find(|output| {
                         let tty_state: &TtyOutputState = output.user_data().get().unwrap();
@@ -2384,7 +2384,7 @@ impl Tty {
                     error!("missing output for crtc: {crtc:?}");
                     continue;
                 };
-                let Some(output_state) = niri.output_state.get_mut(&output) else {
+                let Some(output_state) = niri.outputs.state.get_mut(&output) else {
                     error!("missing state for output {:?}", surface.name.connector);
                     continue;
                 };
@@ -2875,7 +2875,7 @@ fn queue_estimated_vblank_timer(
     output: Output,
     target_presentation_time: Duration,
 ) {
-    let output_state = niri.output_state.get_mut(&output).unwrap();
+    let output_state = niri.outputs.state.get_mut(&output).unwrap();
     match mem::take(&mut output_state.redraw_state) {
         RedrawState::Idle => unreachable!(),
         RedrawState::Queued => (),

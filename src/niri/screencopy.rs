@@ -99,7 +99,7 @@ impl Niri {
 
         let output = screencopy.output();
         ensure!(
-            self.output_state.contains_key(output),
+            self.outputs.state.contains_key(output),
             "screencopy output missing"
         );
 

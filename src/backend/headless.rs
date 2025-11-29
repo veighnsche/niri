@@ -136,7 +136,7 @@ impl Headless {
             wp_presentation_feedback::Kind::empty(),
         );
 
-        let output_state = niri.output_state.get_mut(output).unwrap();
+        let output_state = niri.outputs.state.get_mut(output).unwrap();
         match mem::replace(&mut output_state.redraw_state, RedrawState::Idle) {
             RedrawState::Idle => unreachable!(),
             RedrawState::Queued => (),

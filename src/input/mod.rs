@@ -116,7 +116,7 @@ impl State {
         // Make sure some logic like workspace clean-up has a chance to run before doing actions.
         self.niri.advance_animations();
 
-        if self.niri.monitors_active {
+        if self.niri.outputs.monitors_active {
             // Notify the idle-notifier of activity.
             if should_notify_activity(&event) {
                 self.niri.notify_activity();
@@ -266,11 +266,11 @@ impl State {
 
     /// Computes the rectangle that covers all outputs in global space.
     fn global_bounding_rectangle(&self) -> Option<Rectangle<i32, Logical>> {
-        self.niri.global_space.outputs().fold(
+        self.niri.outputs.global_space.outputs().fold(
             None,
             |acc: Option<Rectangle<i32, Logical>>, output| {
                 self.niri
-                    .global_space
+                    .outputs.global_space
                     .output_geometry(output)
                     .map(|geo| acc.map(|acc| acc.merge(geo)).unwrap_or(geo))
             },
@@ -293,7 +293,7 @@ impl State {
         let (target_geo, keep_ratio, px, transform) =
             if let Some(output) = device_output.or_else(|| self.niri.output_for_tablet()) {
                 (
-                    self.niri.global_space.output_geometry(output).unwrap(),
+                    self.niri.outputs.global_space.output_geometry(output).unwrap(),
                     true,
                     1. / output.current_scale().fractional_scale(),
                     output.current_transform(),
@@ -303,7 +303,7 @@ impl State {
 
                 // FIXME: this 1 px size should ideally somehow be computed for the rightmost output
                 // corresponding to the position on the right when clamping.
-                let output = self.niri.global_space.outputs().next().unwrap();
+                let output = self.niri.outputs.global_space.outputs().next().unwrap();
                 let scale = output.current_scale().fractional_scale();
 
                 // Do not keep ratio for the unified mode as this is what OpenTabletDriver expects.
@@ -346,11 +346,11 @@ impl State {
 
     fn is_inhibiting_shortcuts(&self) -> bool {
         self.niri
-            .keyboard_focus
+            .focus.current
             .surface()
             .and_then(|surface| {
                 self.niri
-                    .keyboard_shortcuts_inhibiting_surfaces
+                    .focus.shortcut_inhibitors
                     .get(surface)
             })
             .is_some_and(KeyboardShortcutsInhibitor::is_active)
@@ -526,7 +526,7 @@ impl State {
 
                 if matches!(res, FilterResult::Forward) {
                     // If we didn't find any bind, try other hardcoded keys.
-                    if this.niri.keyboard_focus.is_overview() && pressed {
+                    if this.niri.focus.current.is_overview() && pressed {
                         if let Some(bind) = raw.and_then(|raw| hardcoded_overview_bind(raw, *mods))
                         {
                             this.niri.suppressed_keys.insert(key_code);
@@ -591,7 +591,7 @@ impl State {
     fn hide_cursor_if_needed(&mut self) {
         // If the pointer is already invisible, don't reset it back to Hidden causing one frame
         // of hover.
-        if !self.niri.pointer_visibility.is_visible() {
+        if !self.niri.cursor.visibility.is_visible() {
             return;
         }
 
@@ -602,11 +602,11 @@ impl State {
         // niri keeps this set only while actively using a tablet, which means the cursor position
         // is likely to change almost immediately, causing pointer_visibility to just flicker back
         // and forth.
-        if self.niri.tablet_cursor_location.is_some() {
+        if self.niri.cursor.tablet_location.is_some() {
             return;
         }
 
-        self.niri.pointer_visibility = PointerVisibility::Hidden;
+        self.niri.cursor.visibility = PointerVisibility::Hidden;
         self.niri.queue_redraw_all();
     }
 
@@ -729,7 +729,7 @@ impl State {
 
                 self.niri.ui.screenshot.close();
                 self.niri
-                    .cursor_manager
+                    .cursor.manager
                     .set_cursor_image(CursorImageStatus::default_named());
                 self.niri.queue_redraw_all();
             }
@@ -780,9 +780,9 @@ impl State {
                 }
             }
             Action::ToggleKeyboardShortcutsInhibit => {
-                if let Some(inhibitor) = self.niri.keyboard_focus.surface().and_then(|surface| {
+                if let Some(inhibitor) = self.niri.focus.current.surface().and_then(|surface| {
                     self.niri
-                        .keyboard_shortcuts_inhibiting_surfaces
+                        .focus.shortcut_inhibitors
                         .get(surface)
                 }) {
                     if inhibitor.is_active() {
@@ -847,7 +847,7 @@ impl State {
             Action::FocusWindowInColumn(index) => {
                 self.niri.layout.focus_window_in_column(index);
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
@@ -1036,7 +1036,7 @@ impl State {
             Action::FocusColumnLeft => {
                 self.niri.layout.focus_left();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
@@ -1049,14 +1049,14 @@ impl State {
                     };
                     ws.focus_left();
                     self.maybe_warp_cursor_to_focus();
-                    self.niri.layer_shell_on_demand_focus = None;
+                    self.niri.focus.layer_on_demand = None;
                     self.niri.queue_redraw(&output);
                 }
             }
             Action::FocusColumnRight => {
                 self.niri.layout.focus_right();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
@@ -1069,42 +1069,42 @@ impl State {
                     };
                     ws.focus_right();
                     self.maybe_warp_cursor_to_focus();
-                    self.niri.layer_shell_on_demand_focus = None;
+                    self.niri.focus.layer_on_demand = None;
                     self.niri.queue_redraw(&output);
                 }
             }
             Action::FocusColumnFirst => {
                 self.niri.layout.focus_column_first();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusColumnLast => {
                 self.niri.layout.focus_column_last();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusColumnRightOrFirst => {
                 self.niri.layout.focus_column_right_or_first();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusColumnLeftOrLast => {
                 self.niri.layout.focus_column_left_or_last();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusColumn(index) => {
                 self.niri.layout.focus_column(index);
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
@@ -1121,7 +1121,7 @@ impl State {
                     self.niri.layout.focus_up();
                     self.maybe_warp_cursor_to_focus();
                 }
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
 
                 // FIXME: granular
                 self.niri.queue_redraw_all();
@@ -1139,7 +1139,7 @@ impl State {
                     self.niri.layout.focus_down();
                     self.maybe_warp_cursor_to_focus();
                 }
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
 
                 // FIXME: granular
                 self.niri.queue_redraw_all();
@@ -1157,7 +1157,7 @@ impl State {
                     self.niri.layout.focus_left();
                     self.maybe_warp_cursor_to_focus();
                 }
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
 
                 // FIXME: granular
                 self.niri.queue_redraw_all();
@@ -1175,7 +1175,7 @@ impl State {
                     self.niri.layout.focus_right();
                     self.maybe_warp_cursor_to_focus();
                 }
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
 
                 // FIXME: granular
                 self.niri.queue_redraw_all();
@@ -1183,42 +1183,42 @@ impl State {
             Action::FocusWindowDown => {
                 self.niri.layout.focus_down();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusWindowUp => {
                 self.niri.layout.focus_up();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusWindowDownOrColumnLeft => {
                 self.niri.layout.focus_down_or_left();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusWindowDownOrColumnRight => {
                 self.niri.layout.focus_down_or_right();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusWindowUpOrColumnLeft => {
                 self.niri.layout.focus_up_or_left();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusWindowUpOrColumnRight => {
                 self.niri.layout.focus_up_or_right();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
@@ -1226,7 +1226,7 @@ impl State {
             Action::FocusWindowOrRowDown => {
                 self.niri.layout.focus_window_or_row_down();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
@@ -1234,35 +1234,35 @@ impl State {
             Action::FocusWindowOrRowUp => {
                 self.niri.layout.focus_window_or_row_up();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusWindowTop => {
                 self.niri.layout.focus_window_top();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusWindowBottom => {
                 self.niri.layout.focus_window_bottom();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusWindowDownOrTop => {
                 self.niri.layout.focus_window_down_or_top();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
             Action::FocusWindowUpOrBottom => {
                 self.niri.layout.focus_window_up_or_bottom();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
@@ -1304,7 +1304,7 @@ impl State {
             Action::FocusRowDown => {
                 self.niri.layout.focus_row_down();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
@@ -1314,7 +1314,7 @@ impl State {
                     if let Some(mon) = self.niri.layout.monitor_for_output_mut(&output) {
                         mon.switch_row_down();
                         self.maybe_warp_cursor_to_focus();
-                        self.niri.layer_shell_on_demand_focus = None;
+                        self.niri.focus.layer_on_demand = None;
                         self.niri.queue_redraw(&output);
                     }
                 }
@@ -1323,7 +1323,7 @@ impl State {
             Action::FocusRowUp => {
                 self.niri.layout.focus_row_up();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
@@ -1333,7 +1333,7 @@ impl State {
                     if let Some(mon) = self.niri.layout.monitor_for_output_mut(&output) {
                         mon.switch_row_up();
                         self.maybe_warp_cursor_to_focus();
-                        self.niri.layer_shell_on_demand_focus = None;
+                        self.niri.focus.layer_on_demand = None;
                         self.niri.queue_redraw(&output);
                     }
                 }
@@ -1342,7 +1342,7 @@ impl State {
             Action::FocusPreviousPosition => {
                 self.niri.layout.focus_previous_position();
                 self.maybe_warp_cursor_to_focus();
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 // FIXME: granular
                 self.niri.queue_redraw_all();
             }
@@ -1510,7 +1510,7 @@ impl State {
                     if !self.maybe_warp_cursor_to_focus_centered() {
                         self.move_cursor_to_output(&output);
                     }
-                    self.niri.layer_shell_on_demand_focus = None;
+                    self.niri.focus.layer_on_demand = None;
                 }
             }
             Action::FocusMonitorRight => {
@@ -1519,7 +1519,7 @@ impl State {
                     if !self.maybe_warp_cursor_to_focus_centered() {
                         self.move_cursor_to_output(&output);
                     }
-                    self.niri.layer_shell_on_demand_focus = None;
+                    self.niri.focus.layer_on_demand = None;
                 }
             }
             Action::FocusMonitorDown => {
@@ -1528,7 +1528,7 @@ impl State {
                     if !self.maybe_warp_cursor_to_focus_centered() {
                         self.move_cursor_to_output(&output);
                     }
-                    self.niri.layer_shell_on_demand_focus = None;
+                    self.niri.focus.layer_on_demand = None;
                 }
             }
             Action::FocusMonitorUp => {
@@ -1537,7 +1537,7 @@ impl State {
                     if !self.maybe_warp_cursor_to_focus_centered() {
                         self.move_cursor_to_output(&output);
                     }
-                    self.niri.layer_shell_on_demand_focus = None;
+                    self.niri.focus.layer_on_demand = None;
                 }
             }
             Action::FocusMonitorPrevious => {
@@ -1546,7 +1546,7 @@ impl State {
                     if !self.maybe_warp_cursor_to_focus_centered() {
                         self.move_cursor_to_output(&output);
                     }
-                    self.niri.layer_shell_on_demand_focus = None;
+                    self.niri.focus.layer_on_demand = None;
                 }
             }
             Action::FocusMonitorNext => {
@@ -1555,7 +1555,7 @@ impl State {
                     if !self.maybe_warp_cursor_to_focus_centered() {
                         self.move_cursor_to_output(&output);
                     }
-                    self.niri.layer_shell_on_demand_focus = None;
+                    self.niri.focus.layer_on_demand = None;
                 }
             }
             Action::FocusMonitor(output) => {
@@ -1564,7 +1564,7 @@ impl State {
                     if !self.maybe_warp_cursor_to_focus_centered() {
                         self.move_cursor_to_output(&output);
                     }
-                    self.niri.layer_shell_on_demand_focus = None;
+                    self.niri.focus.layer_on_demand = None;
                 }
             }
             Action::MoveWindowToMonitorLeft => {
@@ -2203,7 +2203,7 @@ impl State {
         self.niri.pointer_inside_hot_corner = false;
 
         // We need an output to be able to move the pointer.
-        if self.niri.global_space.outputs().next().is_none() {
+        if self.niri.outputs.global_space.outputs().next().is_none() {
             return;
         }
 
@@ -2217,14 +2217,14 @@ impl State {
         let mut new_pos = pos + event.delta();
 
         // We received an event for the regular pointer, so show it now.
-        self.niri.pointer_visibility = PointerVisibility::Visible;
-        self.niri.tablet_cursor_location = None;
+        self.niri.cursor.visibility = PointerVisibility::Visible;
+        self.niri.cursor.tablet_location = None;
 
         // Check if we have an active pointer constraint.
         //
         // FIXME: ideally this should use the pointer focus with up-to-date global location.
         let mut pointer_confined = None;
-        if let Some(under) = &self.niri.pointer_contents.surface {
+        if let Some(under) = &self.niri.cursor.contents.surface {
             // No need to check if the pointer focus surface matches, because here we're checking
             // for an already-active constraint, and the constraint is deactivated when the focused
             // surface changes.
@@ -2276,16 +2276,16 @@ impl State {
 
         if self
             .niri
-            .global_space
+            .outputs.global_space
             .output_under(new_pos)
             .next()
             .is_none()
         {
             // We ended up outside the outputs and need to clip the movement.
-            if let Some(output) = self.niri.global_space.output_under(pos).next() {
+            if let Some(output) = self.niri.outputs.global_space.output_under(pos).next() {
                 // The pointer was previously on some output. Clip the movement against its
                 // boundaries.
-                let geom = self.niri.global_space.output_geometry(output).unwrap();
+                let geom = self.niri.outputs.global_space.output_geometry(output).unwrap();
                 new_pos.x = new_pos
                     .x
                     .clamp(geom.loc.x as f64, (geom.loc.x + geom.size.w - 1) as f64);
@@ -2295,14 +2295,14 @@ impl State {
             } else {
                 // The pointer was not on any output in the first place. Find one for it.
                 // Let's do the simple thing and just put it on the first output.
-                let output = self.niri.global_space.outputs().next().unwrap();
-                let geom = self.niri.global_space.output_geometry(output).unwrap();
+                let output = self.niri.outputs.global_space.outputs().next().unwrap();
+                let geom = self.niri.outputs.global_space.output_geometry(output).unwrap();
                 new_pos = center(geom).to_f64();
             }
         }
 
         if let Some(output) = self.niri.ui.screenshot.selection_output() {
-            let geom = self.niri.global_space.output_geometry(output).unwrap();
+            let geom = self.niri.outputs.global_space.output_geometry(output).unwrap();
             let mut point = (new_pos - geom.loc.to_f64())
                 .to_physical(output.current_scale().fractional_scale())
                 .to_i32_round::<i32>();
@@ -2362,7 +2362,7 @@ impl State {
 
         self.niri.handle_focus_follows_mouse(&under);
 
-        self.niri.pointer_contents.clone_from(&under);
+        self.niri.cursor.contents.clone_from(&under);
 
         pointer.motion(
             self,
@@ -2435,7 +2435,7 @@ impl State {
         let pointer = self.niri.seat.get_pointer().unwrap();
 
         if let Some(output) = self.niri.ui.screenshot.selection_output() {
-            let geom = self.niri.global_space.output_geometry(output).unwrap();
+            let geom = self.niri.outputs.global_space.output_geometry(output).unwrap();
             let mut point = (pos - geom.loc.to_f64())
                 .to_physical(output.current_scale().fractional_scale())
                 .to_i32_round::<i32>();
@@ -2461,7 +2461,7 @@ impl State {
 
         self.niri.handle_focus_follows_mouse(&under);
 
-        self.niri.pointer_contents.clone_from(&under);
+        self.niri.cursor.contents.clone_from(&under);
 
         pointer.motion(
             self,
@@ -2486,10 +2486,10 @@ impl State {
         self.niri.maybe_activate_pointer_constraint();
 
         // We moved the pointer, show it.
-        self.niri.pointer_visibility = PointerVisibility::Visible;
+        self.niri.cursor.visibility = PointerVisibility::Visible;
 
         // We moved the regular pointer, so show it now.
-        self.niri.tablet_cursor_location = None;
+        self.niri.cursor.tablet_location = None;
 
         // Inform the layout of an ongoing DnD operation.
         let mut is_dnd_grab = false;
@@ -2574,8 +2574,8 @@ impl State {
             }
 
             // We received an event for the regular pointer, so show it now.
-            self.niri.pointer_visibility = PointerVisibility::Visible;
-            self.niri.tablet_cursor_location = None;
+            self.niri.cursor.visibility = PointerVisibility::Visible;
+            self.niri.cursor.tablet_location = None;
 
             // Overview mode has been removed, this is always false
             let is_overview_open = false;
@@ -2599,7 +2599,7 @@ impl State {
                     let grab = SpatialMovementGrab::new(start_data, output, ws_id, true);
                     pointer.set_grab(self, grab, serial, Focus::Clear);
                     self.niri
-                        .cursor_manager
+                        .cursor.manager
                         .set_cursor_image(CursorImageStatus::Named(CursorIcon::AllScroll));
 
                     // FIXME: granular.
@@ -2638,7 +2638,7 @@ impl State {
                         let grab = SpatialMovementGrab::new(start_data, output, ws_id, false);
                         pointer.set_grab(self, grab, serial, Focus::Clear);
                         self.niri
-                            .cursor_manager
+                            .cursor.manager
                             .set_cursor_image(CursorImageStatus::Named(CursorIcon::AllScroll));
 
                         // FIXME: granular.
@@ -2738,7 +2738,7 @@ impl State {
                                 };
                                 let grab = ResizeGrab::new(start_data, window.clone());
                                 pointer.set_grab(self, grab, serial, Focus::Clear);
-                                self.niri.cursor_manager.set_cursor_image(
+                                self.niri.cursor.manager.set_cursor_image(
                                     CursorImageStatus::Named(edges.cursor_icon()),
                                 );
                             }
@@ -2764,7 +2764,7 @@ impl State {
         self.update_pointer_contents();
 
         if ButtonState::Pressed == button_state {
-            let layer_under = self.niri.pointer_contents.layer.clone();
+            let layer_under = self.niri.cursor.contents.layer.clone();
             self.niri.focus_layer_surface_if_on_demand(layer_under);
         }
 
@@ -2773,7 +2773,7 @@ impl State {
                 let pos = pointer.current_location();
                 if let Some((output, _)) = self.niri.output_under(pos) {
                     let output = output.clone();
-                    let geom = self.niri.global_space.output_geometry(&output).unwrap();
+                    let geom = self.niri.outputs.global_space.output_geometry(&output).unwrap();
                     let mut point = (pos - geom.loc.to_f64())
                         .to_physical(output.current_scale().fractional_scale())
                         .to_i32_round();
@@ -2819,8 +2819,8 @@ impl State {
         // We received an event for the regular pointer, so show it now. This is also needed for
         // update_pointer_contents() below to return the real contents, necessary for the pointer
         // axis event to reach the window.
-        self.niri.pointer_visibility = PointerVisibility::Visible;
-        self.niri.tablet_cursor_location = None;
+        self.niri.cursor.visibility = PointerVisibility::Visible;
+        self.niri.cursor.tablet_location = None;
 
         let timestamp = Duration::from_micros(event.time());
 
@@ -3271,7 +3271,7 @@ impl State {
         };
 
         if let Some(output) = self.niri.ui.screenshot.selection_output() {
-            let geom = self.niri.global_space.output_geometry(output).unwrap();
+            let geom = self.niri.outputs.global_space.output_geometry(output).unwrap();
             let mut point = (pos - geom.loc.to_f64())
                 .to_physical(output.current_scale().fractional_scale())
                 .to_i32_round::<i32>();
@@ -3326,8 +3326,8 @@ impl State {
                 event.time_msec(),
             );
 
-            self.niri.pointer_visibility = PointerVisibility::Visible;
-            self.niri.tablet_cursor_location = Some(pos);
+            self.niri.cursor.visibility = PointerVisibility::Visible;
+            self.niri.cursor.tablet_location = Some(pos);
         }
 
         // Redraw to update the cursor position.
@@ -3351,12 +3351,12 @@ impl State {
                 let serial = SERIAL_COUNTER.next_serial();
                 tool.tip_down(serial, event.time_msec());
 
-                if let Some(pos) = self.niri.tablet_cursor_location {
+                if let Some(pos) = self.niri.cursor.tablet_location {
                     let under = self.niri.contents_under(pos);
 
                     if self.niri.ui.screenshot.is_open() {
                         if let Some(output) = under.output.clone() {
-                            let geom = self.niri.global_space.output_geometry(&output).unwrap();
+                            let geom = self.niri.outputs.global_space.output_geometry(&output).unwrap();
                             let mut point = (pos - geom.loc.to_f64())
                                 .to_physical(output.current_scale().fractional_scale())
                                 .to_i32_round();
@@ -3440,8 +3440,8 @@ impl State {
                             event.time_msec(),
                         );
                     }
-                    self.niri.pointer_visibility = PointerVisibility::Visible;
-                    self.niri.tablet_cursor_location = Some(pos);
+                    self.niri.cursor.visibility = PointerVisibility::Visible;
+                    self.niri.cursor.tablet_location = Some(pos);
                 }
                 ProximityState::Out => {
                     tool.proximity_out(event.time_msec());
@@ -3450,12 +3450,12 @@ impl State {
                     //
                     // Plus, Wayland SDL2 currently warps the pointer into some weird
                     // location on proximity out, so this should help it a little.
-                    if let Some(pos) = self.niri.tablet_cursor_location {
+                    if let Some(pos) = self.niri.cursor.tablet_location {
                         self.move_cursor(pos);
                     }
 
-                    self.niri.pointer_visibility = PointerVisibility::Visible;
-                    self.niri.tablet_cursor_location = None;
+                    self.niri.cursor.visibility = PointerVisibility::Visible;
+                    self.niri.cursor.tablet_location = None;
                 }
             }
 
@@ -3764,7 +3764,7 @@ impl State {
     ) -> Option<Point<f64, Logical>> {
         let output = evt.device().output(self);
         let output = output.as_ref().or(fallback_output)?;
-        let output_geo = self.niri.global_space.output_geometry(output).unwrap();
+        let output_geo = self.niri.outputs.global_space.output_geometry(output).unwrap();
         let transform = output.current_transform();
         let size = transform.invert().transform_size(output_geo.size);
         Some(
@@ -3800,7 +3800,7 @@ impl State {
 
         if self.niri.ui.screenshot.is_open() {
             if let Some(output) = under.output.clone() {
-                let geom = self.niri.global_space.output_geometry(&output).unwrap();
+                let geom = self.niri.outputs.global_space.output_geometry(&output).unwrap();
                 let mut point = (pos - geom.loc.to_f64())
                     .to_physical(output.current_scale().fractional_scale())
                     .to_i32_round();
@@ -3897,7 +3897,7 @@ impl State {
         );
 
         // We're using touch, hide the pointer.
-        self.niri.pointer_visibility = PointerVisibility::Disabled;
+        self.niri.cursor.visibility = PointerVisibility::Disabled;
     }
     fn on_touch_up<I: InputBackend>(&mut self, evt: I::TouchUpEvent) {
         let Some(handle) = self.niri.seat.get_touch() else {
@@ -3933,7 +3933,7 @@ impl State {
         let slot = evt.slot();
 
         if let Some(output) = self.niri.ui.screenshot.selection_output().cloned() {
-            let geom = self.niri.global_space.output_geometry(&output).unwrap();
+            let geom = self.niri.outputs.global_space.output_geometry(&output).unwrap();
             let mut point = (pos - geom.loc.to_f64())
                 .to_physical(output.current_scale().fractional_scale())
                 .to_i32_round::<i32>();

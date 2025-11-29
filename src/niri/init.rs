@@ -282,6 +282,8 @@ impl Niri {
             streaming: StreamingSubsystem::new(),
             debug_draw_opaque_regions: false,
             debug_draw_damage: false,
+            pointer_inside_hot_corner: false,
+            pending_mru_commit: None,
 
             #[cfg(feature = "dbus")]
             dbus: None,

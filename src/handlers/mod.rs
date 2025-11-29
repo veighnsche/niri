@@ -114,7 +114,7 @@ impl SeatHandler for State {
         if self.niri.ui.screenshot.is_open() {
             image = CursorImageStatus::Named(CursorIcon::Crosshair);
         }
-        self.niri.cursor_manager.set_cursor_image(image);
+        self.niri.cursor.manager.set_cursor_image(image);
         // FIXME: more granular
         self.niri.queue_redraw_all();
     }
@@ -148,7 +148,7 @@ delegate_text_input_manager!(State);
 impl TabletSeatHandler for State {
     fn tablet_tool_image(&mut self, _tool: &TabletToolDescriptor, image: CursorImageStatus) {
         // FIXME: tablet tools should have their own cursors.
-        self.niri.cursor_manager.set_cursor_image(image);
+        self.niri.cursor.manager.set_cursor_image(image);
         // FIXME: granular.
         self.niri.queue_redraw_all();
     }
@@ -187,7 +187,7 @@ impl PointerConstraintsHandler for State {
         // more of a hack because pointer contents has the surface origin available.
         //
         // FIXME: use the constraint surface somehow, don't use pointer contents.
-        let Some((ref surface_under_pointer, origin)) = self.niri.pointer_contents.surface else {
+        let Some((ref surface_under_pointer, origin)) = self.niri.cursor.contents.surface else {
             return;
         };
 
@@ -203,7 +203,7 @@ impl PointerConstraintsHandler for State {
         let target = self
             .niri
             .output_for_root(&root)
-            .and_then(|output| self.niri.global_space.output_geometry(output))
+            .and_then(|output| self.niri.outputs.global_space.output_geometry(output))
             .map_or(origin + location, |mut output_geometry| {
                 // i32 sizes are exclusive, but f64 sizes are inclusive.
                 output_geometry.size -= (1, 1).into();
@@ -212,7 +212,7 @@ impl PointerConstraintsHandler for State {
         pointer.set_location(target);
 
         // Redraw to update the cursor position if it's visible.
-        if self.niri.pointer_visibility.is_visible() {
+        if self.niri.cursor.visibility.is_visible() {
             // FIXME: redraw only outputs overlapping the cursor.
             self.niri.queue_redraw_all();
         }
@@ -268,13 +268,13 @@ impl KeyboardShortcutsInhibitHandler for State {
         // FIXME: show a confirmation dialog with a "remember for this application" kind of toggle.
         inhibitor.activate();
         self.niri
-            .keyboard_shortcuts_inhibiting_surfaces
+            .focus.shortcut_inhibitors
             .insert(inhibitor.wl_surface().clone(), inhibitor);
     }
 
     fn inhibitor_destroyed(&mut self, inhibitor: KeyboardShortcutsInhibitor) {
         self.niri
-            .keyboard_shortcuts_inhibiting_surfaces
+            .focus.shortcut_inhibitors
             .remove(&inhibitor.wl_surface().clone());
     }
 }
@@ -322,7 +322,7 @@ impl ClientDndGrabHandler for State {
         icon: Option<WlSurface>,
         _seat: Seat<Self>,
     ) {
-        self.niri.dnd_icon = icon.map(|surface| DndIcon {
+        self.niri.cursor.dnd_icon = icon.map(|surface| DndIcon {
             surface,
             offset: Point::new(0, 0),
         });
@@ -344,7 +344,7 @@ impl ClientDndGrabHandler for State {
             if let Some((mapped, _)) = self.niri.layout.find_window_and_output(&root) {
                 let window = mapped.window.clone();
                 self.niri.layout.activate_window(&window);
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.layer_on_demand = None;
                 activate_output = false;
             }
         }
@@ -357,16 +357,16 @@ impl ClientDndGrabHandler for State {
             // parameters from Smithay I guess.
             //
             // Assume that hidden pointer means touch DnD.
-            if self.niri.pointer_visibility.is_visible() {
+            if self.niri.cursor.visibility.is_visible() {
                 // We can't even get the current pointer location because it's locked (we're deep
                 // in the grab call stack here). So use the last known one.
-                if let Some(output) = &self.niri.pointer_contents.output {
+                if let Some(output) = &self.niri.cursor.contents.output {
                     self.niri.layout.focus_output(output);
                 }
             }
         }
 
-        self.niri.dnd_icon = None;
+        self.niri.cursor.dnd_icon = None;
         // FIXME: more granular
         self.niri.queue_redraw_all();
     }
@@ -496,11 +496,11 @@ delegate_idle_notify!(State);
 
 impl IdleInhibitHandler for State {
     fn inhibit(&mut self, surface: WlSurface) {
-        self.niri.idle_inhibiting_surfaces.insert(surface);
+        self.niri.focus.idle_inhibitors.insert(surface);
     }
 
     fn uninhibit(&mut self, surface: WlSurface) {
-        self.niri.idle_inhibiting_surfaces.remove(&surface);
+        self.niri.focus.idle_inhibitors.remove(&surface);
     }
 }
 delegate_idle_inhibit!(State);
@@ -514,7 +514,7 @@ impl ForeignToplevelHandler for State {
         if let Some((mapped, _)) = self.niri.layout.find_window_and_output(&wl_surface) {
             let window = mapped.window.clone();
             self.niri.layout.activate_window(&window);
-            self.niri.layer_shell_on_demand_focus = None;
+            self.niri.focus.layer_on_demand = None;
             self.niri.queue_redraw_all();
         }
     }
@@ -799,7 +799,7 @@ impl XdgActivationHandler for State {
                     self.niri.queue_redraw_all();
                 } else {
                     self.niri.layout.activate_window(&window);
-                    self.niri.layer_shell_on_demand_focus = None;
+                    self.niri.focus.layer_on_demand = None;
                     self.niri.queue_redraw_all();
                 }
             } else if let Some(unmapped) = self.niri.unmapped_windows.get_mut(&surface) {

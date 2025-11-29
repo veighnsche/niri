@@ -29,7 +29,7 @@ impl Niri {
     pub fn send_frame_callbacks(&mut self, output: &Output) {
         let _span = tracy_client::span!("Niri::send_frame_callbacks");
 
-        let state = self.output_state.get(output).unwrap();
+        let state = self.outputs.state.get(output).unwrap();
         let sequence = state.frame_callback_sequence;
 
         let should_send = |surface: &WlSurface, states: &SurfaceData| {
@@ -85,7 +85,7 @@ impl Niri {
             );
         }
 
-        if let Some(surface) = &self.output_state[output].lock_surface {
+        if let Some(surface) = &self.outputs.state[output].lock_surface {
             send_frames_surface_tree(
                 surface.wl_surface(),
                 output,
@@ -95,7 +95,7 @@ impl Niri {
             );
         }
 
-        if let Some(surface) = self.dnd_icon.as_ref().map(|icon| &icon.surface) {
+        if let Some(surface) = self.cursor.dnd_icon.as_ref().map(|icon| &icon.surface) {
             send_frames_surface_tree(
                 surface,
                 output,
@@ -105,7 +105,7 @@ impl Niri {
             );
         }
 
-        if let CursorImageStatus::Surface(surface) = self.cursor_manager.cursor_image() {
+        if let CursorImageStatus::Surface(surface) = self.cursor.manager.cursor_image() {
             send_frames_surface_tree(
                 surface,
                 output,
@@ -144,7 +144,7 @@ impl Niri {
             );
         });
 
-        for (output, state) in self.output_state.iter() {
+        for (output, state) in self.outputs.state.iter() {
             for surface in layer_map_for_output(output).layers() {
                 surface.send_frame(
                     output,
@@ -165,7 +165,7 @@ impl Niri {
             }
         }
 
-        if let Some(surface) = &self.dnd_icon.as_ref().map(|icon| &icon.surface) {
+        if let Some(surface) = &self.cursor.dnd_icon.as_ref().map(|icon| &icon.surface) {
             send_frames_surface_tree(
                 surface,
                 output,
@@ -175,7 +175,7 @@ impl Niri {
             );
         }
 
-        if let CursorImageStatus::Surface(surface) = self.cursor_manager.cursor_image() {
+        if let CursorImageStatus::Surface(surface) = self.cursor.manager.cursor_image() {
             send_frames_surface_tree(
                 surface,
                 output,
@@ -194,7 +194,7 @@ impl Niri {
     ) -> OutputPresentationFeedback {
         let mut feedback = OutputPresentationFeedback::new(output);
 
-        if let CursorImageStatus::Surface(surface) = &self.cursor_manager.cursor_image() {
+        if let CursorImageStatus::Surface(surface) = &self.cursor.manager.cursor_image() {
             take_presentation_feedback_surface_tree(
                 surface,
                 &mut feedback,
@@ -205,7 +205,7 @@ impl Niri {
             );
         }
 
-        if let Some(surface) = self.dnd_icon.as_ref().map(|icon| &icon.surface) {
+        if let Some(surface) = self.cursor.dnd_icon.as_ref().map(|icon| &icon.surface) {
             take_presentation_feedback_surface_tree(
                 surface,
                 &mut feedback,
@@ -236,7 +236,7 @@ impl Niri {
             );
         }
 
-        if let Some(surface) = &self.output_state[output].lock_surface {
+        if let Some(surface) = &self.outputs.state[output].lock_surface {
             take_presentation_feedback_surface_tree(
                 surface.wl_surface(),
                 &mut feedback,

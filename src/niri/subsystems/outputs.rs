@@ -27,7 +27,7 @@
 //! }
 //!
 //! // Check if any monitors are active
-//! if !niri.outputs.monitors_active() {
+//! if !niri.outputs.monitors_active {
 //!     // Handle all monitors off
 //! }
 //! ```
@@ -53,19 +53,19 @@ use crate::niri::OutputState;
 /// for adding, removing, repositioning, and querying outputs.
 pub struct OutputSubsystem {
     /// Global compositor space containing all outputs.
-    global_space: Space<smithay::desktop::Window>,
+    pub global_space: Space<smithay::desktop::Window>,
     
     /// Outputs sorted by name and position.
-    sorted: Vec<Output>,
+    pub sorted: Vec<Output>,
     
     /// Per-output state (frame clock, redraw state, etc.).
-    state: HashMap<Output, OutputState>,
+    pub state: HashMap<Output, OutputState>,
     
     /// Whether monitors are currently active (not powered off for idle).
-    monitors_active: bool,
+    pub monitors_active: bool,
     
     /// Whether the laptop lid is closed.
-    lid_closed: bool,
+    pub lid_closed: bool,
 }
 
 impl OutputSubsystem {

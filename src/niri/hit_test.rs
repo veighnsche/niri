@@ -35,7 +35,7 @@ impl Niri {
 
         // Use size from the ceiled output geometry, since that's what we currently use for pointer
         // motion clamping.
-        let geom = self.global_space.output_geometry(output).unwrap();
+        let geom = self.outputs.global_space.output_geometry(output).unwrap();
         let size = geom.size.to_f64();
 
         let contains = move |corner: Point<f64, Logical>| {
@@ -255,7 +255,7 @@ impl Niri {
             return rv;
         };
         rv.output = Some(output.clone());
-        let output_pos_in_global_space = self.global_space.output_geometry(output).unwrap().loc;
+        let output_pos_in_global_space = self.outputs.global_space.output_geometry(output).unwrap().loc;
 
         // The ordering here must be consistent with the ordering in render() so that input is
         // consistent with the visuals.

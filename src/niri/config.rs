@@ -58,7 +58,7 @@ impl StateConfigExt for super::State {
         let mut resized_outputs = vec![];
         let mut recolored_outputs = vec![];
 
-        for output in self.niri.global_space.outputs() {
+        for output in self.niri.outputs.global_space.outputs() {
             let name = output.user_data().get::<niri_config::OutputName>().unwrap();
             let full_config = self.niri.config.borrow_mut();
             let config = full_config.outputs.find(name);
@@ -220,9 +220,9 @@ impl super::State {
         let cursor_config = &config.cursor;
         if cursor_config != &self.niri.config.borrow().cursor {
             self.niri
-                .cursor_manager
+                .cursor.manager
                 .reload(&cursor_config.xcursor_theme, cursor_config.xcursor_size);
-            self.niri.cursor_texture_cache.clear();
+            self.niri.cursor.texture_cache.clear();
         }
     }
 
