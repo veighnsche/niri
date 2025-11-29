@@ -1,6 +1,7 @@
 use zbus::blocking::Connection;
 use zbus::object_server::Interface;
 
+use crate::niri::config::StateConfigExt;
 use crate::niri::State;
 
 pub mod freedesktop_a11y;

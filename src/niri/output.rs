@@ -18,114 +18,47 @@ use super::Niri;
 // =============================================================================
 
 impl Niri {
+    // TEAM_083: Output query methods now delegate to OutputSubsystem
+    
     /// Returns the output under the given position and the position within that output.
     pub fn output_under(&self, pos: Point<f64, Logical>) -> Option<(&Output, Point<f64, Logical>)> {
-        let output = self.outputs.space().output_under(pos).next()?;
-        let pos_within_output = pos
-            - self
-                .outputs
-                .space()
-                .output_geometry(output)
-                .unwrap()
-                .loc
-                .to_f64();
-
-        Some((output, pos_within_output))
+        self.outputs.under_position(pos)
     }
 
     /// Returns the output under the current cursor position.
     pub fn output_under_cursor(&self) -> Option<Output> {
         let pos = self.seat.get_pointer().unwrap().current_location();
-        self.outputs.space().output_under(pos).next().cloned()
+        self.outputs.under_position(pos).map(|(o, _)| o.clone())
     }
 
     /// Returns the output to the left of the given output.
     pub fn output_left_of(&self, current: &Output) -> Option<Output> {
-        let current_geo = self.outputs.space().output_geometry(current)?;
-        let extended_geo = Rectangle::new(
-            Point::from((i32::MIN / 2, current_geo.loc.y)),
-            Size::from((i32::MAX, current_geo.size.h)),
-        );
-
-        self.outputs.space()
-            .outputs()
-            .map(|output| (output, self.outputs.space().output_geometry(output).unwrap()))
-            .filter(|(_, geo)| center(*geo).x < center(current_geo).x && geo.overlaps(extended_geo))
-            .min_by_key(|(_, geo)| center(current_geo).x - center(*geo).x)
-            .map(|(output, _)| output)
-            .cloned()
+        self.outputs.left_of(current).cloned()
     }
 
     /// Returns the output to the right of the given output.
     pub fn output_right_of(&self, current: &Output) -> Option<Output> {
-        let current_geo = self.outputs.space().output_geometry(current)?;
-        let extended_geo = Rectangle::new(
-            Point::from((i32::MIN / 2, current_geo.loc.y)),
-            Size::from((i32::MAX, current_geo.size.h)),
-        );
-
-        self.outputs.space()
-            .outputs()
-            .map(|output| (output, self.outputs.space().output_geometry(output).unwrap()))
-            .filter(|(_, geo)| center(*geo).x > center(current_geo).x && geo.overlaps(extended_geo))
-            .min_by_key(|(_, geo)| center(*geo).x - center(current_geo).x)
-            .map(|(output, _)| output)
-            .cloned()
+        self.outputs.right_of(current).cloned()
     }
 
     /// Returns the output above the given output.
     pub fn output_up_of(&self, current: &Output) -> Option<Output> {
-        let current_geo = self.outputs.space().output_geometry(current)?;
-        let extended_geo = Rectangle::new(
-            Point::from((current_geo.loc.x, i32::MIN / 2)),
-            Size::from((current_geo.size.w, i32::MAX)),
-        );
-
-        self.outputs.space()
-            .outputs()
-            .map(|output| (output, self.outputs.space().output_geometry(output).unwrap()))
-            .filter(|(_, geo)| center(*geo).y < center(current_geo).y && geo.overlaps(extended_geo))
-            .min_by_key(|(_, geo)| center(current_geo).y - center(*geo).y)
-            .map(|(output, _)| output)
-            .cloned()
+        self.outputs.above(current).cloned()
     }
 
     /// Returns the output below the given output.
     pub fn output_down_of(&self, current: &Output) -> Option<Output> {
-        let current_geo = self.outputs.space().output_geometry(current)?;
-        let extended_geo = Rectangle::new(
-            Point::from((current_geo.loc.x, i32::MIN / 2)),
-            Size::from((current_geo.size.w, i32::MAX)),
-        );
-
-        self.outputs.space()
-            .outputs()
-            .map(|output| (output, self.outputs.space().output_geometry(output).unwrap()))
-            .filter(|(_, geo)| center(*geo).y > center(current_geo).y && geo.overlaps(extended_geo))
-            .min_by_key(|(_, geo)| center(*geo).y - center(current_geo).y)
-            .map(|(output, _)| output)
-            .cloned()
+        self.outputs.below(current).cloned()
     }
 
     /// Returns the previous output in the sorted order.
     pub fn output_previous_of(&self, current: &Output) -> Option<Output> {
-        self.outputs.iter()
-            .rev()
-            .skip_while(|&output| output != current)
-            .nth(1)
-            .or(self.outputs.iter().last())
-            .filter(|&output| output != current)
-            .cloned()
+        self.outputs.previous_of(current).cloned()
     }
 
     /// Returns the next output in the sorted order.
     pub fn output_next_of(&self, current: &Output) -> Option<Output> {
-        self.outputs.iter()
-            .skip_while(|&output| output != current)
-            .nth(1)
-            .or(self.outputs.iter().first())
-            .filter(|&output| output != current)
-            .cloned()
+        self.outputs.next_of(current).cloned()
     }
 
     /// Returns the output to the left of the active output.

@@ -2,6 +2,7 @@ mod compositor;
 mod layer_shell;
 mod xdg_shell;
 
+use crate::niri::config::StateConfigExt;
 use std::fs::File;
 use std::io::Write;
 use std::os::fd::OwnedFd;

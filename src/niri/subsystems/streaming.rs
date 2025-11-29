@@ -53,7 +53,7 @@ impl StreamingSubsystem {
     
     /// Initializes the PipeWire channel and event loop source.
     #[cfg(feature = "xdp-gnome-screencast")]
-    pub fn init_pipewire_channel<State>(&mut self, event_loop: &calloop::LoopHandle<'static, State>) {
+    pub fn init_pipewire_channel(&mut self, event_loop: &calloop::LoopHandle<'static, super::super::State>) {
         let (pw_sender, from_pipewire) = calloop::channel::channel();
         event_loop
             .insert_source(from_pipewire, move |event, _, state| match event {
@@ -87,18 +87,18 @@ impl StreamingSubsystem {
     pub fn remove_cast(&mut self, stream_id: usize) -> Option<Cast> {
         self.casts
             .iter()
-            .position(|c| c.stream_id() == stream_id)
+            .position(|c| c.stream_id == stream_id)
             .map(|idx| self.casts.remove(idx))
     }
     
     /// Finds a cast by stream ID.
     pub fn find_cast(&self, stream_id: usize) -> Option<&Cast> {
-        self.casts.iter().find(|c| c.stream_id() == stream_id)
+        self.casts.iter().find(|c| c.stream_id == stream_id)
     }
     
     /// Finds a cast by stream ID (mutable).
     pub fn find_cast_mut(&mut self, stream_id: usize) -> Option<&mut Cast> {
-        self.casts.iter_mut().find(|c| c.stream_id() == stream_id)
+        self.casts.iter_mut().find(|c| c.stream_id == stream_id)
     }
     
     // =========================================================================
@@ -176,6 +176,67 @@ impl StreamingSubsystem {
     #[cfg(feature = "xdp-gnome-screencast")]
     pub fn set_dynamic_cast_id(&mut self, id: Option<MappedId>) {
         self.dynamic_cast_id = id;
+    }
+    
+    // =========================================================================
+    // Behavior Methods (encapsulated logic, not raw accessors)
+    // =========================================================================
+    
+    /// Iterates over casts with a closure (avoids exposing iterator).
+    pub fn for_each_cast(&self, mut f: impl FnMut(&Cast)) {
+        for cast in &self.casts {
+            f(cast);
+        }
+    }
+    
+    /// Iterates over casts mutably with a closure.
+    pub fn for_each_cast_mut(&mut self, mut f: impl FnMut(&mut Cast)) {
+        for cast in &mut self.casts {
+            f(cast);
+        }
+    }
+    
+    /// Collects session IDs of all casts (for iteration without borrow).
+    pub fn collect_session_ids(&self) -> Vec<usize> {
+        self.casts.iter().map(|c| c.session_id).collect()
+    }
+    
+    /// Collects stream IDs of all casts (for iteration without borrow).
+    pub fn collect_stream_ids(&self) -> Vec<usize> {
+        self.casts.iter().map(|c| c.stream_id).collect()
+    }
+    
+    /// Takes the PipeWire connection out (for shutdown).
+    pub fn take_pipewire(&mut self) -> Option<PipeWire> {
+        self.pipewire.take()
+    }
+    
+    /// Removes a cast by session ID and returns it.
+    pub fn remove_cast_by_session(&mut self, session_id: usize) -> Option<Cast> {
+        self.casts
+            .iter()
+            .position(|c| c.session_id == session_id)
+            .map(|idx| self.casts.remove(idx))
+    }
+    
+    /// Finds a cast by session ID.
+    pub fn find_cast_by_session(&self, session_id: usize) -> Option<&Cast> {
+        self.casts.iter().find(|c| c.session_id == session_id)
+    }
+    
+    /// Finds a cast by session ID (mutable).
+    pub fn find_cast_by_session_mut(&mut self, session_id: usize) -> Option<&mut Cast> {
+        self.casts.iter_mut().find(|c| c.session_id == session_id)
+    }
+    
+    /// Returns true if there are any active casts.
+    pub fn has_casts(&self) -> bool {
+        !self.casts.is_empty()
+    }
+    
+    /// Returns the number of active casts.
+    pub fn cast_count(&self) -> usize {
+        self.casts.len()
     }
 }
 

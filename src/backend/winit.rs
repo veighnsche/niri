@@ -162,7 +162,7 @@ impl Winit {
 
         niri.update_shaders();
 
-        niri.outputs.add(self.output.clone(), None, false);
+        niri.add_output(self.output.clone(), None, false);
     }
 
     pub fn seat_name(&self) -> String {

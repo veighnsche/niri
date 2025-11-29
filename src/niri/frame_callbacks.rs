@@ -85,7 +85,7 @@ impl Niri {
             );
         }
 
-        if let Some(surface) = self.outputs.state(output).unwrap().lock_surface {
+        if let Some(surface) = self.outputs.lock_surface(output) {
             send_frames_surface_tree(
                 surface.wl_surface(),
                 output,
@@ -236,7 +236,7 @@ impl Niri {
             );
         }
 
-        if let Some(surface) = self.outputs.state(output).unwrap().lock_surface {
+        if let Some(surface) = self.outputs.lock_surface(output) {
             take_presentation_feedback_surface_tree(
                 surface.wl_surface(),
                 &mut feedback,

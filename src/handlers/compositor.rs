@@ -470,17 +470,20 @@ impl CompositorHandler for State {
         }
 
         // This might be a lock surface.
-        for (output, state) in self.niri.outputs.state_iter() {
-            if let Some(lock_surface) = &state.lock_surface {
-                if lock_surface.wl_surface() == &root_surface {
-                    if matches!(self.niri.lock_state, LockState::WaitingForSurfaces { .. }) {
-                        self.niri.maybe_continue_to_locking();
-                    } else {
-                        self.niri.queue_redraw(&output.clone());
-                    }
-
-                    return;
+        // Collect outputs first to avoid borrow conflicts.
+        let outputs_with_lock: Vec<_> = self.niri.outputs.collect_outputs();
+        for output in outputs_with_lock {
+            let is_lock_surface = self.niri.outputs.lock_surface(&output)
+                .map(|ls| ls.wl_surface() == &root_surface)
+                .unwrap_or(false);
+            
+            if is_lock_surface {
+                if matches!(self.niri.lock_state, LockState::WaitingForSurfaces { .. }) {
+                    self.niri.maybe_continue_to_locking();
+                } else {
+                    self.niri.queue_redraw(&output);
                 }
+                return;
             }
         }
 

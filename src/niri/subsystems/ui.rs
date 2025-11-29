@@ -52,7 +52,7 @@ impl UiOverlays {
         Self {
             screenshot: ScreenshotUi::new(animation_clock.clone(), config_rc.clone()),
             config_error: ConfigErrorNotification::new(animation_clock.clone(), config_rc.clone()),
-            hotkey: HotkeyOverlay::new(config_rc.clone(), config.clone()),
+            hotkey: HotkeyOverlay::new(config_rc.clone(), config.input.mod_key.unwrap_or(niri_config::ModKey::Super)),
             exit_dialog: ExitConfirmDialog::new(animation_clock.clone(), config_rc.clone()),
             mru: WindowMruUi::new(config_rc.clone()),
             pending_mru_commit: None,
@@ -90,46 +90,17 @@ impl UiOverlays {
     }
     
     // =========================================================================
-    // Screenshot UI
-    // =========================================================================
-    
-    /// Opens the screenshot UI.
-    pub fn open_screenshot(&mut self, show_pointer: bool) {
-        self.screenshot.open(show_pointer);
-    }
-    
-    /// Closes the screenshot UI.
-    pub fn close_screenshot(&mut self) {
-        self.screenshot.close();
-    }
-    
-    // =========================================================================
     // Exit Dialog
     // =========================================================================
     
-    /// Opens the exit confirmation dialog.
-    pub fn open_exit_dialog(&mut self) {
-        self.exit_dialog.open();
+    /// Shows the exit confirmation dialog.
+    pub fn show_exit_dialog(&mut self) -> bool {
+        self.exit_dialog.show()
     }
     
-    /// Closes the exit confirmation dialog.
-    pub fn close_exit_dialog(&mut self) {
-        self.exit_dialog.close();
-    }
-    
-    // =========================================================================
-    // MRU Switcher
-    // =========================================================================
-    
-    /// Opens the MRU window switcher.
-    pub fn open_mru(&mut self) {
-        self.mru.open();
-    }
-    
-    /// Closes the MRU window switcher.
-    pub fn close_mru(&mut self) {
-        self.mru.close();
-        self.pending_mru_commit = None;
+    /// Hides the exit confirmation dialog.
+    pub fn hide_exit_dialog(&mut self) -> bool {
+        self.exit_dialog.hide()
     }
     
     // =========================================================================

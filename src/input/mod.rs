@@ -518,7 +518,6 @@ impl State {
                         pressed,
                         *mods,
                         &this.niri.ui.screenshot,
-                        *mods,
                         this.niri.config.borrow().input.disable_power_key_handling,
                         is_inhibiting_shortcuts,
                     )
@@ -4041,7 +4040,7 @@ fn should_intercept_key<'a>(
 
     // Allow only a subset of compositor actions while the screenshot UI is open, since the user
     // cannot see the screen.
-    if self.niri.ui.screenshot.is_open() {
+    if screenshot_ui.is_open() {
         let mut use_screenshot_ui_action = true;
 
         if let Some(bind) = &final_bind {

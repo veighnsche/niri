@@ -12,8 +12,9 @@ use smithay::backend::renderer::element::{
     default_primary_scanout_output_compare, Kind, RenderElementStates,
 };
 use smithay::desktop::layer_map_for_output;
+use smithay::backend::renderer::element::utils::select_dmabuf_feedback;
 use smithay::desktop::utils::{
-    bbox_from_surface_tree, output_update, select_dmabuf_feedback,
+    bbox_from_surface_tree, output_update,
     send_dmabuf_feedback_surface_tree, surface_primary_scanout_output,
     update_surface_primary_scanout_output,
 };
@@ -31,6 +32,7 @@ use crate::backend::tty::SurfaceDmabufFeedback;
 use crate::cursor::{RenderCursor, XCursor};
 use crate::layer::mapped::LayerSurfaceRenderElement;
 use crate::render_helpers::debug::draw_opaque_regions;
+use niri_config::OutputName;
 use crate::render_helpers::solid_color::SolidColorRenderElement;
 use crate::render_helpers::{RenderTarget, SplitElements};
 use crate::utils::send_scale_transform;
@@ -39,6 +41,7 @@ use super::{
     KeyboardFocus, LockRenderState, LockState, Niri, OutputRenderElements, OutputState,
     RedrawState, State,
 };
+use crate::layout::LayoutElement as _;
 use crate::render_helpers::renderer::NiriRenderer;
 
 // =============================================================================
@@ -459,14 +462,14 @@ impl Niri {
     pub fn redraw_queued_outputs(&mut self, backend: &mut Backend) {
         let _span = tracy_client::span!("Niri::redraw_queued_outputs");
 
-        while let Some((output, _)) = self.outputs.state_iter().find(|(_, state)| {
+        // Use behavior method to find output needing redraw without holding borrow.
+        while let Some(output) = self.outputs.find_output_needing_redraw(|_, state| {
             matches!(
                 state.redraw_state,
                 RedrawState::Queued | RedrawState::WaitingForEstimatedVBlankAndQueued(_)
             )
         }) {
             trace!("redrawing output");
-            let output = output.clone();
             self.redraw(backend, &output);
         }
     }
@@ -791,6 +794,7 @@ impl Niri {
         }
 
         let is_locked = self.is_locked();
+        let monitors_active = self.outputs.monitors_active();
         let state = self.outputs.state_mut(output).unwrap();
 
         if res == RenderResult::Skipped {
@@ -808,7 +812,7 @@ impl Niri {
         // Update the lock render state on successful render, or if monitors are inactive. When
         // monitors are inactive on a TTY, they have no framebuffer attached, so no sensitive data
         // from a last render will be visible.
-        if res != RenderResult::Skipped || !self.outputs.monitors_active() {
+        if res != RenderResult::Skipped || !monitors_active {
             state.lock_render_state = if is_locked {
                 LockRenderState::Locked
             } else {
@@ -994,7 +998,7 @@ impl Niri {
             );
         }
 
-        if let Some(surface) = self.outputs.state(output).unwrap().lock_surface {
+        if let Some(surface) = self.outputs.lock_surface(output) {
             send_dmabuf_feedback_surface_tree(
                 surface.wl_surface(),
                 output,
@@ -1047,7 +1051,7 @@ impl Niri {
         self.debug_draw_damage = !self.debug_draw_damage;
 
         if self.debug_draw_damage {
-            for (output, state) in &mut self.outputs.state_mut() {
+            for (output, state) in self.outputs.state_iter_mut() {
                 state.debug_damage_tracker = OutputDamageTracker::from_output(output);
             }
         }

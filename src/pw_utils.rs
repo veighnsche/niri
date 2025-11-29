@@ -947,7 +947,7 @@ impl Cast {
                 let source = Generic::new(sync_fd, Interest::READ, Mode::OneShot);
                 self.event_loop
                     .insert_source(source, move |_, _, state| {
-                        for cast in &mut state.niri.streaming.casts_mut() {
+                        for cast in state.niri.streaming.casts_mut() {
                             if cast.stream_id == stream_id {
                                 cast.queue_completed_buffers();
                             }

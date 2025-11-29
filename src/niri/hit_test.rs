@@ -263,17 +263,15 @@ impl Niri {
         if self.ui.exit_dialog.is_open() {
             return rv;
         } else if self.is_locked() {
-            rv.layer_surface = layer_map_for_output(output)
-                .layer_under(
-                    pos_within_output,
-                    WindowSurfaceType::ALL,
-                )
-                .map(|(surface, pos_within_output)| {
-                    (
-                        surface,
-                        (pos_within_output + output_pos_in_global_space).to_f64(),
-                    )
-                });
+            // When locked, check overlay layer for lock surfaces
+            let layers = layer_map_for_output(output);
+            if let Some(layer_surface) = layers.layer_under(Layer::Overlay, pos_within_output) {
+                let layer_geo = layers.layer_geometry(layer_surface).unwrap();
+                rv.layer = Some(layer_surface.clone());
+                rv.surface = layer_surface
+                    .surface_under(pos_within_output - layer_geo.loc.to_f64(), WindowSurfaceType::ALL)
+                    .map(|(s, pos)| (s, (pos.to_f64() + layer_geo.loc.to_f64() + output_pos_in_global_space.to_f64())));
+            }
 
             return rv;
         }

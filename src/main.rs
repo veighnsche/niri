@@ -256,10 +256,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Show the config error notification right away if needed.
     if config_errored {
-        state.niri.config_error_notification.show();
+        state.niri.ui.config_error.show();
         state.ipc_config_loaded(true);
     } else if let Some(path) = config_created_at {
-        state.niri.config_error_notification.show_created(path);
+        state.niri.ui.config_error.show_created(path);
     }
 
     // Run the compositor.

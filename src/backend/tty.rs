@@ -1488,7 +1488,7 @@ impl Tty {
         let res = device.surfaces.insert(crtc, surface);
         assert!(res.is_none(), "crtc must not have already existed");
 
-        niri.outputs.add(output.clone(), Some(refresh_interval(mode)), vrr_enabled);
+        niri.add_output(output.clone(), Some(refresh_interval(mode)), vrr_enabled);
 
         if niri.outputs.monitors_active() {
             // Redraw the new monitor.

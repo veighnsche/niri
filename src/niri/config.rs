@@ -10,7 +10,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use niri_config::{Config, Xkb};
 use smithay::input::keyboard::XkbConfig;
-use smithay::output::Transform;
+use smithay::utils::Transform;
 use tracing::{info, trace, warn};
 
 use super::{ipc_transform_to_smithay, guess_monitor_scale, closest_representable_scale, panel_orientation, OutputScale};
@@ -22,6 +22,12 @@ pub trait StateConfigExt {
 
     /// Reloads output configuration for all outputs.
     fn reload_output_config(&mut self);
+
+    /// Loads XKB configuration from file.
+    fn load_xkb_file(&mut self);
+
+    /// Sets XKB configuration.
+    fn set_xkb_config(&mut self, xkb: smithay::input::keyboard::XkbConfig);
 }
 
 impl StateConfigExt for super::State {
@@ -58,7 +64,10 @@ impl StateConfigExt for super::State {
         let mut resized_outputs = vec![];
         let mut recolored_outputs = vec![];
 
-        for output in self.niri.outputs.space().outputs() {
+        // Collect outputs first to avoid borrow conflicts.
+        let outputs: Vec<_> = self.niri.outputs.collect_outputs();
+        
+        for output in outputs {
             let name = output.user_data().get::<niri_config::OutputName>().unwrap();
             let full_config = self.niri.config.borrow_mut();
             let config = full_config.outputs.find(name);
@@ -73,7 +82,7 @@ impl StateConfigExt for super::State {
                 });
             let scale = closest_representable_scale(scale.clamp(0.1, 10.));
 
-            let mut transform = panel_orientation(output)
+            let mut transform = panel_orientation(&output)
                 + config
                     .map(|c| ipc_transform_to_smithay(c.transform))
                     .unwrap_or(Transform::Normal);
@@ -100,17 +109,15 @@ impl StateConfigExt for super::State {
                 .unwrap_or(niri_config::appearance::DEFAULT_BACKDROP_COLOR)
                 .to_array_unpremul();
             backdrop_color[3] = 1.;
-            let backdrop_color = niri_config::Color::from(backdrop_color);
+            let backdrop_color = niri_config::Color::from_array_unpremul(backdrop_color);
+            let backdrop_color32f: smithay::backend::renderer::Color32F = backdrop_color.into();
 
-            if let Some(state) = self.niri.outputs.state_mut(output) {
-                if state.backdrop_buffer.color() != backdrop_color {
-                    state.backdrop_buffer.set_color(backdrop_color);
-                    recolored_outputs.push(output.clone());
-                }
+            if self.niri.outputs.update_backdrop_color(&output, backdrop_color32f) {
+                recolored_outputs.push(output.clone());
             }
 
             for mon in self.niri.layout.monitors_mut() {
-                if mon.output() != output {
+                if mon.output() != &output {
                     continue;
                 }
 
@@ -148,6 +155,22 @@ impl StateConfigExt for super::State {
 
         let config = self.niri.config.borrow().outputs.clone();
         self.niri.protocols.output_management.on_config_changed(config);
+    }
+
+    /// Loads XKB configuration from file.
+    fn load_xkb_file(&mut self) {
+        let xkb_file = self.niri.config.borrow().input.keyboard.xkb.file.clone();
+        if let Some(xkb_file) = xkb_file {
+            if let Err(err) = self.set_xkb_file(xkb_file) {
+                warn!("error loading xkb_file: {err:?}");
+            }
+        }
+    }
+
+    /// Sets XKB configuration.
+    fn set_xkb_config(&mut self, xkb: XkbConfig) {
+        let keyboard = self.niri.seat.get_keyboard().unwrap();
+        keyboard.set_xkb_config(self, xkb);
     }
 }
 
@@ -521,21 +544,5 @@ impl super::State {
             .context("failed to set keymap")?;
 
         Ok(())
-    }
-
-    /// Loads XKB configuration from file.
-    fn load_xkb_file(&mut self) {
-        let xkb_file = self.niri.config.borrow().input.keyboard.xkb.file.clone();
-        if let Some(xkb_file) = xkb_file {
-            if let Err(err) = self.set_xkb_file(xkb_file) {
-                warn!("error loading xkb_file: {err:?}");
-            }
-        }
-    }
-
-    /// Sets XKB configuration.
-    fn set_xkb_config(&mut self, xkb: XkbConfig) {
-        let keyboard = self.niri.seat.get_keyboard().unwrap();
-        keyboard.set_xkb_config(self, xkb);
     }
 }

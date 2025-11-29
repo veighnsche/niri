@@ -57,7 +57,7 @@ impl Niri {
             if surface.cached_state().keyboard_interactivity
                 == wlr_layer::KeyboardInteractivity::OnDemand
             {
-                if self.focus.layer_on_demand().as_ref() != Some(&surface) {
+                if self.focus.layer_on_demand() != Some(&surface) {
                     self.focus.set_layer_on_demand(Some(surface));
 
                     // FIXME: granular.

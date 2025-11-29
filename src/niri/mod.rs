@@ -2,7 +2,7 @@
 //!
 //! This module contains the main `Niri` struct and related types.
 
-mod config;
+pub mod config;
 mod frame_callbacks;
 mod hit_test;
 mod init;
@@ -19,10 +19,12 @@ mod screenshot;
 mod subsystems;
 mod types;
 
+pub use config::StateConfigExt;
 pub use protocols::ProtocolStates;
 pub use subsystems::{CursorSubsystem, FocusState, InputTracking, OutputSubsystem, StreamingSubsystem, UiOverlays};
 pub use types::*;
 
+use config::StateConfigExt as _;
 use subsystems::{FocusContext, LayerFocusCandidate};
 
 use std::cell::{Cell, OnceCell, RefCell};
@@ -189,9 +191,10 @@ use crate::render_helpers::{
     encompassing_geo, render_to_dmabuf, render_to_encompassing_texture, render_to_shm,
     render_to_texture, render_to_vec, shaders, RenderTarget, SplitElements,
 };
+use crate::ui::exit_confirm_dialog::ExitConfirmDialogRenderElement;
+use crate::ui::mru::{MruCloseRequest, WindowMruUiRenderElement};
 use crate::ui::screen_transition::{self, ScreenTransition};
 use crate::ui::screenshot_ui::{OutputScreenshot, ScreenshotUi, ScreenshotUiRenderElement};
-use crate::ui::mru::MruCloseRequest;
 use crate::utils::scale::{closest_representable_scale, guess_monitor_scale};
 use crate::utils::spawning::{CHILD_DISPLAY, CHILD_ENV};
 use crate::utils::vblank_throttle::VBlankThrottle;
@@ -211,6 +214,14 @@ const CLEAR_COLOR_LOCKED: [f32; 4] = [0.3, 0.1, 0.1, 1.];
 // second, so with the worst timing the maximum interval between two frame callbacks for a surface
 // should be ~1.995 seconds.
 const FRAME_CALLBACK_THROTTLE: Option<Duration> = Some(Duration::from_millis(995));
+
+/// Action to take when redrawing a cast.
+#[cfg(feature = "xdp-gnome-screencast")]
+enum RedrawCastAction {
+    Clear,
+    QueueRedraw(Output),
+    RenderWindow(u64),
+}
 
 pub struct Niri {
     pub config: Rc<RefCell<Config>>,
@@ -531,9 +542,9 @@ impl State {
         // Needs to be called after updating the keyboard focus.
         self.niri.refresh_layout();
 
-        self.niri.cursor.manager().check_cursor_image_surface_alive();
+        self.niri.cursor.check_cursor_image_alive();
         self.niri.refresh_pointer_outputs();
-        self.niri.outputs.space().refresh();
+        self.niri.outputs.refresh_space();
         self.niri.refresh_idle_inhibit();
         self.refresh_pointer_contents();
         foreign_toplevel::refresh(self);
@@ -669,7 +680,7 @@ impl State {
 
     pub fn focus_default_monitor(&mut self) {
         // Our default target is the first output in sorted order.
-        let Some(mut target) = self.niri.outputs.iter().first().cloned() else {
+        let Some(mut target) = self.niri.outputs.first().cloned() else {
             // No outputs are connected.
             return;
         };
@@ -887,8 +898,14 @@ impl State {
 
     /// Builds popup grab information for focus context.
     fn build_popup_grab_info(&self) -> Option<(WlSurface, smithay::wayland::shell::wlr_layer::Layer)> {
-        self.niri.popup_grab.as_ref().map(|(surface, layer)| {
-            (surface.wl_surface().clone(), *layer)
+        self.niri.popup_grab.as_ref().map(|grab| {
+            // Get the layer from the popup grab's root surface
+            // Default to Top layer if we can't determine it
+            let layer = self.niri.mapped_layer_surfaces.keys()
+                .find(|ls| ls.wl_surface() == &grab.root)
+                .map(|ls| ls.layer())
+                .unwrap_or(smithay::wayland::shell::wlr_layer::Layer::Top);
+            (grab.root.clone(), layer)
         })
     }
 
@@ -897,7 +914,7 @@ impl State {
         let mut candidates = Vec::new();
         
         for (surface, mapped) in &self.niri.mapped_layer_surfaces {
-            let is_on_demand_focused = self.niri.focus.layer_on_demand().as_ref() == Some(surface);
+            let is_on_demand_focused = self.niri.focus.layer_on_demand() == Some(surface);
             
             candidates.push(LayerFocusCandidate {
                 surface,
@@ -914,11 +931,15 @@ impl State {
 
     /// Checks if layout renders above top layer (fullscreen mode).
     fn layout_renders_above_top(&self) -> bool {
-        // This is a simplified check - the original logic is more complex
-        // For now, we'll assume layout doesn't render above top unless fullscreen
-        self.niri.layout.active_output()
-            .map(|output| self.niri.layout.is_fullscreen(output))
-            .unwrap_or(false)
+        // Check if any window on the active output is fullscreen
+        if let Some(output) = self.niri.layout.active_output() {
+            for mapped in self.niri.layout.windows_for_output(&output) {
+                if mapped.sizing_mode().is_fullscreen() {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Updates MRU timestamp with debounce.
@@ -1054,19 +1075,27 @@ impl State {
             surface: Some(surface),
         } = new
         {
-            if let Some((mapped, _)) = self.niri.layout.find_window_and_output_mut(surface) {
+            // Extract data needed for MRU scheduling before releasing the borrow.
+            let mru_schedule_data = if let Some((mapped, _)) = self.niri.layout.find_window_and_output_mut(surface) {
                 mapped.set_is_focused(true);
                 
-                // Update MRU timestamp inline to avoid borrow checker issues
                 let stamp = get_monotonic_time();
                 let debounce = self.niri.config.borrow().recent_windows.debounce_ms;
                 let debounce = Duration::from_millis(u64::from(debounce));
 
                 if mapped.get_focus_timestamp().is_none() || debounce.is_zero() {
                     mapped.set_focus_timestamp(stamp);
+                    None
                 } else {
-                    self.schedule_mru_commit(mapped.id(), stamp, debounce);
+                    Some((mapped.id(), stamp, debounce))
                 }
+            } else {
+                None
+            };
+            
+            // Schedule MRU commit after releasing the layout borrow.
+            if let Some((id, stamp, debounce)) = mru_schedule_data {
+                self.schedule_mru_commit(id, stamp, debounce);
             }
         }
     }
@@ -1217,7 +1246,7 @@ impl State {
         for ipc_output in self.backend.ipc_outputs().lock().unwrap().values_mut() {
             let logical = self
                 .niri
-                .global_space
+                .outputs.space()
                 .outputs()
                 .find(|output| output.name() == ipc_output.name)
                 .map(logical_output);
@@ -1330,8 +1359,9 @@ impl State {
             PwToNiri::Redraw { stream_id } => self.redraw_cast(stream_id),
             PwToNiri::FatalError => {
                 warn!("stopping PipeWire due to fatal error");
-                if let Some(pw) = self.niri.streaming.pipewire_mut().take() {
-                    let ids: Vec<_> = self.niri.streaming.casts().iter().map(|cast| cast.session_id).collect();
+                // Collect session IDs first to avoid borrow conflicts.
+                let ids = self.niri.streaming.collect_session_ids();
+                if let Some(pw) = self.niri.streaming.take_pipewire() {
                     for id in ids {
                         self.niri.stop_cast(id);
                     }
@@ -1345,68 +1375,105 @@ impl State {
     fn redraw_cast(&mut self, stream_id: usize) {
         let _span = tracy_client::span!("State::redraw_cast");
 
-        let casts = &mut self.niri.casts;
-        let Some(cast) = casts.iter_mut().find(|cast| cast.stream_id == stream_id) else {
-            warn!("cast to redraw is missing");
-            return;
-        };
-
-        match &cast.target {
-            CastTarget::Nothing => {
-                self.backend.with_primary_renderer(|renderer| {
-                    if cast.dequeue_buffer_and_clear(renderer) {
-                        cast.last_frame_time = get_monotonic_time();
-                    }
-                });
-            }
-            CastTarget::Output(weak) => {
-                if let Some(output) = weak.upgrade() {
-                    self.niri.queue_redraw(&output);
-                }
-            }
-            CastTarget::Window { id } => {
-                let mut windows = self.niri.layout.windows();
-                let Some((_, mapped)) = windows.find(|(_, mapped)| mapped.id().get() == *id) else {
-                    return;
-                };
-
-                // Use the cached output since it will be present even if the output was
-                // currently disconnected.
-                let Some(output) = self.niri.streaming.mapped_cast_output(&mapped.window) else {
-                    return;
-                };
-
-                let scale = Scale::from(output.current_scale().fractional_scale());
-                let bbox = mapped
-                    .window
-                    .bbox_with_popups()
-                    .to_physical_precise_up(scale);
-
-                match cast.ensure_size(bbox.size) {
-                    Ok(CastSizeChange::Ready) => (),
-                    Ok(CastSizeChange::Pending) => return,
-                    Err(err) => {
-                        warn!("error updating stream size, stopping screencast: {err:?}");
-                        drop(windows);
-                        let session_id = cast.session_id;
-                        self.niri.stop_cast(session_id);
+        // First, determine what action to take based on cast target.
+        let action = {
+            let Some(cast) = self.niri.streaming.find_cast(stream_id) else {
+                warn!("cast to redraw is missing");
+                return;
+            };
+            
+            match &cast.target {
+                CastTarget::Nothing => RedrawCastAction::Clear,
+                CastTarget::Output(weak) => {
+                    if let Some(output) = weak.upgrade() {
+                        RedrawCastAction::QueueRedraw(output)
+                    } else {
                         return;
                     }
                 }
-
+                CastTarget::Window { id } => RedrawCastAction::RenderWindow(*id),
+            }
+        };
+        
+        match action {
+            RedrawCastAction::Clear => {
                 self.backend.with_primary_renderer(|renderer| {
-                    // FIXME: pointer.
-                    let elements = mapped
-                        .render_for_screen_cast(renderer, scale)
-                        .rev()
-                        .collect::<Vec<_>>();
-
-                    if cast.dequeue_buffer_and_render(renderer, &elements, bbox.size, scale) {
-                        cast.last_frame_time = get_monotonic_time();
+                    if let Some(cast) = self.niri.streaming.find_cast_mut(stream_id) {
+                        if cast.dequeue_buffer_and_clear(renderer) {
+                            cast.last_frame_time = get_monotonic_time();
+                        }
                     }
                 });
             }
+            RedrawCastAction::QueueRedraw(output) => {
+                self.niri.queue_redraw(&output);
+            }
+            RedrawCastAction::RenderWindow(id) => {
+                self.redraw_cast_window(stream_id, id);
+            }
         }
+    }
+    
+    #[cfg(feature = "xdp-gnome-screencast")]
+    fn redraw_cast_window(&mut self, stream_id: usize, window_id: u64) {
+        // Find window and get needed data.
+        let window_data = {
+            let mut windows = self.niri.layout.windows();
+            let Some((_, mapped)) = windows.find(|(_, mapped)| mapped.id().get() == window_id) else {
+                return;
+            };
+            
+            let Some(output) = self.niri.streaming.mapped_cast_output(&mapped.window) else {
+                return;
+            };
+            
+            let scale = Scale::from(output.current_scale().fractional_scale());
+            let bbox = mapped.window.bbox_with_popups().to_physical_precise_up(scale);
+            
+            (mapped.window.clone(), scale, bbox)
+        };
+        
+        let (window, scale, bbox) = window_data;
+        
+        // Check size and render.
+        let should_stop = {
+            let Some(cast) = self.niri.streaming.find_cast_mut(stream_id) else {
+                return;
+            };
+            
+            match cast.ensure_size(bbox.size) {
+                Ok(CastSizeChange::Ready) => None,
+                Ok(CastSizeChange::Pending) => return,
+                Err(err) => {
+                    warn!("error updating stream size, stopping screencast: {err:?}");
+                    Some(cast.session_id)
+                }
+            }
+        };
+        
+        if let Some(session_id) = should_stop {
+            self.niri.stop_cast(session_id);
+            return;
+        }
+        
+        // Find mapped again for rendering (window clone lets us release borrow).
+        let mut windows = self.niri.layout.windows();
+        let Some((_, mapped)) = windows.find(|(_, m)| m.window == window) else {
+            return;
+        };
+        
+        self.backend.with_primary_renderer(|renderer| {
+            let elements = mapped
+                .render_for_screen_cast(renderer, scale)
+                .rev()
+                .collect::<Vec<_>>();
+            
+            if let Some(cast) = self.niri.streaming.find_cast_mut(stream_id) {
+                if cast.dequeue_buffer_and_render(renderer, &elements, bbox.size, scale) {
+                    cast.last_frame_time = get_monotonic_time();
+                }
+            }
+        });
     }
 
     #[cfg(not(feature = "xdp-gnome-screencast"))]
@@ -1438,7 +1505,7 @@ impl State {
 
         let mut to_redraw = Vec::new();
         let mut to_stop = Vec::new();
-        for cast in &mut self.niri.streaming.casts_mut() {
+        for cast in self.niri.streaming.casts_mut() {
             if !cast.dynamic_target {
                 continue;
             }
@@ -1484,9 +1551,7 @@ impl State {
                     return;
                 };
 
-                let pw = if let Some(pw) = self.niri.streaming.pipewire() {
-                    pw
-                } else {
+                if self.niri.streaming.pipewire().is_none() {
                     match PipeWire::new(self.niri.event_loop.clone(), self.niri.streaming.pw_sender().unwrap().clone())
                     {
                         Ok(pipewire) => self.niri.streaming.set_pipewire(Some(pipewire)),
@@ -1498,6 +1563,11 @@ impl State {
                             return;
                         }
                     }
+                }
+                let Some(pw) = self.niri.streaming.pipewire() else {
+                    warn!("error starting screencast: PipeWire not available");
+                    self.niri.stop_cast(session_id);
+                    return;
                 };
 
                 let mut dynamic_target = false;
@@ -1583,7 +1653,7 @@ impl State {
                 );
                 match res {
                     Ok(cast) => {
-                        self.niri.casts.push(cast);
+                        self.niri.streaming.casts_mut().push(cast);
                     }
                     Err(err) => {
                         warn!("error starting screencast: {err:?}");
@@ -1730,107 +1800,8 @@ impl State {
 
 // Niri::new() moved to init.rs
 
-// =============================================================================
-// TEAM_083: Compatibility Accessors
-// These provide backward-compatible access to fields that were moved to subsystems.
-// This avoids updating 226+ call sites across the codebase.
-// =============================================================================
-
-impl Niri {
-    // Output subsystem accessors
-    #[inline]
-    pub fn global_space(&self) -> &Space<smithay::desktop::Window> {
-        self.outputs.space()
-    }
-    
-    #[inline]
-    pub fn global_space_mut(&mut self) -> &mut Space<smithay::desktop::Window> {
-        self.outputs.space_mut()
-    }
-
-    // TEAM_083: Removed output_state() accessor - use self.outputs.state() or self.outputs.state_iter() instead
-    // Callers should migrate to:
-    //   - self.outputs.state(output) for single output lookup
-    //   - self.outputs.state_iter() for iteration
-    //   - self.outputs.states() for values iteration
-    
-    #[inline]
-    pub fn monitors_active(&self) -> bool {
-        self.outputs.monitors_active()
-    }
-    
-    #[inline]
-    pub fn is_lid_closed(&self) -> bool {
-        self.outputs.lid_closed()
-    }
-    
-    #[inline]
-    pub fn sorted_outputs(&self) -> impl Iterator<Item = &Output> {
-        self.outputs.iter()
-    }
-
-    // Cursor subsystem accessors
-    #[inline]
-    pub fn cursor_manager(&self) -> &CursorManager {
-        self.cursor.manager()
-    }
-    
-    #[inline]
-    pub fn cursor_manager_mut(&mut self) -> &mut CursorManager {
-        self.cursor.manager_mut()
-    }
-    
-    #[inline]
-    pub fn pointer_visibility(&self) -> PointerVisibility {
-        self.cursor.visibility()
-    }
-    
-    #[inline]
-    pub fn tablet_cursor_location(&self) -> Option<Point<f64, Logical>> {
-        self.cursor.tablet_location()
-    }
-    
-    #[inline]
-    pub fn dnd_icon(&self) -> Option<&DndIcon> {
-        self.cursor.dnd_icon
-    }
-    
-    #[inline]
-    pub fn pointer_contents(&self) -> &PointContents {
-        self.cursor.contents()
-    }
-    
-    #[inline]
-    pub fn cursor_texture_cache(&self) -> &CursorTextureCache {
-        self.cursor.texture_cache()
-    }
-    
-    #[inline]
-    pub fn cursor_texture_cache_mut(&mut self) -> &mut CursorTextureCache {
-        self.cursor.texture_cache_mut()
-    }
-
-    // Focus subsystem accessors
-    #[inline]
-    pub fn keyboard_focus(&self) -> &KeyboardFocus {
-        self.focus.current()
-    }
-    
-    #[inline]
-    pub fn layer_shell_on_demand_focus(&self) -> Option<&LayerSurface> {
-        self.focus.layer_on_demand()
-    }
-    
-    #[inline]
-    pub fn idle_inhibiting_surfaces(&self) -> &HashSet<WlSurface> {
-        self.focus.idle_inhibitors()
-    }
-    
-    #[inline]
-    pub fn keyboard_shortcuts_inhibiting_surfaces(&self) -> &HashMap<WlSurface, KeyboardShortcutsInhibitor> {
-        self.focus.shortcut_inhibitors()
-    }
-}
+// TEAM_083: Removed compatibility accessors per Rule 5.
+// Access subsystem fields directly: niri.outputs.space(), niri.cursor.manager, niri.focus.current, etc.
 
 impl Niri {
     pub fn insert_client(&mut self, client: NewClient) {
@@ -1909,7 +1880,7 @@ impl Niri {
         drop(config);
 
         for Data { output, .. } in &outputs {
-            self.outputs.space().unmap_output(output);
+            self.outputs.unmap_output(output);
         }
 
         // Connectors can appear in udev in any order. If we sort by name then we get output
@@ -1950,7 +1921,7 @@ impl Niri {
                     let target_geom = Rectangle::new(*pos, size);
 
                     let overlap = self
-                        .global_space
+                        .outputs.space()
                         .outputs()
                         .map(|output| self.outputs.space().output_geometry(output).unwrap())
                         .find(|geom| geom.overlaps(target_geom));
@@ -1978,7 +1949,7 @@ impl Niri {
                 })
                 .unwrap_or_else(|| {
                     let x = self
-                        .global_space
+                        .outputs.space()
                         .outputs()
                         .map(|output| self.outputs.space().output_geometry(output).unwrap())
                         .map(|geom| geom.loc.x + geom.size.w)
@@ -1988,7 +1959,7 @@ impl Niri {
                     Point::from((x, 0))
                 });
 
-            self.outputs.space().map_output(&output, new_position);
+            self.outputs.map_output_at(&output, new_position);
 
             // By passing new_output as an Option, rather than mapping it into a bogus location
             // in global_space, we ensure that this branch always runs for it.
@@ -2166,7 +2137,7 @@ impl Niri {
         }
 
         if self.ui.screenshot.close() {
-            self.cursor.manager()
+            self.cursor.manager_mut()
                 .set_cursor_image(CursorImageStatus::default_named());
             self.queue_redraw_all();
         }
@@ -2294,9 +2265,10 @@ impl Niri {
         self.update_render_elements(None);
 
         let textures: Vec<_> = self
-            .outputs.state()
-            .keys()
+            .outputs.iter()
             .cloned()
+            .collect::<Vec<_>>()
+            .into_iter()
             .filter_map(|output| {
                 let size = output.current_mode().unwrap().size;
                 let transform = output.current_transform();

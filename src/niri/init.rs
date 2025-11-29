@@ -170,7 +170,8 @@ impl Niri {
 
         let ui = UiOverlays::new(&config_, &animation_clock, &config);
 
-        let display_source = Generic::new(display, Interest::READ, Mode::Level);
+        #[cfg(feature = "dbus")]
+        let a11y = A11y::new(event_loop.clone());
 
         event_loop
             .insert_source(
@@ -229,6 +230,7 @@ impl Niri {
             )
             .unwrap();
 
+        let input = InputTracking::new(&config_);
         drop(config_);
         let mut niri = Self {
             config,
@@ -254,7 +256,7 @@ impl Niri {
             blocker_cleared_tx,
             blocker_cleared_rx,
             outputs: OutputSubsystem::new(),
-            input: InputTracking::new(&config_),
+            input,
 
             devices: HashSet::new(),
             tablets: HashMap::new(),
@@ -302,7 +304,7 @@ impl Niri {
 
         // Initialize streaming subsystem components.
         #[cfg(feature = "xdp-gnome-screencast")]
-        niri.streaming.init_pipewire_channel(&event_loop);
+        niri.streaming.init_pipewire_channel(&niri.event_loop);
 
         niri.reset_pointer_inactivity_timer();
 

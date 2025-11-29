@@ -73,16 +73,19 @@ impl InputTracking {
         // Default scroll tick value (15 is commonly used)
         const SCROLL_TICK: i8 = 15;
         
+        let mod_key = config.input.mod_key.unwrap_or(niri_config::ModKey::Super);
+        let binds = &config.binds;
+        
         Self {
             gesture_swipe_3f: None,
             overview_swipe: ScrollSwipeGesture::new(),
             vertical_wheel: ScrollTracker::new(SCROLL_TICK),
             horizontal_wheel: ScrollTracker::new(SCROLL_TICK),
-            mods_with_mouse_binds: mods_with_mouse_binds(config),
-            mods_with_wheel_binds: mods_with_wheel_binds(config),
+            mods_with_mouse_binds: mods_with_mouse_binds(mod_key, binds),
+            mods_with_wheel_binds: mods_with_wheel_binds(mod_key, binds),
             vertical_finger: ScrollTracker::new(SCROLL_TICK),
             horizontal_finger: ScrollTracker::new(SCROLL_TICK),
-            mods_with_finger_scroll_binds: mods_with_finger_scroll_binds(config),
+            mods_with_finger_scroll_binds: mods_with_finger_scroll_binds(mod_key, binds),
         }
     }
     
@@ -182,8 +185,11 @@ impl InputTracking {
     pub fn update_from_config(&mut self, config: &niri_config::Config) {
         use crate::input::{mods_with_mouse_binds, mods_with_wheel_binds, mods_with_finger_scroll_binds};
         
-        self.mods_with_mouse_binds = mods_with_mouse_binds(config);
-        self.mods_with_wheel_binds = mods_with_wheel_binds(config);
-        self.mods_with_finger_scroll_binds = mods_with_finger_scroll_binds(config);
+        let mod_key = config.input.mod_key.unwrap_or(niri_config::ModKey::Super);
+        let binds = &config.binds;
+        
+        self.mods_with_mouse_binds = mods_with_mouse_binds(mod_key, binds);
+        self.mods_with_wheel_binds = mods_with_wheel_binds(mod_key, binds);
+        self.mods_with_finger_scroll_binds = mods_with_finger_scroll_binds(mod_key, binds);
     }
 }

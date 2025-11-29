@@ -112,7 +112,7 @@ impl Headless {
             },
         );
 
-        niri.outputs.add(output, None, false);
+        niri.add_output(output, None, false);
     }
 
     pub fn seat_name(&self) -> String {
