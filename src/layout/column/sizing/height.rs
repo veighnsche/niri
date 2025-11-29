@@ -88,7 +88,6 @@ impl<W: LayoutElement> Column<W> {
         self.update_tile_sizes(animate);
     }
 
-    #[allow(dead_code)]
     pub(crate) fn reset_window_height(&mut self, tile_idx: Option<usize>) {
         if self.display_mode == ColumnDisplay::Tabbed {
             for data in &mut self.data {
@@ -102,7 +101,6 @@ impl<W: LayoutElement> Column<W> {
         self.update_tile_sizes(true);
     }
 
-    #[allow(dead_code)]
     pub(crate) fn toggle_window_height(&mut self, tile_idx: Option<usize>, forwards: bool) {
         let tile_idx = tile_idx.unwrap_or(self.active_tile_idx);
 

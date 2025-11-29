@@ -211,8 +211,8 @@ impl<W: LayoutElement> Row<W> {
     // Window height operations
     // =========================================================================
 
-    /// Toggle window height.
-    /// TEAM_028: Implemented based on ScrollingSpace::set_window_height
+    /// Toggle window height through preset heights.
+    /// TEAM_028: Implemented based on ScrollingSpace::toggle_window_height
     /// TEAM_035: Updated signature to accept Option<&W::Id>
     pub fn toggle_window_height(&mut self, window: Option<&W::Id>, forwards: bool) {
         if self.columns.is_empty() {
@@ -233,14 +233,7 @@ impl<W: LayoutElement> Row<W> {
             (&mut self.columns[self.active_column_idx], None)
         };
 
-        // Convert forwards boolean to SizeChange
-        let change = if forwards {
-            SizeChange::AdjustProportion(0.1)
-        } else {
-            SizeChange::AdjustProportion(-0.1)
-        };
-
-        col.set_window_height(change, tile_idx, true);
+        col.toggle_window_height(tile_idx, forwards);
 
         // Cancel any ongoing resize for this column
         if let Some(resize) = &mut self.interactive_resize {
@@ -252,9 +245,36 @@ impl<W: LayoutElement> Row<W> {
         }
     }
 
-    /// Reset window height to default.
+    /// Reset window height to default (auto).
     /// TEAM_035: Updated signature to accept Option<&W::Id>
-    pub fn reset_window_height(&mut self, _window: Option<&W::Id>) {
-        // Rows don't control individual window heights - this is a no-op
+    pub fn reset_window_height(&mut self, window: Option<&W::Id>) {
+        if self.columns.is_empty() {
+            return;
+        }
+
+        let (col, tile_idx) = if let Some(window) = window {
+            self.columns
+                .iter_mut()
+                .find_map(|col| {
+                    col.tiles
+                        .iter()
+                        .position(|tile| tile.window().id() == window)
+                        .map(|tile_idx| (col, Some(tile_idx)))
+                })
+                .unwrap()
+        } else {
+            (&mut self.columns[self.active_column_idx], None)
+        };
+
+        col.reset_window_height(tile_idx);
+
+        // Cancel any ongoing resize for this column
+        if let Some(resize) = &mut self.interactive_resize {
+            let target_window =
+                window.unwrap_or_else(|| col.tiles[col.active_tile_idx].window().id());
+            if &resize.window == target_window {
+                self.interactive_resize = None;
+            }
+        }
     }
 }

@@ -44,10 +44,9 @@ use smithay::backend::renderer::damage::OutputDamageTracker;
 use smithay::backend::renderer::element::memory::MemoryRenderBufferRenderElement;
 use smithay::backend::renderer::element::surface::WaylandSurfaceRenderElement;
 use smithay::backend::renderer::element::utils::{
-    CropRenderElement, Relocate, RelocateRenderElement,
+    CropRenderElement, RelocateRenderElement,
     RescaleRenderElement,
 };
-use smithay::backend::renderer::element::Element;
 use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::desktop::{
     find_popup_root_surface, layer_map_for_output, LayerSurface,
@@ -880,20 +879,6 @@ impl State {
             }
         }
         false
-    }
-
-    /// Updates MRU timestamp with debounce.
-    #[allow(dead_code)]
-    fn update_mru_timestamp(&mut self, mapped: &mut Mapped) {
-        let stamp = get_monotonic_time();
-        let debounce = self.niri.config.borrow().recent_windows.debounce_ms;
-        let debounce = Duration::from_millis(u64::from(debounce));
-
-        if mapped.get_focus_timestamp().is_none() || debounce.is_zero() {
-            mapped.set_focus_timestamp(stamp);
-        } else {
-            self.schedule_mru_commit(mapped.id(), stamp, debounce);
-        }
     }
 
     /// Schedules a delayed MRU commit.
@@ -2341,19 +2326,6 @@ pub struct ClientState {
 impl ClientData for ClientState {
     fn initialized(&self, _client_id: ClientId) {}
     fn disconnected(&self, _client_id: ClientId, _reason: DisconnectReason) {}
-}
-
-#[allow(dead_code)]
-fn scale_relocate_crop<E: Element>(
-    elem: E,
-    output_scale: Scale<f64>,
-    zoom: f64,
-    ws_geo: Rectangle<f64, Logical>,
-) -> Option<CropRenderElement<RelocateRenderElement<RescaleRenderElement<E>>>> {
-    let ws_geo = ws_geo.to_physical_precise_round(output_scale);
-    let elem = RescaleRenderElement::from_element(elem, Point::from((0, 0)), zoom);
-    let elem = RelocateRenderElement::from_element(elem, ws_geo.loc, Relocate::Relative);
-    CropRenderElement::from_element(elem, output_scale, ws_geo)
 }
 
 niri_render_elements! {

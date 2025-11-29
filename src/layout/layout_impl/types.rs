@@ -145,26 +145,9 @@ impl<W: LayoutElement> DndData<W> {
         self.pointer_pos_within_output
     }
 
-    /// Returns a reference to the hold data if present.
-    #[allow(dead_code)]
-    pub(crate) fn hold(&self) -> Option<&DndHold<W>> {
-        self.hold.as_ref()
-    }
-
     /// Returns a mutable reference to the hold data.
     pub(crate) fn hold_mut(&mut self) -> &mut Option<DndHold<W>> {
         &mut self.hold
-    }
-
-    /// Updates the DnD data with new position.
-    #[allow(dead_code)]
-    pub(crate) fn update(
-        &mut self,
-        output: Output,
-        pointer_pos_within_output: Point<f64, Logical>,
-    ) {
-        self.output = output;
-        self.pointer_pos_within_output = pointer_pos_within_output;
     }
 }
 

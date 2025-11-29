@@ -13,7 +13,7 @@ use calloop::timer::{TimeoutAction, Timer};
 use calloop::LoopHandle;
 use smithay::reexports::calloop::generic::Generic;
 use smithay::reexports::calloop::{Interest, LoopSignal, Mode, PostAction};
-use smithay::reexports::wayland_server::{Client, Display};
+use smithay::reexports::wayland_server::Display;
 #[cfg(test)]
 use smithay::wayland::single_pixel_buffer::SinglePixelBufferState;
 use smithay::wayland::socket::ListeningSocketSource;
@@ -30,7 +30,7 @@ use crate::handlers::XDG_ACTIVATION_TOKEN_TIMEOUT;
 use crate::ipc::server::IpcServer;
 use crate::layout::Layout;
 use crate::niri::subsystems::InputTracking;
-use crate::niri::{ClientState, LockState, Niri, ProtocolStates};
+use crate::niri::{LockState, Niri, ProtocolStates};
 
 // =============================================================================
 // Niri Constructor
@@ -65,11 +65,6 @@ impl Niri {
         let layout = Layout::new(animation_clock.clone(), &config_);
 
         let (blocker_cleared_tx, blocker_cleared_rx) = mpsc::channel();
-
-        #[allow(dead_code)]
-        fn client_is_unrestricted(client: &Client) -> bool {
-            !client.get_data::<ClientState>().unwrap().restricted
-        }
 
         let cursor_manager =
             CursorManager::new(&config_.cursor.xcursor_theme, config_.cursor.xcursor_size);

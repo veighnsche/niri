@@ -163,19 +163,6 @@ impl<W: LayoutElement> Column<W> {
         zip(tiles, offsets).map(|((tile, visible), pos)| (tile, pos, visible))
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn tiles_in_render_order_mut(
-        &mut self,
-    ) -> impl Iterator<Item = (&mut Tile<W>, Point<f64, Logical>)> + '_ {
-        let offsets = self.tile_offsets_in_render_order(self.data.iter().copied());
-
-        let (first, rest) = self.tiles.split_at_mut(self.active_tile_idx);
-        let (active, rest) = rest.split_at_mut(1);
-
-        let tiles = active.iter_mut().chain(first).chain(rest);
-        zip(tiles, offsets)
-    }
-
     pub(crate) fn width(&self) -> f64 {
         let mut tiles_width = self
             .data
