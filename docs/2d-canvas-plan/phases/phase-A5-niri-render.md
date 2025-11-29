@@ -1,7 +1,7 @@
 # Phase A5: Extract niri/render.rs + frame_callbacks.rs
 
-> **Status**: 🔄 IN PROGRESS (frame_callbacks.rs complete)
-> **Estimated Time**: 1.5 hours
+> **Status**: ✅ COMPLETE
+> **Actual Time**: 20 minutes
 > **Risk Level**: 🟡 Medium (core rendering path)
 > **Prerequisite**: Phase A4 complete
 
@@ -11,9 +11,9 @@
 
 Extract rendering and frame callback methods into two files:
 - `src/niri/frame_callbacks.rs` — Frame callbacks and presentation feedback ✅ DONE
-- `src/niri/render.rs` — Core rendering logic (TODO)
+- `src/niri/render.rs` — Pointer rendering and refresh methods ✅ DONE
 
-> **Note**: This phase is large. Breaking into sub-phases.
+> **Note**: The main `render()` method remains in mod.rs due to heavy dependencies.
 
 ---
 

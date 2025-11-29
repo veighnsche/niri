@@ -28,8 +28,8 @@ New to the codebase? Follow these steps:
 | [Phase A2](phase-A2-niri-output.md) | ✅ **DONE** | niri/output.rs | Output management |
 | [Phase A3](phase-A3-niri-hit-test.md) | ✅ **DONE** | niri/hit_test.rs | Hit testing queries |
 | [Phase A4](phase-A4-niri-lock.md) | ✅ **DONE** | niri/lock.rs | Session lock |
-| [**Phase A5**](phase-A5-niri-render.md) | 🔄 **CURRENT** | niri/render.rs + frame_callbacks.rs | Rendering |
-| [Phase A6](phase-A6-niri-capture.md) | ⏳ PENDING | screenshot.rs + screencopy.rs + screencast.rs | Screen capture |
+| [Phase A5](phase-A5-niri-render.md) | ✅ **DONE** | niri/render.rs + frame_callbacks.rs | Rendering |
+| [**Phase A6**](phase-A6-niri-capture.md) | 🔄 **CURRENT** | screenshot.rs + screencopy.rs + screencast.rs | Screen capture |
 | [Phase A7](phase-A7-niri-input.md) | ⏳ PENDING | niri/pointer.rs + rules.rs | Input & rules |
 | [Phase A8](phase-A8-niri-init.md) | ⏳ PENDING | niri/init.rs | Constructor extraction |
 
