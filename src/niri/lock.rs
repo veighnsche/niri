@@ -81,7 +81,7 @@ impl Niri {
 
         if self.output_state.is_empty() {
             // There are no outputs, lock the session right away.
-            self.screenshot_ui.close();
+            self.ui.screenshot.close();
             self.cursor_manager
                 .set_cursor_image(CursorImageStatus::default_named());
 
@@ -143,7 +143,7 @@ impl Niri {
             } => {
                 self.event_loop.remove(deadline_token);
 
-                self.screenshot_ui.close();
+                self.ui.screenshot.close();
                 self.cursor_manager
                     .set_cursor_image(CursorImageStatus::default_named());
                 self.cancel_mru();

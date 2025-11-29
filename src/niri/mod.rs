@@ -19,7 +19,7 @@ mod subsystems;
 mod types;
 
 pub use protocols::ProtocolStates;
-pub use subsystems::{CursorSubsystem, FocusState, OutputSubsystem, StreamingSubsystem};
+pub use subsystems::{CursorSubsystem, FocusState, OutputSubsystem, StreamingSubsystem, UiOverlays};
 pub use types::*;
 
 use subsystems::{FocusContext, LayerFocusCandidate};
@@ -189,12 +189,9 @@ use crate::render_helpers::{
     encompassing_geo, render_to_dmabuf, render_to_encompassing_texture, render_to_shm,
     render_to_texture, render_to_vec, shaders, RenderTarget, SplitElements,
 };
-use crate::ui::config_error_notification::ConfigErrorNotification;
-use crate::ui::exit_confirm_dialog::{ExitConfirmDialog, ExitConfirmDialogRenderElement};
-use crate::ui::hotkey_overlay::HotkeyOverlay;
-use crate::ui::mru::{MruCloseRequest, WindowMruUi, WindowMruUiRenderElement};
 use crate::ui::screen_transition::{self, ScreenTransition};
 use crate::ui::screenshot_ui::{OutputScreenshot, ScreenshotUi, ScreenshotUiRenderElement};
+use crate::ui::mru::MruCloseRequest;
 use crate::utils::scale::{closest_representable_scale, guess_monitor_scale};
 use crate::utils::spawning::{CHILD_DISPLAY, CHILD_ENV};
 use crate::utils::vblank_throttle::VBlankThrottle;
@@ -339,19 +336,11 @@ pub struct Niri {
     // State that we last sent to the logind LockedHint.
     pub locked_hint: Option<bool>,
 
-    pub screenshot_ui: ScreenshotUi,
-    pub config_error_notification: ConfigErrorNotification,
-    pub hotkey_overlay: HotkeyOverlay,
-    pub exit_confirm_dialog: ExitConfirmDialog,
+    /// UI overlays subsystem.
+    pub ui: UiOverlays,
 
-    pub window_mru_ui: WindowMruUi,
-    pub pending_mru_commit: Option<PendingMruCommit>,
-
-    pub pick_window: Option<async_channel::Sender<Option<MappedId>>>,
-    pub pick_color: Option<async_channel::Sender<Option<niri_ipc::PickedColor>>>,
-
-    pub debug_draw_opaque_regions: bool,
-    pub debug_draw_damage: bool,
+    /// Streaming subsystem for screencast and screencopy.
+    pub streaming: StreamingSubsystem,
 
     #[cfg(feature = "dbus")]
     pub dbus: Option<crate::dbus::DBusServers>,
@@ -366,9 +355,6 @@ pub struct Niri {
     pub ipc_outputs_changed: bool,
 
     pub satellite: Option<Satellite>,
-
-    /// Streaming subsystem for screencast and screencopy.
-    pub streaming: StreamingSubsystem,
 }
 
 // PointerVisibility and DndIcon moved to types.rs
@@ -758,9 +744,9 @@ impl State {
         let pointer = &self.niri.seat.get_pointer().unwrap();
         let location = pointer.current_location();
 
-        if !self.niri.exit_confirm_dialog.is_open()
+        if !self.niri.ui.exit_dialog.is_open()
             && !self.niri.is_locked()
-            && !self.niri.screenshot_ui.is_open()
+            && !self.niri.ui.screenshot.is_open()
         {
             // Don't refresh cursor focus during transitions.
             if let Some((output, _)) = self.niri.output_under(location) {
@@ -860,11 +846,11 @@ impl State {
     fn build_focus_context(&self) -> FocusContext<'_> {
         // Collect all the state needed for focus computation
         FocusContext {
-            exit_dialog_open: self.niri.exit_confirm_dialog.is_open(),
+            exit_dialog_open: self.niri.ui.exit_dialog.is_open(),
             is_locked: self.niri.is_locked(),
             lock_surface: self.niri.lock_surface_focus(),
-            screenshot_ui_open: self.niri.screenshot_ui.is_open(),
-            mru_ui_open: self.niri.window_mru_ui.is_open(),
+            screenshot_ui_open: self.niri.ui.screenshot.is_open(),
+            mru_ui_open: self.niri.ui.mru.is_open(),
             popup_grab: self.build_popup_grab_info(),
             layer_surfaces: self.collect_layer_focus_candidates(),
             layout_above_top: self.layout_renders_above_top(),
@@ -1145,7 +1131,7 @@ impl State {
         let mut config = match config {
             Ok(config) => config,
             Err(()) => {
-                self.niri.config_error_notification.show();
+                self.niri.ui.config_error.show();
                 self.niri.queue_redraw_all();
 
                 #[cfg(feature = "dbus")]
@@ -1155,7 +1141,7 @@ impl State {
             }
         };
 
-        self.niri.config_error_notification.hide();
+        self.niri.ui.config_error.hide();
 
         // TEAM_055: Renamed from workspaces to rows
         // Find & orphan removed named rows.
@@ -1252,7 +1238,7 @@ impl State {
         let new_mod_key = self.backend.mod_key(&config);
         if new_mod_key != self.backend.mod_key(&old_config) || binds_changed {
             self.niri
-                .hotkey_overlay
+                .ui.hotkey
                 .on_hotkey_config_updated(new_mod_key);
             self.niri.mods_with_mouse_binds = mods_with_mouse_binds(new_mod_key, &config.binds);
             self.niri.mods_with_wheel_binds = mods_with_wheel_binds(new_mod_key, &config.binds);
@@ -1397,11 +1383,11 @@ impl State {
         }
 
         if binds_changed {
-            self.niri.window_mru_ui.update_binds();
+            self.niri.ui.mru.update_binds();
         }
 
         if recent_windows_changed {
-            self.niri.window_mru_ui.update_config();
+            self.niri.ui.mru.update_config();
         }
 
         if xwls_changed {
@@ -1677,7 +1663,7 @@ impl State {
     }
 
     pub fn open_screenshot_ui(&mut self, show_pointer: bool, path: Option<String>) {
-        if self.niri.is_locked() || self.niri.screenshot_ui.is_open() {
+        if self.niri.is_locked() || self.niri.ui.screenshot.is_open() {
             return;
         }
 
@@ -1716,7 +1702,7 @@ impl State {
 
         self.backend.with_primary_renderer(|renderer| {
             self.niri
-                .screenshot_ui
+                .ui.screenshot
                 .open(renderer, screenshots, default_output, show_pointer, path)
         });
 
@@ -1735,7 +1721,7 @@ impl State {
         };
         let grab = PickColorGrab::new(start_data);
         pointer.set_grab(self, grab, SERIAL_COUNTER.next_serial(), Focus::Clear);
-        self.niri.pick_color = Some(tx);
+        self.niri.ui.pick_color = Some(tx);
         self.niri
             .cursor_manager
             .set_cursor_image(CursorImageStatus::Named(CursorIcon::Crosshair));
@@ -1743,13 +1729,13 @@ impl State {
     }
 
     pub fn confirm_screenshot(&mut self, write_to_disk: bool) {
-        let ScreenshotUi::Open { path, .. } = &mut self.niri.screenshot_ui else {
+        let ScreenshotUi::Open { path, .. } = &mut self.niri.ui.screenshot else {
             return;
         };
         let path = path.take();
 
         self.backend.with_primary_renderer(|renderer| {
-            match self.niri.screenshot_ui.capture(renderer) {
+            match self.niri.ui.screenshot.capture(renderer) {
                 Ok((size, pixels)) => {
                     if let Err(err) = self.niri.save_screenshot(size, pixels, write_to_disk, path) {
                         warn!("error saving screenshot: {err:?}");
@@ -1761,7 +1747,7 @@ impl State {
             }
         });
 
-        self.niri.screenshot_ui.close();
+        self.niri.ui.screenshot.close();
         self.niri
             .cursor_manager
             .set_cursor_image(CursorImageStatus::default_named());
@@ -2508,13 +2494,13 @@ impl Niri {
             }
         }
 
-        if self.screenshot_ui.close() {
+        if self.ui.screenshot.close() {
             self.cursor.manager()
                 .set_cursor_image(CursorImageStatus::default_named());
             self.queue_redraw_all();
         }
 
-        if self.window_mru_ui.output() == Some(output) {
+        if self.ui.mru.output() == Some(output) {
             self.cancel_mru();
         }
     }
@@ -2626,14 +2612,14 @@ impl Niri {
 
         // Next, the exit confirm dialog.
         elements.extend(
-            self.exit_confirm_dialog
+            self.ui.exit_dialog
                 .render(renderer, output)
                 .into_iter()
                 .map(OutputRenderElements::from),
         );
 
         // Next, the config error notification too.
-        if let Some(element) = self.config_error_notification.render(renderer, output) {
+        if let Some(element) = self.ui.config_error.render(renderer, output) {
             elements.push(element.into());
         }
 
@@ -2679,9 +2665,9 @@ impl Niri {
         .into();
 
         // If the screenshot UI is open, draw it.
-        if self.screenshot_ui.is_open() {
+        if self.ui.screenshot.is_open() {
             elements.extend(
-                self.screenshot_ui
+                self.ui.screenshot
                     .render_output(output, target)
                     .into_iter()
                     .map(OutputRenderElements::from),
@@ -2697,13 +2683,13 @@ impl Niri {
         }
 
         // Draw the hotkey overlay on top.
-        if let Some(element) = self.hotkey_overlay.render(renderer, output) {
+        if let Some(element) = self.ui.hotkey.render(renderer, output) {
             elements.push(element.into());
         }
 
         // Then, the Alt-Tab switcher.
         let mru_elements = self
-            .window_mru_ui
+            .ui.mru
             .render_output(self, output, renderer, target)
             .into_iter()
             .flatten()
@@ -2886,10 +2872,10 @@ impl Niri {
             let state = self.outputs.state.get_mut(output).unwrap();
             state.unfinished_animations_remain = self.layout.are_animations_ongoing(Some(output));
             state.unfinished_animations_remain |=
-                self.config_error_notification.are_animations_ongoing();
-            state.unfinished_animations_remain |= self.exit_confirm_dialog.are_animations_ongoing();
-            state.unfinished_animations_remain |= self.screenshot_ui.are_animations_ongoing();
-            state.unfinished_animations_remain |= self.window_mru_ui.are_animations_ongoing();
+                self.ui.config_error.are_animations_ongoing();
+            state.unfinished_animations_remain |= self.ui.exit_dialog.are_animations_ongoing();
+            state.unfinished_animations_remain |= self.ui.screenshot.are_animations_ongoing();
+            state.unfinished_animations_remain |= self.ui.mru.are_animations_ongoing();
             state.unfinished_animations_remain |= state.screen_transition.is_some();
 
             // Also keep redrawing if the current cursor is animated.

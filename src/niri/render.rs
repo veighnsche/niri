@@ -364,10 +364,10 @@ impl Niri {
         let _span = tracy_client::span!("Niri::advance_animations");
 
         self.layout.advance_animations();
-        self.config_error_notification.advance_animations();
-        self.exit_confirm_dialog.advance_animations();
-        self.screenshot_ui.advance_animations();
-        self.window_mru_ui.advance_animations();
+        self.ui.config_error.advance_animations();
+        self.ui.exit_dialog.advance_animations();
+        self.ui.screenshot.advance_animations();
+        self.ui.mru.advance_animations();
 
         for state in self.output_state.values_mut() {
             if let Some(transition) = &mut state.screen_transition {

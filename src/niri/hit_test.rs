@@ -169,7 +169,7 @@ impl Niri {
     ) -> Option<(Output, &crate::layout::row::Row<Mapped>)> {
         let _ = extended_bounds; // Currently unused but kept for API compatibility
 
-        if self.exit_confirm_dialog.is_open() || self.is_locked() || self.screenshot_ui.is_open() {
+        if self.ui.exit_dialog.is_open() || self.is_locked() || self.ui.screenshot.is_open() {
             return None;
         }
 
@@ -204,10 +204,10 @@ impl Niri {
     /// The cursor may be inside the window's activation region, but not within the window's input
     /// region.
     pub fn window_under(&self, pos: Point<f64, Logical>) -> Option<&Mapped> {
-        if self.exit_confirm_dialog.is_open()
+        if self.ui.exit_dialog.is_open()
             || self.is_locked()
-            || self.screenshot_ui.is_open()
-            || self.window_mru_ui.is_open()
+            || self.ui.screenshot.is_open()
+            || self.ui.mru.is_open()
         {
             return None;
         }
@@ -260,34 +260,25 @@ impl Niri {
         // The ordering here must be consistent with the ordering in render() so that input is
         // consistent with the visuals.
 
-        if self.exit_confirm_dialog.is_open() {
+        if self.ui.exit_dialog.is_open() {
             return rv;
         } else if self.is_locked() {
-            let Some(state) = self.output_state.get(output) else {
-                return rv;
-            };
-            let Some(surface) = state.lock_surface.as_ref() else {
-                return rv;
-            };
-
-            rv.surface = under_from_surface_tree(
-                surface.wl_surface(),
-                pos_within_output,
-                // We put lock surfaces at (0, 0).
-                (0, 0),
-                WindowSurfaceType::ALL,
-            )
-            .map(|(surface, pos_within_output)| {
-                (
-                    surface,
-                    (pos_within_output + output_pos_in_global_space).to_f64(),
+            rv.layer_surface = layer_map_for_output(output)
+                .layer_under(
+                    pos_within_output,
+                    WindowSurfaceType::ALL,
                 )
-            });
+                .map(|(surface, pos_within_output)| {
+                    (
+                        surface,
+                        (pos_within_output + output_pos_in_global_space).to_f64(),
+                    )
+                });
 
             return rv;
         }
 
-        if self.screenshot_ui.is_open() || self.window_mru_ui.is_open() {
+        if self.ui.screenshot.is_open() || self.ui.mru.is_open() {
             return rv;
         }
 

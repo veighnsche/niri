@@ -17,12 +17,12 @@ impl Niri {
     ///
     /// Returns the selected window if one was confirmed.
     pub fn close_mru(&mut self, close_request: MruCloseRequest) -> Option<Window> {
-        if !self.window_mru_ui.is_open() {
+        if !self.ui.mru.is_open() {
             return None;
         }
         self.queue_redraw_all();
 
-        let id = self.window_mru_ui.close(close_request)?;
+        let id = self.ui.mru.close(close_request)?;
         self.find_window_by_id(id)
     }
 
@@ -36,7 +36,7 @@ impl Niri {
     /// Called for example on keyboard events that reach the active window, which immediately adds
     /// it to the MRU.
     pub fn mru_apply_keyboard_commit(&mut self) {
-        let Some(pending) = self.pending_mru_commit.take() else {
+        let Some(pending) = self.ui.pending_mru_commit.take() else {
             return;
         };
         self.event_loop.remove(pending.token);
@@ -53,7 +53,7 @@ impl Niri {
 
     /// Queues a redraw for the output showing the MRU window switcher.
     pub fn queue_redraw_mru_output(&mut self) {
-        if let Some(output) = self.window_mru_ui.output().cloned() {
+        if let Some(output) = self.ui.mru.output().cloned() {
             self.queue_redraw(&output);
         }
     }

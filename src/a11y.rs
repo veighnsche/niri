@@ -151,16 +151,16 @@ impl Niri {
         // Check if the MRU selection changed.
         let mut update_mru_selection = false;
         if focus == ID_MRU {
-            let current = self.window_mru_ui.current_window_id();
+            let current = self.ui.mru.current_window_id();
             if self.a11y.mru_selection != current {
                 update_mru_selection = true;
                 self.a11y.mru_selection = current;
             }
 
             // If there's no window title to announce, check if there's a scope change.
-            let scope = self.window_mru_ui.scope();
+            let scope = self.ui.mru.scope();
             if !update_mru_selection && self.a11y.mru_scope != Some(scope) {
-                announcement = Some(self.window_mru_ui.a11y_scope_text());
+                announcement = Some(self.ui.mru.a11y_scope_text());
             }
             self.a11y.mru_scope = Some(scope);
         } else {
@@ -219,7 +219,7 @@ impl Niri {
                 } else {
                     let mut mru = Node::new(Role::Group);
                     // Announce the current scope in the empty text to make it clear.
-                    let scope = self.window_mru_ui.a11y_scope_text();
+                    let scope = self.ui.mru.a11y_scope_text();
                     mru.set_label(format!("Recent windows empty, {scope}"));
                     nodes.push((ID_MRU, mru));
                 }
@@ -274,7 +274,7 @@ impl Niri {
             return;
         }
 
-        self.a11y_announce(self.hotkey_overlay.a11y_text());
+        self.a11y_announce(self.ui.hotkey.a11y_text());
     }
 
     fn a11y_focus(&self) -> NodeId {

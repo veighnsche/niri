@@ -354,7 +354,7 @@ async fn process(ctx: &ClientCtx, request: Request) -> Reply {
                 // The `WindowPickGrab` ungrab handler will cancel the previous ongoing pick, if
                 // any.
                 pointer.set_grab(state, grab, SERIAL_COUNTER.next_serial(), Focus::Clear);
-                state.niri.pick_window = Some(tx);
+                state.niri.ui.pick_window = Some(tx);
                 state
                     .niri
                     .cursor_manager

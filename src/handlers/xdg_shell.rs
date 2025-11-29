@@ -286,17 +286,17 @@ impl XdgShellHandler for State {
         // We need to hand out the grab in a way consistent with what update_keyboard_focus()
         // thinks the current focus is, otherwise it will desync and cause weird issues with
         // keyboard focus being at the wrong place.
-        if self.niri.exit_confirm_dialog.is_open() {
+        if self.niri.ui.exit_dialog.is_open() {
             trace!("ignoring popup grab because the exit confirm dialog is open");
             let _ = PopupManager::dismiss_popup(&root, &popup);
             return;
-        } else if self.niri.is_locked() {
-            if Some(&root) != self.niri.lock_surface_focus().as_ref() {
-                trace!("ignoring popup grab because the session is locked");
-                let _ = PopupManager::dismiss_popup(&root, &popup);
-                return;
-            }
-        } else if self.niri.screenshot_ui.is_open() {
+        }
+
+        if self.niri.is_locked() {
+            trace!("ignoring popup grab because the session is locked");
+            let _ = PopupManager::dismiss_popup(&root, &popup);
+            return;
+        } else if self.niri.ui.screenshot.is_open() {
             trace!("ignoring popup grab because the screenshot UI is open");
             let _ = PopupManager::dismiss_popup(&root, &popup);
             return;
@@ -869,7 +869,7 @@ impl XdgShellHandler for State {
         let active_window = self.niri.layout.focus().map(|m| &m.window);
         let was_active = active_window == Some(&window);
 
-        self.niri.window_mru_ui.remove_window(id);
+        self.niri.ui.mru.remove_window(id);
         self.niri.layout.remove_window(&window, transaction.clone());
         self.add_default_dmabuf_pre_commit_hook(surface.wl_surface());
 

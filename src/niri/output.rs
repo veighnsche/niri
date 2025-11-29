@@ -243,15 +243,16 @@ impl Niri {
         }
 
         // If the output size changed with an open screenshot UI, close the screenshot UI.
-        if let Some((old_size, old_scale, old_transform)) = self.screenshot_ui.output_size(output) {
+        if let Some((old_size, old_scale, old_transform)) = self.ui.screenshot.output_size(output) {
             let output_mode = output.current_mode().unwrap();
             let size = transform.transform_size(output_mode.size);
             let scale = output.current_scale().fractional_scale();
-            // FIXME: scale changes and transform flips shouldn't matter but they currently do since
-            // I haven't quite figured out how to draw the screenshot textures in
-            // physical coordinates.
+            let transform = output.current_transform();
+
+            // If the output geometry changed while the screenshot UI was open, close it. The UI
+            // operates in physical coordinates.
             if old_size != size || old_scale != scale || old_transform != transform {
-                self.screenshot_ui.close();
+                self.ui.screenshot.close();
                 self.cursor_manager
                     .set_cursor_image(CursorImageStatus::default_named());
                 self.queue_redraw_all();

@@ -88,7 +88,7 @@ impl Niri {
             return;
         }
 
-        if self.window_mru_ui.is_open() {
+        if self.ui.mru.is_open() {
             return;
         }
 

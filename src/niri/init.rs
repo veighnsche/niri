@@ -21,7 +21,7 @@ use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::WmC
 use smithay::reexports::wayland_server::protocol::wl_shm;
 use smithay::reexports::wayland_server::{Client, Display};
 
-use super::{CursorSubsystem, FocusState, OutputSubsystem, StreamingSubsystem};
+use super::{CursorSubsystem, FocusState, OutputSubsystem, StreamingSubsystem, UiOverlays};
 use smithay::utils::{ClockSource, Monotonic};
 use smithay::wayland::compositor::CompositorState;
 use smithay::wayland::cursor_shape::CursorShapeManagerState;
@@ -79,11 +79,6 @@ use crate::protocols::mutter_x11_interop::MutterX11InteropManagerState;
 use crate::protocols::output_management::OutputManagementManagerState;
 use crate::protocols::screencopy::ScreencopyManagerState;
 use crate::protocols::virtual_pointer::VirtualPointerManagerState;
-use crate::ui::config_error_notification::ConfigErrorNotification;
-use crate::ui::exit_confirm_dialog::ExitConfirmDialog;
-use crate::ui::hotkey_overlay::HotkeyOverlay;
-use crate::ui::mru::WindowMruUi;
-use crate::ui::screenshot_ui::ScreenshotUi;
 use crate::window::mapped::MappedId;
 use super::{State,
     KeyboardFocus, LockState, NewClient, PointContents, PointerVisibility,
@@ -176,20 +171,9 @@ impl Niri {
         let mods_with_wheel_binds = mods_with_wheel_binds(mod_key, &config_.binds);
         let mods_with_finger_scroll_binds = mods_with_finger_scroll_binds(mod_key, &config_.binds);
 
-        let screenshot_ui = ScreenshotUi::new(animation_clock.clone(), config.clone());
-        let window_mru_ui = WindowMruUi::new(config.clone());
-        let config_error_notification =
-            ConfigErrorNotification::new(animation_clock.clone(), config.clone());
+        let ui = UiOverlays::new(&config_, &animation_clock, &config);
 
-        let mut hotkey_overlay = HotkeyOverlay::new(config.clone(), mod_key);
-        if !config_.hotkey_overlay.skip_at_startup {
-            hotkey_overlay.show();
-        }
-
-        let exit_confirm_dialog = ExitConfirmDialog::new(animation_clock.clone(), config.clone());
-
-        #[cfg(feature = "dbus")]
-        let a11y = A11y::new(event_loop.clone());
+        let display_source = Generic::new(display, Interest::READ, Mode::Level);
 
         event_loop
             .insert_source(
@@ -306,17 +290,9 @@ impl Niri {
             lock_state: LockState::Unlocked,
             locked_hint: None,
 
-            screenshot_ui,
-            config_error_notification,
-            hotkey_overlay,
-            exit_confirm_dialog,
+            ui,
 
-            window_mru_ui,
-            pending_mru_commit: None,
-
-            pick_window: None,
-            pick_color: None,
-
+            streaming: StreamingSubsystem::new(),
             debug_draw_opaque_regions: false,
             debug_draw_damage: false,
 
