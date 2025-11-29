@@ -2514,7 +2514,7 @@ impl Niri {
             LockState::Locking(confirmation) => {
                 // We're locking and an output was removed, check if the requirements are now met.
                 let all_locked = self
-                    .output_state
+                    .outputs.state
                     .values()
                     .all(|state| state.lock_render_state == LockRenderState::Locked);
 
@@ -2969,7 +2969,7 @@ impl Niri {
                 } else {
                     // Check if all outputs are now locked.
                     let all_locked = self
-                        .output_state
+                        .outputs.state
                         .values()
                         .all(|state| state.lock_render_state == LockRenderState::Locked);
 
@@ -3363,7 +3363,7 @@ impl Niri {
         self.update_render_elements(None);
 
         let textures: Vec<_> = self
-            .output_state
+            .outputs.state
             .keys()
             .cloned()
             .filter_map(|output| {

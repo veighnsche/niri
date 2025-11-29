@@ -301,7 +301,7 @@ impl Niri {
 
         let _span = tracy_client::span!("Niri::refresh_idle_inhibit");
 
-        self.focus.idle_inhibitors().retain(|s| s.is_alive());
+        self.focus.idle_inhibitors_mut().retain(|s| s.is_alive());
 
         let is_inhibited = self.is_fdo_idle_inhibited.load(Ordering::SeqCst)
             || self.focus.idle_inhibitors().iter().any(|surface| {

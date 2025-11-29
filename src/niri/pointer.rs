@@ -57,8 +57,8 @@ impl Niri {
             if surface.cached_state().keyboard_interactivity
                 == wlr_layer::KeyboardInteractivity::OnDemand
             {
-                if self.layer_shell_on_demand_focus.as_ref() != Some(&surface) {
-                    self.layer_shell_on_demand_focus = Some(surface);
+                if self.focus.layer_on_demand().as_ref() != Some(&surface) {
+                    self.focus.set_layer_on_demand(Some(surface));
 
                     // FIXME: granular.
                     self.queue_redraw_all();
@@ -69,8 +69,8 @@ impl Niri {
         }
 
         // Something else got clicked, clear on-demand layer-shell focus.
-        if self.layer_shell_on_demand_focus.is_some() {
-            self.layer_shell_on_demand_focus = None;
+        if self.focus.layer_on_demand().is_some() {
+            self.focus.set_layer_on_demand(None);
 
             // FIXME: granular.
             self.queue_redraw_all();
@@ -127,13 +127,13 @@ impl Niri {
                 }
 
                 self.layout.activate_window_without_raising(window);
-                self.layer_shell_on_demand_focus = None;
+                self.focus.set_layer_on_demand(None);
             }
         }
 
         if let Some(layer) = &new_focus.layer {
             if current_focus.layer.as_ref() != Some(layer) {
-                self.layer_shell_on_demand_focus = Some(layer.clone());
+                self.focus.set_layer_on_demand(Some(layer.clone()));
             }
         }
     }
