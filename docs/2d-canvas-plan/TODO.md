@@ -671,15 +671,17 @@ src/layout/  (~50 focused files instead of ~20 bloated ones)
 
 ## Execution Phases
 
-### Phase 0: Cleanup (1 hour, NO RISK)
+### Phase 0: Cleanup (1 hour, NO RISK) ✅ COMPLETE (TEAM_062)
 **Delete dead code:**
-- [ ] Delete `workspace.rs` (empty file)
-- [ ] Move `scrolling.rs` to `deprecated/scrolling.rs` (keep for reference)
+- [x] Delete `workspace.rs` (empty file)
+- [x] Move `scrolling.rs` to `deprecated/scrolling.rs` (keep for reference)
+- [x] Fix `ScrollDirection` import in `src/input/mod.rs` (was using scrolling.rs, now uses types.rs)
+- [x] Remove `pub mod scrolling;` from `src/layout/mod.rs`
 
 **Verification:**
 ```bash
-cargo check
-cargo test layout::
+cargo check    # ✅ Passes (warnings only)
+cargo test layout::  # ✅ 187 passed
 ```
 
 ---

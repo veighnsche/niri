@@ -85,7 +85,7 @@ pub mod focus_ring;
 pub mod insert_hint_element;
 pub mod monitor;
 pub mod opening_window;
-pub mod scrolling;
+// TEAM_062: scrolling.rs moved to deprecated/ - replaced by Row
 pub mod shadow;
 pub mod tab_indicator;
 pub mod tile;
