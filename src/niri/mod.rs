@@ -19,7 +19,7 @@ mod subsystems;
 mod types;
 
 pub use protocols::ProtocolStates;
-pub use subsystems::{CursorSubsystem, FocusState, OutputSubsystem};
+pub use subsystems::{CursorSubsystem, FocusState, OutputSubsystem, StreamingSubsystem};
 pub use types::*;
 
 use subsystems::{FocusContext, LayerFocusCandidate};
@@ -367,19 +367,8 @@ pub struct Niri {
 
     pub satellite: Option<Satellite>,
 
-    // Casts are dropped before PipeWire to prevent a double-free (yay).
-    pub casts: Vec<Cast>,
-    pub pipewire: Option<PipeWire>,
-    #[cfg(feature = "xdp-gnome-screencast")]
-    pub pw_to_niri: calloop::channel::Sender<PwToNiri>,
-
-    // Screencast output for each mapped window.
-    #[cfg(feature = "xdp-gnome-screencast")]
-    pub mapped_cast_output: HashMap<Window, Output>,
-
-    /// Window ID for the "dynamic cast" special window for the xdp-gnome picker.
-    #[cfg(feature = "xdp-gnome-screencast")]
-    pub dynamic_cast_id_for_portal: MappedId,
+    /// Streaming subsystem for screencast and screencopy.
+    pub streaming: StreamingSubsystem,
 }
 
 // PointerVisibility and DndIcon moved to types.rs
@@ -1786,8 +1775,8 @@ impl State {
             PwToNiri::Redraw { stream_id } => self.redraw_cast(stream_id),
             PwToNiri::FatalError => {
                 warn!("stopping PipeWire due to fatal error");
-                if let Some(pw) = self.niri.pipewire.take() {
-                    let ids: Vec<_> = self.niri.casts.iter().map(|cast| cast.session_id).collect();
+                if let Some(pw) = self.niri.streaming.pipewire_mut().take() {
+                    let ids: Vec<_> = self.niri.streaming.casts().iter().map(|cast| cast.session_id).collect();
                     for id in ids {
                         self.niri.stop_cast(id);
                     }
@@ -1828,7 +1817,7 @@ impl State {
 
                 // Use the cached output since it will be present even if the output was
                 // currently disconnected.
-                let Some(output) = self.niri.mapped_cast_output.get(&mapped.window) else {
+                let Some(output) = self.niri.streaming.mapped_cast_output(&mapped.window) else {
                     return;
                 };
 
@@ -1885,7 +1874,7 @@ impl State {
             CastTarget::Window { id } => {
                 let mut windows = self.niri.layout.windows();
                 if let Some((_, mapped)) = windows.find(|(_, mapped)| mapped.id().get() == *id) {
-                    if let Some(output) = self.niri.mapped_cast_output.get(&mapped.window) {
+                    if let Some(output) = self.niri.streaming.mapped_cast_output(&mapped.window) {
                         refresh = Some(output.current_mode().unwrap().refresh as u32);
                     }
                 }
@@ -1894,7 +1883,7 @@ impl State {
 
         let mut to_redraw = Vec::new();
         let mut to_stop = Vec::new();
-        for cast in &mut self.niri.casts {
+        for cast in &mut self.niri.streaming.casts_mut() {
             if !cast.dynamic_target {
                 continue;
             }
@@ -1940,12 +1929,12 @@ impl State {
                     return;
                 };
 
-                let pw = if let Some(pw) = &self.niri.pipewire {
+                let pw = if let Some(pw) = self.niri.streaming.pipewire() {
                     pw
                 } else {
-                    match PipeWire::new(self.niri.event_loop.clone(), self.niri.pw_to_niri.clone())
+                    match PipeWire::new(self.niri.event_loop.clone(), self.niri.streaming.pw_sender().unwrap().clone())
                     {
-                        Ok(pipewire) => self.niri.pipewire.insert(pipewire),
+                        Ok(pipewire) => self.niri.streaming.set_pipewire(Some(pipewire)),
                         Err(err) => {
                             warn!(
                                 "error starting screencast: PipeWire failed to initialize: {err:?}"
@@ -1974,7 +1963,7 @@ impl State {
                         (CastTarget::Output(output.downgrade()), size, refresh, false)
                     }
                     StreamTargetId::Window { id }
-                        if id == self.niri.dynamic_cast_id_for_portal.get() =>
+                        if id == self.niri.streaming.dynamic_cast_id().unwrap().get() =>
                     {
                         dynamic_target = true;
 
@@ -1993,7 +1982,7 @@ impl State {
 
                         // Use the cached output since it will be present even if the output was
                         // currently disconnected.
-                        let Some(output) = self.niri.mapped_cast_output.get(window) else {
+                        let Some(output) = self.niri.streaming.mapped_cast_output(window) else {
                             warn!("error starting screencast: requested window is missing");
                             self.niri.stop_cast(session_id);
                             return;
@@ -2123,7 +2112,7 @@ impl State {
 
         #[cfg(feature = "xdp-gnome-screencast")]
         windows.insert(
-            self.niri.dynamic_cast_id_for_portal.get(),
+            self.niri.streaming.dynamic_cast_id().unwrap().get(),
             gnome_shell_introspect::WindowProperties {
                 title: String::from("niri Dynamic Cast Target"),
                 app_id: String::from("rs.bxt.niri.desktop"),

@@ -21,7 +21,7 @@ use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::WmC
 use smithay::reexports::wayland_server::protocol::wl_shm;
 use smithay::reexports::wayland_server::{Client, Display};
 
-use super::{CursorSubsystem, FocusState, OutputSubsystem};
+use super::{CursorSubsystem, FocusState, OutputSubsystem, StreamingSubsystem};
 use smithay::utils::{ClockSource, Monotonic};
 use smithay::wayland::compositor::CompositorState;
 use smithay::wayland::cursor_shape::CursorShapeManagerState;
@@ -224,18 +224,6 @@ impl Niri {
             }
         };
 
-        #[cfg(feature = "xdp-gnome-screencast")]
-        let pw_to_niri = {
-            let (pw_to_niri, from_pipewire) = calloop::channel::channel();
-            event_loop
-                .insert_source(from_pipewire, move |event, _, state| match event {
-                    calloop::channel::Event::Msg(msg) => state.on_pw_msg(msg),
-                    calloop::channel::Event::Closed => (),
-                })
-                .unwrap();
-            pw_to_niri
-        };
-
         let display_source = Generic::new(display, Interest::READ, Mode::Level);
         event_loop
             .insert_source(display_source, |_, display, state| {
@@ -346,17 +334,12 @@ impl Niri {
 
             satellite: None,
 
-            pipewire: None,
-            casts: vec![],
-            #[cfg(feature = "xdp-gnome-screencast")]
-            pw_to_niri,
-
-            #[cfg(feature = "xdp-gnome-screencast")]
-            mapped_cast_output: HashMap::new(),
-
-            #[cfg(feature = "xdp-gnome-screencast")]
-            dynamic_cast_id_for_portal: MappedId::next(),
+            streaming: StreamingSubsystem::new(),
         };
+
+        // Initialize streaming subsystem components.
+        #[cfg(feature = "xdp-gnome-screencast")]
+        niri.streaming.init_pipewire_channel(&event_loop);
 
         niri.reset_pointer_inactivity_timer();
 

@@ -5,7 +5,9 @@
 mod cursor;
 mod focus;
 mod outputs;
+mod streaming;
 
 pub use cursor::CursorSubsystem;
 pub use focus::{FocusContext, FocusState, LayerFocusCandidate};
 pub use outputs::OutputSubsystem;
+pub use streaming::StreamingSubsystem;

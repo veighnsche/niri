@@ -43,7 +43,8 @@ impl Niri {
             let id = mapped.id().get();
             // Find regardless of cast.is_active.
             let value = self
-                .casts
+                .streaming
+                .casts()
                 .iter()
                 .any(|cast| cast.target == (CastTarget::Window { id }));
             mapped.set_is_window_cast_target(value);
@@ -65,7 +66,7 @@ impl Niri {
                 return;
             };
 
-            match self.mapped_cast_output.entry(mapped.window.clone()) {
+            match self.streaming.mapped_cast_outputs_mut().entry(mapped.window.clone()) {
                 Entry::Occupied(mut entry) => {
                     if entry.get() != output {
                         entry.insert(output.clone());
@@ -78,13 +79,13 @@ impl Niri {
             }
         });
 
-        self.mapped_cast_output.retain(|win, _| seen.contains(win));
+        self.streaming.mapped_cast_outputs_mut().retain(|win, _| seen.contains(win));
 
         let mut to_stop = vec![];
         for (id, out) in output_changed {
             let refresh = out.current_mode().unwrap().refresh as u32;
             let target = CastTarget::Window { id: id.get() };
-            for cast in self.casts.iter_mut().filter(|cast| cast.target == target) {
+            for cast in self.streaming.casts_mut().iter_mut().filter(|cast| cast.target == target) {
                 if let Err(err) = cast.set_refresh(refresh) {
                     warn!("error changing cast FPS: {err:?}");
                     to_stop.push(cast.session_id);
@@ -109,7 +110,7 @@ impl Niri {
         // This is O(N^2) but it shouldn't be a problem I think.
         let mut saw_dynamic = false;
         let mut ids = Vec::new();
-        for cast in &self.casts {
+        for cast in self.streaming.casts() {
             if cast.target != target {
                 continue;
             }
@@ -154,7 +155,7 @@ impl Niri {
         let mut elements = None;
         let mut casts_to_stop = vec![];
 
-        let mut casts = mem::take(&mut self.casts);
+        let mut casts = mem::take(self.streaming.casts_mut());
         for cast in &mut casts {
             if !cast.is_active() {
                 continue;
@@ -186,7 +187,7 @@ impl Niri {
                 cast.last_frame_time = target_presentation_time;
             }
         }
-        self.casts = casts;
+        *self.streaming.casts_mut() = casts;
 
         for id in casts_to_stop {
             self.stop_cast(id);
@@ -207,7 +208,7 @@ impl Niri {
 
         let mut casts_to_stop = vec![];
 
-        let mut casts = mem::take(&mut self.casts);
+        let mut casts = mem::take(self.streaming.casts_mut());
         for cast in &mut casts {
             if !cast.is_active() {
                 continue;
@@ -247,7 +248,7 @@ impl Niri {
                 cast.last_frame_time = target_presentation_time;
             }
         }
-        self.casts = casts;
+        *self.streaming.casts_mut() = casts;
 
         for id in casts_to_stop {
             self.stop_cast(id);
@@ -261,13 +262,13 @@ impl Niri {
 
         debug!(session_id, "StopCast");
 
-        for i in (0..self.casts.len()).rev() {
-            let cast = &self.casts[i];
+        for i in (0..self.streaming.casts().len()).rev() {
+            let cast = &self.streaming.casts()[i];
             if cast.session_id != session_id {
                 continue;
             }
 
-            let cast = self.casts.swap_remove(i);
+            let cast = self.streaming.casts_mut().swap_remove(i);
             if let Err(err) = cast.stream.disconnect() {
                 warn!("error disconnecting stream: {err:?}");
             }
