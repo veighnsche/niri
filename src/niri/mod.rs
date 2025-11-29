@@ -6,6 +6,7 @@ mod frame_callbacks;
 mod hit_test;
 mod init;
 mod lock;
+mod mru;
 mod output;
 mod pointer;
 mod render;
@@ -2675,67 +2676,7 @@ impl Niri {
 
     // pointer_element, refresh_pointer_outputs, refresh_layout, refresh_idle_inhibit,
     // refresh_window_states, refresh_window_rules moved to render.rs
-
-    #[cfg(feature = "xdp-gnome-screencast")]
-    pub fn refresh_mapped_cast_window_rules(&mut self) {
-        // O(N^2) but should be fine since there aren't many casts usually.
-        self.layout.with_windows_mut(|mapped, _| {
-            let id = mapped.id().get();
-            // Find regardless of cast.is_active.
-            let value = self
-                .casts
-                .iter()
-                .any(|cast| cast.target == (CastTarget::Window { id }));
-            mapped.set_is_window_cast_target(value);
-        });
-    }
-
-    #[cfg(feature = "xdp-gnome-screencast")]
-    pub fn refresh_mapped_cast_outputs(&mut self) {
-        use std::collections::hash_map::Entry;
-
-        let mut seen = HashSet::new();
-        let mut output_changed = vec![];
-
-        self.layout.with_windows(|mapped, output, _, _| {
-            seen.insert(mapped.window.clone());
-
-            let Some(output) = output else {
-                return;
-            };
-
-            match self.mapped_cast_output.entry(mapped.window.clone()) {
-                Entry::Occupied(mut entry) => {
-                    if entry.get() != output {
-                        entry.insert(output.clone());
-                        output_changed.push((mapped.id(), output.clone()));
-                    }
-                }
-                Entry::Vacant(entry) => {
-                    entry.insert(output.clone());
-                }
-            }
-        });
-
-        self.mapped_cast_output.retain(|win, _| seen.contains(win));
-
-        let mut to_stop = vec![];
-        for (id, out) in output_changed {
-            let refresh = out.current_mode().unwrap().refresh as u32;
-            let target = CastTarget::Window { id: id.get() };
-            for cast in self.casts.iter_mut().filter(|cast| cast.target == target) {
-                if let Err(err) = cast.set_refresh(refresh) {
-                    warn!("error changing cast FPS: {err:?}");
-                    to_stop.push(cast.session_id);
-                };
-            }
-        }
-
-        for session_id in to_stop {
-            self.stop_cast(session_id);
-        }
-    }
-
+    // refresh_mapped_cast_window_rules, refresh_mapped_cast_outputs moved to screencast.rs
     // advance_animations, update_render_elements, update_shaders moved to render.rs
 
     pub fn render<R: NiriRenderer>(
@@ -3416,51 +3357,8 @@ impl Niri {
         self.queue_redraw_all();
     }
 
-    // capture_screenshots, screenshot, save_screenshot,
-    // screenshot_all_outputs moved to screenshot.rs
-
-    /// Takes a screenshot of a single window.
-    pub fn screenshot_window(
-        &self,
-        renderer: &mut GlesRenderer,
-        output: &Output,
-        mapped: &Mapped,
-        write_to_disk: bool,
-        path: Option<String>,
-    ) -> anyhow::Result<()> {
-        let _span = tracy_client::span!("Niri::screenshot_window");
-
-        let scale = Scale::from(output.current_scale().fractional_scale());
-        let alpha =
-            if mapped.sizing_mode().is_fullscreen() || mapped.is_ignoring_opacity_window_rule() {
-                1.
-            } else {
-                mapped.rules().opacity.unwrap_or(1.).clamp(0., 1.)
-            };
-        // FIXME: pointer.
-        let elements = mapped.render(
-            renderer,
-            mapped.window.geometry().loc.to_f64(),
-            scale,
-            alpha,
-            RenderTarget::ScreenCapture,
-        );
-        let geo = encompassing_geo(scale, elements.iter());
-        let elements = elements.iter().rev().map(|elem| {
-            RelocateRenderElement::from_element(elem, geo.loc.upscale(-1), Relocate::Relative)
-        });
-        let pixels = render_to_vec(
-            renderer,
-            geo.size,
-            scale,
-            Transform::Normal,
-            Fourcc::Abgr8888,
-            elements,
-        )?;
-
-        self.save_screenshot(geo.size, pixels, write_to_disk, path)
-            .context("error saving screenshot")
-    }
+    // capture_screenshots, screenshot, save_screenshot, screenshot_all_outputs,
+    // screenshot_window moved to screenshot.rs
 
     // is_locked, lock, maybe_continue_to_locking, continue_to_locking, unlock,
     // update_locked_hint, new_lock_surface moved to lock.rs
@@ -3599,46 +3497,7 @@ impl Niri {
     }
 
     // recompute_window_rules, recompute_layer_rules moved to rules.rs
-
-    pub fn close_mru(&mut self, close_request: MruCloseRequest) -> Option<Window> {
-        if !self.window_mru_ui.is_open() {
-            return None;
-        }
-        self.queue_redraw_all();
-
-        let id = self.window_mru_ui.close(close_request)?;
-        self.find_window_by_id(id)
-    }
-
-    pub fn cancel_mru(&mut self) {
-        self.close_mru(MruCloseRequest::Cancel);
-    }
-
-    /// Apply a pending MRU commit immediately.
-    ///
-    /// Called for example on keyboard events that reach the active window, which immediately adds
-    /// it to the MRU.
-    pub fn mru_apply_keyboard_commit(&mut self) {
-        let Some(pending) = self.pending_mru_commit.take() else {
-            return;
-        };
-        self.event_loop.remove(pending.token);
-
-        if let Some(window) = self
-            .layout
-            .workspaces_mut()
-            .flat_map(|ws| ws.tiles_mut().map(|tile| tile.window_mut()))
-            .find(|w| w.id() == pending.id)
-        {
-            window.set_focus_timestamp(pending.stamp);
-        }
-    }
-
-    pub fn queue_redraw_mru_output(&mut self) {
-        if let Some(output) = self.window_mru_ui.output().cloned() {
-            self.queue_redraw(&output);
-        }
-    }
+    // close_mru, cancel_mru, mru_apply_keyboard_commit, queue_redraw_mru_output moved to mru.rs
 }
 
 pub struct NewClient {

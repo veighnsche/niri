@@ -13,6 +13,7 @@ use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::output::Output;
 use smithay::utils::{Physical, Scale, Size, Transform};
 
+use crate::layout::LayoutElement as _;
 use crate::render_helpers::{
     encompassing_geo, render_to_encompassing_texture, render_to_texture, render_to_vec, RenderTarget,
 };
@@ -321,5 +322,48 @@ impl Niri {
         });
 
         Ok(())
+    }
+
+    /// Takes a screenshot of a single window.
+    pub fn screenshot_window(
+        &self,
+        renderer: &mut GlesRenderer,
+        output: &Output,
+        mapped: &Mapped,
+        write_to_disk: bool,
+        path: Option<String>,
+    ) -> anyhow::Result<()> {
+        let _span = tracy_client::span!("Niri::screenshot_window");
+
+        let scale = Scale::from(output.current_scale().fractional_scale());
+        let alpha =
+            if mapped.sizing_mode().is_fullscreen() || mapped.is_ignoring_opacity_window_rule() {
+                1.
+            } else {
+                mapped.rules().opacity.unwrap_or(1.).clamp(0., 1.)
+            };
+        // FIXME: pointer.
+        let elements = mapped.render(
+            renderer,
+            mapped.window.geometry().loc.to_f64(),
+            scale,
+            alpha,
+            RenderTarget::ScreenCapture,
+        );
+        let geo = encompassing_geo(scale, elements.iter());
+        let elements = elements.iter().rev().map(|elem| {
+            RelocateRenderElement::from_element(elem, geo.loc.upscale(-1), Relocate::Relative)
+        });
+        let pixels = render_to_vec(
+            renderer,
+            geo.size,
+            scale,
+            Transform::Normal,
+            Fourcc::Abgr8888,
+            elements,
+        )?;
+
+        self.save_screenshot(geo.size, pixels, write_to_disk, path)
+            .context("error saving screenshot")
     }
 }

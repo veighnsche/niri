@@ -4,6 +4,10 @@
 //! Most code is gated behind `#[cfg(feature = "xdp-gnome-screencast")]`.
 
 #[cfg(feature = "xdp-gnome-screencast")]
+use std::collections::hash_map::Entry;
+#[cfg(feature = "xdp-gnome-screencast")]
+use std::collections::HashSet;
+#[cfg(feature = "xdp-gnome-screencast")]
 use std::mem;
 #[cfg(feature = "xdp-gnome-screencast")]
 use std::time::Duration;
@@ -29,6 +33,70 @@ use super::{CastTarget, Niri};
 // =============================================================================
 
 impl Niri {
+    /// Refreshes window rules related to cast targets.
+    ///
+    /// This marks windows as cast targets so they can apply appropriate window rules.
+    #[cfg(feature = "xdp-gnome-screencast")]
+    pub fn refresh_mapped_cast_window_rules(&mut self) {
+        // O(N^2) but should be fine since there aren't many casts usually.
+        self.layout.with_windows_mut(|mapped, _| {
+            let id = mapped.id().get();
+            // Find regardless of cast.is_active.
+            let value = self
+                .casts
+                .iter()
+                .any(|cast| cast.target == (CastTarget::Window { id }));
+            mapped.set_is_window_cast_target(value);
+        });
+    }
+
+    /// Refreshes the output tracking for window casts.
+    ///
+    /// This updates which output each window is on for proper cast rendering.
+    #[cfg(feature = "xdp-gnome-screencast")]
+    pub fn refresh_mapped_cast_outputs(&mut self) {
+        let mut seen = HashSet::new();
+        let mut output_changed = vec![];
+
+        self.layout.with_windows(|mapped, output, _, _| {
+            seen.insert(mapped.window.clone());
+
+            let Some(output) = output else {
+                return;
+            };
+
+            match self.mapped_cast_output.entry(mapped.window.clone()) {
+                Entry::Occupied(mut entry) => {
+                    if entry.get() != output {
+                        entry.insert(output.clone());
+                        output_changed.push((mapped.id(), output.clone()));
+                    }
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(output.clone());
+                }
+            }
+        });
+
+        self.mapped_cast_output.retain(|win, _| seen.contains(win));
+
+        let mut to_stop = vec![];
+        for (id, out) in output_changed {
+            let refresh = out.current_mode().unwrap().refresh as u32;
+            let target = CastTarget::Window { id: id.get() };
+            for cast in self.casts.iter_mut().filter(|cast| cast.target == target) {
+                if let Err(err) = cast.set_refresh(refresh) {
+                    warn!("error changing cast FPS: {err:?}");
+                    to_stop.push(cast.session_id);
+                };
+            }
+        }
+
+        for session_id in to_stop {
+            self.stop_cast(session_id);
+        }
+    }
+
     /// Stops all casts for a given target (no-op when feature disabled).
     #[cfg(not(feature = "xdp-gnome-screencast"))]
     pub fn stop_casts_for_target(&mut self, _target: CastTarget) {}
