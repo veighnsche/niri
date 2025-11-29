@@ -30,7 +30,7 @@ impl Niri {
         renderer: &mut R,
         output: &Output,
     ) -> Vec<OutputRenderElements<R>> {
-        if !self.pointer_visibility.is_visible() {
+        if !self.cursor.is_visible() {
             return vec![];
         }
 
@@ -40,13 +40,14 @@ impl Niri {
 
         // Check whether we need to draw the tablet cursor or the regular cursor.
         let pointer_pos = self
-            .tablet_cursor_location
+            .cursor
+            .tablet_location()
             .unwrap_or_else(|| self.seat.get_pointer().unwrap().current_location());
         let pointer_pos = pointer_pos - output_pos.to_f64();
 
         // Get the render cursor to draw.
         let cursor_scale = output_scale.integer_scale();
-        let render_cursor = self.cursor_manager.get_render_cursor(cursor_scale);
+        let render_cursor = self.cursor.get_render_cursor(cursor_scale);
 
         let output_scale = Scale::from(output.current_scale().fractional_scale());
 
@@ -100,7 +101,7 @@ impl Niri {
             }
         };
 
-        if let Some(dnd_icon) = self.dnd_icon.as_ref() {
+        if let Some(dnd_icon) = self.cursor.dnd_icon().as_ref() {
             let pointer_pos =
                 (pointer_pos + dnd_icon.offset.to_f64()).to_physical_precise_round(output_scale);
             pointer_elements.extend(render_elements_from_surface_tree(
@@ -120,7 +121,7 @@ impl Niri {
     pub fn refresh_pointer_outputs(&mut self) {
         use smithay::desktop::utils::bbox_from_surface_tree;
 
-        if !self.pointer_visibility.is_visible() {
+        if !self.cursor.is_visible() {
             return;
         }
 
@@ -128,10 +129,11 @@ impl Niri {
 
         // Check whether we need to draw the tablet cursor or the regular cursor.
         let pointer_pos = self
-            .tablet_cursor_location
+            .cursor
+            .tablet_location()
             .unwrap_or_else(|| self.seat.get_pointer().unwrap().current_location());
 
-        match self.cursor_manager.cursor_image() {
+        match self.cursor.manager().cursor_image() {
             CursorImageStatus::Surface(ref surface) => {
                 let hotspot = with_states(surface, |states| {
                     states
@@ -230,9 +232,9 @@ impl Niri {
                     // means that it may have a different hotspot for each output.
                     let output_scale = output.current_scale().integer_scale();
                     let cursor = self
-                        .cursor_manager
+                        .cursor.manager()
                         .get_cursor_with_name(icon, output_scale)
-                        .unwrap_or_else(|| self.cursor_manager.get_default_cursor(output_scale));
+                        .unwrap_or_else(|| self.cursor.manager().get_default_cursor(output_scale));
 
                     // For simplicity, we always use frame 0 for this computation. Let's hope the
                     // hotspot doesn't change between frames.
@@ -273,7 +275,7 @@ impl Niri {
 impl Niri {
     /// Refreshes the layout active state based on keyboard focus.
     pub fn refresh_layout(&mut self) {
-        let layout_is_active = match &self.keyboard_focus {
+        let layout_is_active = match &self.focus.current() {
             KeyboardFocus::Layout { .. } => true,
             KeyboardFocus::LayerShell { .. } => false,
 
@@ -299,10 +301,10 @@ impl Niri {
 
         let _span = tracy_client::span!("Niri::refresh_idle_inhibit");
 
-        self.idle_inhibiting_surfaces.retain(|s| s.is_alive());
+        self.focus.idle_inhibitors().retain(|s| s.is_alive());
 
         let is_inhibited = self.is_fdo_idle_inhibited.load(Ordering::SeqCst)
-            || self.idle_inhibiting_surfaces.iter().any(|surface| {
+            || self.focus.idle_inhibitors().iter().any(|surface| {
                 with_states(surface, |states| {
                     surface_primary_scanout_output(surface, states).is_some()
                 })

@@ -21,7 +21,7 @@ use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::WmC
 use smithay::reexports::wayland_server::protocol::wl_shm;
 use smithay::reexports::wayland_server::{Client, Display};
 
-use super::OutputSubsystem;
+use super::{CursorSubsystem, FocusState, OutputSubsystem};
 use smithay::utils::{ClockSource, Monotonic};
 use smithay::wayland::compositor::CompositorState;
 use smithay::wayland::cursor_shape::CursorShapeManagerState;
@@ -298,22 +298,11 @@ impl Niri {
             bind_repeat_timer: Option::default(),
 
             seat,
-            keyboard_focus: KeyboardFocus::Layout { surface: None },
-            layer_shell_on_demand_focus: None,
-            idle_inhibiting_surfaces: HashSet::new(),
+            focus: FocusState::new(),
             is_fdo_idle_inhibited: Arc::new(AtomicBool::new(false)),
-            keyboard_shortcuts_inhibiting_surfaces: HashMap::new(),
             xkb_from_locale1: None,
-            cursor_manager,
-            cursor_texture_cache: Default::default(),
-            dnd_icon: None,
-            pointer_contents: PointContents::default(),
-            pointer_visibility: PointerVisibility::Visible,
-            pointer_inactivity_timer: None,
-            pointer_inactivity_timer_got_reset: false,
+            cursor: CursorSubsystem::new(cursor_manager),
             notified_activity_this_iteration: false,
-            pointer_inside_hot_corner: false,
-            tablet_cursor_location: None,
             gesture_swipe_3f_cumulative: None,
             overview_scroll_swipe_gesture: ScrollSwipeGesture::new(),
             vertical_wheel_tracker: ScrollTracker::new(120),

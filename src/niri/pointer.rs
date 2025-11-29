@@ -22,7 +22,7 @@ impl Niri {
     ///
     /// Make sure the pointer location and contents are up to date before calling this.
     pub fn maybe_activate_pointer_constraint(&self) {
-        let Some((surface, surface_loc)) = &self.pointer_contents.surface else {
+        let Some((surface, surface_loc)) = &self.cursor.contents().surface else {
             return;
         };
 
@@ -142,13 +142,13 @@ impl Niri {
     ///
     /// Called when the pointer moves to reset the hide-after-inactive timeout.
     pub fn reset_pointer_inactivity_timer(&mut self) {
-        if self.pointer_inactivity_timer_got_reset {
+        if self.cursor.timer_reset_this_iter() {
             return;
         }
 
         let _span = tracy_client::span!("Niri::reset_pointer_inactivity_timer");
 
-        if let Some(token) = self.pointer_inactivity_timer.take() {
+        if let Some(token) = self.cursor.inactivity_timer() {
             self.event_loop.remove(token);
         }
 
@@ -158,24 +158,24 @@ impl Niri {
 
         let duration = Duration::from_millis(timeout_ms as u64);
         let timer = Timer::from_duration(duration);
-        let token = self
+        let timer_token = self
             .event_loop
             .insert_source(timer, move |_, _, state| {
-                state.niri.pointer_inactivity_timer = None;
+                state.niri.cursor.set_inactivity_timer(None);
 
                 // If the pointer is already invisible, don't reset it back to Hidden causing one
                 // frame of hover.
-                if state.niri.pointer_visibility.is_visible() {
-                    state.niri.pointer_visibility = PointerVisibility::Hidden;
+                if state.niri.cursor.visibility().is_visible() {
+                    state.niri.cursor.hide_for_inactivity();
                     state.niri.queue_redraw_all();
                 }
 
                 TimeoutAction::Drop
             })
             .unwrap();
-        self.pointer_inactivity_timer = Some(token);
+        self.cursor.set_inactivity_timer(Some(timer_token));
 
-        self.pointer_inactivity_timer_got_reset = true;
+        self.cursor.mark_timer_reset();
     }
 
     /// Notifies that there has been user activity this iteration.

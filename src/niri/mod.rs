@@ -19,7 +19,7 @@ mod subsystems;
 mod types;
 
 pub use protocols::ProtocolStates;
-pub use subsystems::OutputSubsystem;
+pub use subsystems::{CursorSubsystem, FocusState, OutputSubsystem};
 pub use types::*;
 
 use std::cell::{Cell, OnceCell, RefCell};
@@ -290,18 +290,18 @@ pub struct Niri {
     pub suppressed_buttons: HashSet<u32>,
     pub bind_cooldown_timers: HashMap<Key, RegistrationToken>,
     pub bind_repeat_timer: Option<RegistrationToken>,
-    pub keyboard_focus: KeyboardFocus,
-    pub layer_shell_on_demand_focus: Option<LayerSurface>,
-    pub idle_inhibiting_surfaces: HashSet<WlSurface>,
+
+    /// Keyboard focus management subsystem.
+    pub focus: FocusState,
+
     pub is_fdo_idle_inhibited: Arc<AtomicBool>,
-    pub keyboard_shortcuts_inhibiting_surfaces: HashMap<WlSurface, KeyboardShortcutsInhibitor>,
 
     /// Most recent XKB settings from org.freedesktop.locale1.
     pub xkb_from_locale1: Option<Xkb>,
 
-    pub cursor_manager: CursorManager,
-    pub cursor_texture_cache: CursorTextureCache,
-    pub dnd_icon: Option<DndIcon>,
+    /// Cursor management subsystem.
+    pub cursor: CursorSubsystem,
+
     /// Contents under pointer.
     ///
     /// Periodically updated: on motion and other events and in the loop callback. If you require
@@ -315,21 +315,13 @@ pub struct Niri {
     /// underneath the cursor on their own (i.e. when the tiling layout moves). In this case, not
     /// taking grabs into account is expected, because we pass the information to pointer.motion()
     /// which passes it down through grabs, which decide what to do with it as they see fit.
-    pub pointer_contents: PointContents,
-    pub pointer_visibility: PointerVisibility,
-    pub pointer_inactivity_timer: Option<RegistrationToken>,
-    /// Whether the pointer inactivity timer got reset this event loop iteration.
-    ///
-    /// Used for limiting the reset to once per iteration, so that it's not spammed with high
-    /// resolution mice.
-    pub pointer_inactivity_timer_got_reset: bool,
+    
     /// Whether the (idle notifier) activity was notified this event loop iteration.
     ///
     /// Used for limiting the notify to once per iteration, so that it's not spammed with high
     /// resolution mice.
     pub notified_activity_this_iteration: bool,
-    pub pointer_inside_hot_corner: bool,
-    pub tablet_cursor_location: Option<Point<f64, Logical>>,
+    
     pub gesture_swipe_3f_cumulative: Option<(f64, f64)>,
     pub overview_scroll_swipe_gesture: ScrollSwipeGesture,
     pub vertical_wheel_tracker: ScrollTracker,
@@ -524,7 +516,7 @@ impl State {
 
         // Clear the time so it's fetched afresh next iteration.
         self.niri.clock.clear();
-        self.niri.pointer_inactivity_timer_got_reset = false;
+        self.niri.cursor.clear_timer_reset_flag();
         self.niri.notified_activity_this_iteration = false;
     }
 
@@ -559,7 +551,7 @@ impl State {
         // Needs to be called after updating the keyboard focus.
         self.niri.refresh_layout();
 
-        self.niri.cursor_manager.check_cursor_image_surface_alive();
+        self.niri.cursor.manager().check_cursor_image_surface_alive();
         self.niri.refresh_pointer_outputs();
         self.niri.global_space.refresh();
         self.niri.refresh_idle_inhibit();
@@ -594,14 +586,14 @@ impl State {
     }
 
     pub fn move_cursor(&mut self, location: Point<f64, Logical>) {
-        let mut under = match self.niri.pointer_visibility {
+        let mut under = match self.niri.cursor.visibility() {
             PointerVisibility::Disabled => PointContents::default(),
             _ => self.niri.contents_under(location),
         };
 
         // Disable the hidden pointer if the contents underneath have changed.
-        if !self.niri.pointer_visibility.is_visible() && self.niri.pointer_contents != under {
-            self.niri.pointer_visibility = PointerVisibility::Disabled;
+        if !self.niri.cursor.is_visible() && self.niri.cursor.contents() != &under {
+            self.niri.cursor.set_visibility(PointerVisibility::Disabled);
 
             // When setting PointerVisibility::Hidden together with pointer contents changing,
             // we can change straight to nothing to avoid one frame of hover. Notably, this can
@@ -609,7 +601,7 @@ impl State {
             under = PointContents::default();
         }
 
-        self.niri.pointer_contents.clone_from(&under);
+        self.niri.cursor.update_contents(under.clone());
 
         let pointer = &self.niri.seat.get_pointer().unwrap();
         pointer.motion(
@@ -669,7 +661,7 @@ impl State {
     }
 
     pub fn move_cursor_to_focused_tile(&mut self, mode: CenterCoords) -> bool {
-        if !self.niri.keyboard_focus.is_layout() {
+        if !self.niri.focus.current().is_layout() {
             return false;
         }
 
@@ -806,31 +798,31 @@ impl State {
 
         let pointer = &self.niri.seat.get_pointer().unwrap();
         let location = pointer.current_location();
-        let mut under = match self.niri.pointer_visibility {
+        let mut under = match self.niri.cursor.visibility() {
             PointerVisibility::Disabled => PointContents::default(),
             _ => self.niri.contents_under(location),
         };
 
         // We're not changing the global cursor location here, so if the contents did not change,
         // then nothing changed.
-        if self.niri.pointer_contents == under {
+        if self.niri.cursor.contents() == &under {
             return false;
         }
 
         // Disable the hidden pointer if the contents underneath have changed.
-        if !self.niri.pointer_visibility.is_visible() {
-            self.niri.pointer_visibility = PointerVisibility::Disabled;
+        if !self.niri.cursor.is_visible() {
+            self.niri.cursor.set_visibility(PointerVisibility::Disabled);
 
             // When setting PointerVisibility::Hidden together with pointer contents changing,
             // we can change straight to nothing to avoid one frame of hover. Notably, this can
             // be triggered through warp-mouse-to-focus combined with hide-when-typing.
             under = PointContents::default();
-            if self.niri.pointer_contents == under {
+            if self.niri.cursor.contents() == &under {
                 return false;
             }
         }
 
-        self.niri.pointer_contents.clone_from(&under);
+        self.niri.cursor.update_contents(under.clone());
 
         pointer.motion(
             self,
@@ -875,7 +867,7 @@ impl State {
 
     pub fn update_keyboard_focus(&mut self) {
         // Clean up on-demand layer surface focus if necessary.
-        if let Some(surface) = &self.niri.layer_shell_on_demand_focus {
+        if let Some(surface) = &self.niri.focus.layer_on_demand() {
             // Still alive and has on-demand interactivity.
             let mut good = surface.alive()
                 && surface.cached_state().keyboard_interactivity
@@ -892,7 +884,7 @@ impl State {
             }
 
             if !good {
-                self.niri.layer_shell_on_demand_focus = None;
+                self.niri.focus.set_layer_on_demand(None);
             }
         }
 
@@ -955,7 +947,7 @@ impl State {
             let on_d_focus_on_layer = |layer| {
                 layers.layers_on(layer).find_map(|surface| {
                     let is_on_demand_surface =
-                        Some(surface) == self.niri.layer_shell_on_demand_focus.as_ref();
+                        Some(surface) == self.niri.focus.layer_on_demand();
                     is_on_demand_surface
                         .then(|| surface.wl_surface().clone())
                         .map(|surface| KeyboardFocus::LayerShell { surface })
@@ -1010,17 +1002,17 @@ impl State {
         };
 
         let keyboard = self.niri.seat.get_keyboard().unwrap();
-        if self.niri.keyboard_focus != focus {
+        if *self.niri.focus.current() != focus {
             trace!(
                 "keyboard focus changed from {:?} to {:?}",
-                self.niri.keyboard_focus,
+                self.niri.focus.current(),
                 focus
             );
 
             // Tell the windows their new focus state for window rule purposes.
             if let KeyboardFocus::Layout {
                 surface: Some(surface),
-            } = &self.niri.keyboard_focus
+            } = &self.niri.focus.current()
             {
                 if let Some((mapped, _)) = self.niri.layout.find_window_and_output_mut(surface) {
                     mapped.set_is_focused(false);
@@ -1123,7 +1115,7 @@ impl State {
                 }
             }
 
-            self.niri.keyboard_focus.clone_from(&focus);
+            self.niri.focus.set_current(focus.clone());
             keyboard.set_focus(self, focus.into_surface(), SERIAL_COUNTER.next_serial());
 
             // FIXME: can be more granular.
@@ -1425,7 +1417,7 @@ impl State {
 
         if cursor_inactivity_timeout_changed {
             // Force reset due to timeout change.
-            self.niri.pointer_inactivity_timer_got_reset = false;
+            self.niri.cursor.clear_timer_reset_flag();
             self.niri.reset_pointer_inactivity_timer();
         }
 
@@ -1715,8 +1707,8 @@ impl State {
         }
 
         // Redraw the pointer if hidden through cursor{} options
-        if self.niri.pointer_visibility == PointerVisibility::Hidden {
-            self.niri.pointer_visibility = PointerVisibility::Visible;
+        if self.niri.cursor.visibility() == PointerVisibility::Hidden {
+            self.niri.cursor.set_visibility(PointerVisibility::Visible);
             self.niri.queue_redraw_all();
         }
 
@@ -2542,7 +2534,7 @@ impl Niri {
         }
 
         if self.screenshot_ui.close() {
-            self.cursor_manager
+            self.cursor.manager()
                 .set_cursor_image(CursorImageStatus::default_named());
             self.queue_redraw_all();
         }
@@ -3068,7 +3060,7 @@ impl Niri {
         //
         // While we only have cursors and DnD icons crossing output boundaries though, it doesn't
         // matter all that much.
-        if let CursorImageStatus::Surface(surface) = &self.cursor_manager.cursor_image() {
+        if let CursorImageStatus::Surface(surface) = &self.cursor.manager().cursor_image() {
             with_surface_tree_downward(
                 surface,
                 (),
@@ -3263,7 +3255,7 @@ impl Niri {
             );
         }
 
-        if let CursorImageStatus::Surface(surface) = &self.cursor_manager.cursor_image() {
+        if let CursorImageStatus::Surface(surface) = &self.cursor.manager().cursor_image() {
             send_dmabuf_feedback_surface_tree(
                 surface,
                 output,
