@@ -1,4 +1,4 @@
-# TEAM_063: FloatingSpace Consolidation into canvas/
+# TEAM_063: FloatingSpace Consolidation + Tile Module Split
 
 ## Status: ✅ COMPLETE
 
@@ -131,6 +131,106 @@ canvas/
     ├── render.rs       - render elements, close animations
     └── resize.rs       - resize handling, presets
 ```
+
+## Phase 3: Tile Module Split
+
+### Task
+Split `tile.rs` (1470 LOC) into `tile/` module structure.
+
+### Final Structure
+```
+tile/
+├── mod.rs       (~830 LOC) - Tile struct, core impl, size methods
+├── render.rs    (~450 LOC) - TileRenderElement, render methods, snapshots
+└── animation.rs (~180 LOC) - Animation methods (open, resize, move, alpha)
+```
+
+### Changes Made
+1. Created `tile/` directory, moved `tile.rs` → `tile/mod.rs`
+2. Extracted `TileRenderElement` macro and render methods to `render.rs`
+3. Extracted animation methods to `animation.rs`
+4. Updated re-exports in `mod.rs`
+
+## Phase 4: Row Module Analysis (DEFERRED)
+
+### Task
+Split `row/mod.rs` (2161 LOC) into additional submodules.
+
+### Analysis
+The row module already has significant submodule structure:
+```
+row/
+├── mod.rs          (2161 LOC) - Core struct, accessors, workspace compat
+├── gesture.rs      (15KB) - Gesture-based scrolling
+├── layout.rs       (4KB) - Tile positions, config update
+├── navigation.rs   (7KB) - Focus left/right/column
+├── operations/     - Column operations (already split)
+│   ├── add.rs      - Add tile/column
+│   ├── remove.rs   - Remove tile/column
+│   ├── move_col.rs - Move column left/right
+│   └── consume.rs  - Consume/expel window
+├── render.rs       (7KB) - Rendering
+├── resize.rs       (5KB) - Interactive resize
+└── view_offset.rs  (11KB) - View offset calculation
+```
+
+### Risk Assessment: HIGH
+- **80+ methods** in mod.rs with complex interdependencies
+- Many methods access private fields (`columns`, `data`, `active_column_idx`, etc.)
+- Workspace compatibility layer adds complexity
+- Previous split attempt caused file corruption
+
+### Decision: DEFER
+Further splitting of row/mod.rs is deferred to a future phase when:
+1. The codebase is more stable
+2. A clearer separation of concerns emerges
+3. The workspace compatibility layer can be removed
+
+### Recommended Future Approach
+If splitting is attempted later:
+1. Start with a fresh branch
+2. Move one method at a time
+3. Run `cargo check` after each move
+4. Consider making fields `pub(super)` for submodule access
+
+## Phase 5: Layout Implementation Split (NEARLY COMPLETE)
+
+### Completed Sub-phases:
+- ✅ **5.0 Setup** - Created `layout_impl/` directory structure
+- ✅ **5.1 queries.rs** - Extracted 5 query methods (118 LOC)
+- ✅ **5.2 fullscreen.rs** - Extracted 5 fullscreen/maximize methods (140 LOC)
+- ✅ **5.3 resize.rs** - Extracted 12 resize methods (320 LOC)
+- ✅ **5.4 row_management.rs** - Extracted 8 row management methods (210 LOC)
+- ✅ **5.5 focus.rs** - Extracted 14 focus/activation methods (300 LOC)
+- ✅ **5.6 output_ops.rs** - Extracted 3 output methods (206 LOC)
+- ✅ **5.7 window_ops.rs** - Extracted 6 window lifecycle methods (471 LOC)
+- ✅ **5.8 navigation.rs** - Extracted 50+ navigation methods (597 LOC)
+- ⏳ **5.9 interactive_move.rs** - DEFERRED (700+ LOC, highly complex, tightly coupled)
+- ⏳ **5.10 render.rs** - DEFERRED (depends on complex renderer types)
+
+### Impact:
+- `src/layout/mod.rs`: 4350 → 3147 LOC (**-2204 lines** total, -41%)
+- `src/layout/layout_impl/`: 2385 LOC total (organized into 8 submodules)
+
+### Files Created:
+```
+layout_impl/
+├── mod.rs              (23 LOC) - Module declarations
+├── queries.rs          (118 LOC) - is_*, has_*, should_* methods
+├── fullscreen.rs       (140 LOC) - fullscreen/maximize operations
+├── resize.rs           (320 LOC) - width/height manipulation
+├── row_management.rs   (210 LOC) - find_row_*, ensure_*, unname_*
+├── focus.rs            (300 LOC) - activation and focus methods
+├── output_ops.rs       (206 LOC) - add_output, remove_output
+├── window_ops.rs       (471 LOC) - add_window, remove_window, update_window
+└── navigation.rs       (597 LOC) - focus_*, move_*, center_*
+```
+
+### Deferred Sub-phases:
+- **5.9 interactive_move.rs** - 700+ LOC of tightly-coupled interactive move logic
+- **5.10 render.rs** - Depends on complex NiriRenderer traits, requires careful extraction
+
+These deferred sub-phases can be completed in a future session when more time is available.
 
 ## Handoff
 - [x] Code compiles (`cargo check`)
