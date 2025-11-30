@@ -213,6 +213,10 @@ impl<W: LayoutElement> Row<W> {
 
         let pixel = 1. / self.scale;
         if (self.view_offset_x.current() - new_view_offset).abs() < pixel {
+            // TEAM_110: Don't cancel DnD gestures - just return early.
+            if self.view_offset_x.is_dnd_scroll() {
+                return;
+            }
             self.view_offset_x = AnimatedValue::Static(new_view_offset);
             return;
         }

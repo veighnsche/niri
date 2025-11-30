@@ -71,11 +71,22 @@ src/layout/  (79 files)
 **Original behavior**: Main branch keeps floaters on top even when tiles get focus  
 **Fix**: TEAM_106 - Fixed render order (floating first) and added hit testing for floating windows
 
-### BUG-002: Mod+drag causes all tiles to animate off-screen
+### BUG-002: Mod+drag causes all tiles to animate off-screen ✅ FIXED
 **Severity**: Critical  
-**Expected**: When picking up a window with Mod+drag, other tiles should only shift slightly to show drop targets  
-**Actual**: All other tiles IMMEDIATELY animate to the left and go off-screen fast  
-**Additional**: When dropped, tiles return. Picking up again causes them to fly left again.  
+**Fix**: In `view_offset_gesture_end()`, detect DnD gestures and delegate to `dnd_scroll_gesture_end()` to preserve view position.  
+**See**: `.bugs/BUG_mod_drag_tiles.md`, `.teams/TEAM_110_mod_drag_tiles_fix.md`
+
+### BUG-002a: Insert hint bar not showing during drag ⚠️ NEW
+**Severity**: Medium (UX regression)  
+**Expected**: Blue bar shows where window will be inserted  
+**Actual**: No insert hint appears  
+**See**: `.bugs/BUG_mod_drag_subbug.md`
+
+### BUG-002b: Cannot drag window from right to left ⚠️ NEW
+**Severity**: High (Core functionality)  
+**Expected**: Can swap window positions in both directions  
+**Actual**: Can only drag left→right, not right→left  
+**See**: `.bugs/BUG_mod_drag_subbug.md`  
 
 ### BUG-003: Cannot drag floating windows by title bar ✅ FIXED
 **Severity**: High  

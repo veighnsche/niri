@@ -187,6 +187,15 @@ impl<W: LayoutElement> Row<W> {
             return false;
         };
 
+        // TEAM_110: If this is a DnD gesture, use the DnD-specific end logic
+        // which preserves the view position instead of snapping to a column.
+        // This fixes BUG-002 where tiles would fly off-screen when the interactive
+        // move ended while column animations were still running.
+        if gesture.dnd_last_event_time.is_some() {
+            self.dnd_scroll_gesture_end();
+            return true;
+        }
+
         if is_touchpad.is_some_and(|x| gesture.is_touchpad != x) {
             return false;
         }
