@@ -9,6 +9,7 @@
 
 mod devices;
 mod helpers;
+mod outputs;
 mod render;
 mod types;
 
@@ -68,6 +69,7 @@ use wayland_protocols::wp::presentation_time::server::wp_presentation_feedback;
 
 pub use devices::{DeviceManager, OutputDevice};
 pub use helpers::{calculate_drm_mode_from_modeline, calculate_mode_cvt, set_gamma_for_crtc};
+pub use outputs::OutputManager;
 pub use render::RenderManager;
 pub use types::{CrtcInfo, SurfaceDmabufFeedback, TtyFrame, TtyRenderer, TtyRendererError};
 use devices::format_connector_name;
@@ -96,12 +98,8 @@ pub struct Tty {
     pub(crate) devices: DeviceManager,
     // Render management subsystem - owns render state.
     render: RenderManager,
-    // The output config had changed, but the session is paused, so we need to update it on resume.
-    update_output_config_on_resume: bool,
-    // The ignored nodes have changed, but the session is paused, so we need to update it on
-    // resume.
-    update_ignored_nodes_on_resume: bool,
-    ipc_outputs: Arc<Mutex<IpcOutputMap>>,
+    // Output management subsystem - owns IPC and resume state.
+    outputs: OutputManager,
 }
 
 // Additional impl for OutputDevice that uses functions from this module.
@@ -345,9 +343,7 @@ impl Tty {
             libinput,
             devices,
             render: RenderManager::new(),
-            update_output_config_on_resume: false,
-            update_ignored_nodes_on_resume: false,
-            ipc_outputs: Arc::new(Mutex::new(HashMap::new())),
+            outputs: OutputManager::new(),
         })
     }
 
@@ -431,8 +427,8 @@ impl Tty {
                     warn!("error resuming libinput");
                 }
 
-                if self.update_ignored_nodes_on_resume {
-                    self.update_ignored_nodes_on_resume = false;
+                if self.outputs.needs_ignored_nodes_update_on_resume() {
+                    self.outputs.clear_ignored_nodes_update_on_resume();
                     let mut ignored_nodes = ignored_nodes_from_config(&self.config.borrow());
                     if ignored_nodes.remove(&self.devices.primary_node())
                         || ignored_nodes.remove(&self.devices.primary_render_node())
@@ -526,7 +522,7 @@ impl Tty {
                     }
                 }
 
-                if self.update_output_config_on_resume {
+                if self.outputs.needs_config_update_on_resume() {
                     self.on_output_config_changed(niri);
                 }
 
@@ -1972,13 +1968,12 @@ impl Tty {
             }
         }
 
-        let mut guard = self.ipc_outputs.lock().unwrap();
-        *guard = ipc_outputs;
+        self.outputs.set_ipc_outputs(ipc_outputs);
         niri.ipc_outputs_changed = true;
     }
 
     pub fn ipc_outputs(&self) -> Arc<Mutex<IpcOutputMap>> {
-        self.ipc_outputs.clone()
+        self.outputs.ipc_outputs()
     }
 
     #[cfg(feature = "xdp-gnome-screencast")]
@@ -2052,7 +2047,7 @@ impl Tty {
 
         // If we're inactive, we can't do anything, so just set a flag for later.
         if !self.session.is_active() {
-            self.update_ignored_nodes_on_resume = true;
+            self.outputs.mark_ignored_nodes_update_on_resume();
             return;
         }
 
@@ -2125,10 +2120,10 @@ impl Tty {
 
         // If we're inactive, we can't do anything, so just set a flag for later.
         if !self.session.is_active() {
-            self.update_output_config_on_resume = true;
+            self.outputs.mark_config_update_on_resume();
             return;
         }
-        self.update_output_config_on_resume = false;
+        self.outputs.clear_config_update_on_resume();
 
         // Figure out if we should disable laptop panels.
         let disable_laptop_panels = self.should_disable_laptop_panels(niri.outputs.lid_closed());
