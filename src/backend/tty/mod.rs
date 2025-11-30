@@ -1606,33 +1606,44 @@ impl Tty {
         let mut rv = RenderResult::Skipped;
 
         let tty_state: &TtyOutputState = output.user_data().get().unwrap();
+        let node = tty_state.node;
+        let crtc = tty_state.crtc;
 
         // Extract values we need before getting mutable device reference.
         let primary_render_node = self.devices.primary_render_node();
 
-        let Some(device) = self.devices.get_mut(&tty_state.node) else {
-            error!("missing output device");
-            return rv;
+        // First pass: extract values needed for renderer creation.
+        let (device_render_node, surface_format, connector_name, drm_active) = {
+            let Some(device) = self.devices.get(&node) else {
+                error!("missing output device");
+                return rv;
+            };
+
+            let Some(surface) = device.surfaces.get(&crtc) else {
+                error!("missing surface");
+                return rv;
+            };
+
+            (
+                device.render_node,
+                surface.compositor.format(),
+                surface.name.connector.clone(),
+                device.drm.is_active(),
+            )
         };
 
-        let Some(surface) = device.surfaces.get_mut(&tty_state.crtc) else {
-            error!("missing surface");
-            return rv;
-        };
+        span.emit_text(&connector_name);
 
-        span.emit_text(&surface.name.connector);
-
-        if !device.drm.is_active() {
+        if !drm_active {
             // This branch hits any time we try to render while the user had switched to a
             // different VT, so don't print anything here.
             return rv;
         }
 
-        // Extract values before getting renderer (which borrows gpu_manager).
-        let device_render_node = device.render_node;
-        let surface_format = surface.compositor.format();
+        // Use split borrowing to get both gpu_manager and devices simultaneously.
+        let (gpu_manager, devices) = self.devices.gpu_manager_and_devices_mut();
 
-        let mut renderer = match self.devices.gpu_manager.renderer(
+        let mut renderer = match gpu_manager.renderer(
             &primary_render_node,
             &device_render_node.unwrap_or(primary_render_node),
             surface_format,
@@ -1644,9 +1655,9 @@ impl Tty {
             }
         };
 
-        // Access surface directly through devices.devices to avoid borrow conflict with gpu_manager.
-        let device = self.devices.devices.get_mut(&tty_state.node).unwrap();
-        let surface = device.surfaces.get_mut(&tty_state.crtc).unwrap();
+        // Now we can access devices through the split borrow.
+        let device = devices.get_mut(&node).unwrap();
+        let surface = device.surfaces.get_mut(&crtc).unwrap();
 
         // Render the elements.
         let mut elements =
@@ -1784,8 +1795,8 @@ impl Tty {
     }
 
     pub fn import_dmabuf(&mut self, dmabuf: &Dmabuf) -> bool {
-        let primary_render_node = self.devices.primary_render_node;
-        let mut renderer = match self.devices.gpu_manager.single_renderer(&primary_render_node) {
+        let primary_render_node = self.devices.primary_render_node();
+        let mut renderer = match self.devices.gpu_manager_mut().single_renderer(&primary_render_node) {
             Ok(renderer) => renderer,
             Err(err) => {
                 debug!("error creating renderer for primary GPU: {err:?}");
@@ -1806,8 +1817,8 @@ impl Tty {
     }
 
     pub fn early_import(&mut self, surface: &WlSurface) {
-        let primary_render_node = self.devices.primary_render_node;
-        if let Err(err) = self.devices.gpu_manager.early_import(
+        let primary_render_node = self.devices.primary_render_node();
+        if let Err(err) = self.devices.gpu_manager_mut().early_import(
             // We always render on the primary GPU.
             primary_render_node,
             surface,
@@ -2021,7 +2032,7 @@ impl Tty {
         let target_crtc = tty_state.crtc;
 
         let mut found = false;
-        if let Some(device) = self.devices.devices.get_mut(&target_node) {
+        if let Some(device) = self.devices.get_mut(&target_node) {
             if let Some(surface) = device.surfaces.get_mut(&target_crtc) {
                 let word = if enable_vrr { "enabling" } else { "disabling" };
                 if let Err(err) = surface.compositor.use_vrr(enable_vrr) {

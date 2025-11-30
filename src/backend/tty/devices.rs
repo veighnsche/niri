@@ -314,19 +314,19 @@ pub(super) fn format_connector_name(connector: &connector::Info) -> String {
 /// - DmaBuf global
 pub struct DeviceManager {
     /// Devices indexed by DRM node (not necessarily the render node).
-    pub(crate) devices: HashMap<DrmNode, OutputDevice>,
+    devices: HashMap<DrmNode, OutputDevice>,
     /// DRM node corresponding to the primary GPU. May or may not be the same as
     /// primary_render_node.
-    pub(crate) primary_node: DrmNode,
+    primary_node: DrmNode,
     /// DRM render node corresponding to the primary GPU.
-    pub(crate) primary_render_node: DrmNode,
+    primary_render_node: DrmNode,
     /// Ignored DRM nodes.
-    pub(crate) ignored_nodes: HashSet<DrmNode>,
+    ignored_nodes: HashSet<DrmNode>,
     /// GPU manager for multi-GPU support.
-    pub(crate) gpu_manager: GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>>,
+    gpu_manager: GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>>,
     /// The dma-buf global corresponds to the output device (the primary GPU).
     /// It is only `Some()` if we have a device corresponding to the primary GPU.
-    pub(crate) dmabuf_global: Option<DmabufGlobal>,
+    dmabuf_global: Option<DmabufGlobal>,
 }
 
 impl DeviceManager {
@@ -446,6 +446,18 @@ impl DeviceManager {
     /// Get a mutable reference to the GPU manager.
     pub fn gpu_manager_mut(&mut self) -> &mut GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>> {
         &mut self.gpu_manager
+    }
+
+    /// Get mutable references to both the GPU manager and devices map.
+    /// This enables split borrowing for cases where you need to create a renderer
+    /// and then access devices while the renderer is still alive.
+    pub fn gpu_manager_and_devices_mut(
+        &mut self,
+    ) -> (
+        &mut GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>>,
+        &mut HashMap<DrmNode, OutputDevice>,
+    ) {
+        (&mut self.gpu_manager, &mut self.devices)
     }
 
     // === DmaBuf ===
