@@ -1,3 +1,14 @@
+//! TTY/DRM backend for native display.
+//!
+//! This module uses the **subsystem ownership pattern**:
+//! - `DeviceManager` - owns all DRM device state (future)
+//! - `RenderManager` - owns rendering state (future)
+//! - `OutputManager` - owns IPC/config state (future)
+//!
+//! `Tty` is a thin coordinator that dispatches events to subsystems.
+
+mod types;
+
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
@@ -20,7 +31,6 @@ use niri_ipc::{HSyncPolarity, VSyncPolarity};
 use smithay::backend::allocator::dmabuf::Dmabuf;
 use smithay::backend::allocator::format::FormatSet;
 use smithay::backend::allocator::gbm::{GbmAllocator, GbmBufferFlags, GbmDevice};
-use smithay::backend::allocator::Fourcc;
 use smithay::backend::drm::compositor::{DrmCompositor, FrameFlags, PrimaryPlaneElement};
 use smithay::backend::drm::exporter::gbm::GbmFramebufferExporter;
 use smithay::backend::drm::{
@@ -31,12 +41,11 @@ use smithay::backend::egl::{EGLDevice, EGLDisplay};
 use smithay::backend::libinput::{LibinputInputBackend, LibinputSessionInterface};
 use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::backend::renderer::multigpu::gbm::GbmGlesBackend;
-use smithay::backend::renderer::multigpu::{GpuManager, MultiFrame, MultiRenderer};
-use smithay::backend::renderer::{DebugFlags, ImportDma, ImportEgl, RendererSuper};
+use smithay::backend::renderer::multigpu::GpuManager;
+use smithay::backend::renderer::{DebugFlags, ImportDma, ImportEgl};
 use smithay::backend::session::libseat::LibSeatSession;
 use smithay::backend::session::{Event as SessionEvent, Session};
 use smithay::backend::udev::{self, UdevBackend, UdevEvent};
-use smithay::desktop::utils::OutputPresentationFeedback;
 use smithay::output::{Mode, Output, OutputModeSource, PhysicalProperties};
 use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
 use smithay::reexports::calloop::{Dispatcher, LoopHandle, RegistrationToken};
@@ -52,7 +61,7 @@ use smithay::reexports::rustix::fs::OFlags;
 use smithay::reexports::wayland_protocols;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{DeviceFd, Transform};
-use smithay::wayland::dmabuf::{DmabufFeedback, DmabufFeedbackBuilder, DmabufGlobal};
+use smithay::wayland::dmabuf::{DmabufFeedbackBuilder, DmabufGlobal};
 use smithay::wayland::drm_lease::{
     DrmLease, DrmLeaseBuilder, DrmLeaseRequest, DrmLeaseState, LeaseRejected,
 };
@@ -60,6 +69,9 @@ use smithay::wayland::presentation::Refresh;
 use smithay_drm_extras::drm_scanner::{DrmScanEvent, DrmScanner};
 use wayland_protocols::wp::linux_dmabuf::zv1::server::zwp_linux_dmabuf_feedback_v1::TrancheFlags;
 use wayland_protocols::wp::presentation_time::server::wp_presentation_feedback;
+
+pub use types::{CrtcInfo, SurfaceDmabufFeedback, TtyFrame, TtyRenderer, TtyRendererError};
+use types::{ConnectorProperties, GammaProps, GbmDrmCompositor, Surface, TtyOutputState, SUPPORTED_COLOR_FORMATS};
 
 use super::{IpcOutputMap, RenderResult};
 use crate::backend::OutputId;
@@ -69,13 +81,6 @@ use crate::render_helpers::debug::draw_damage;
 use crate::render_helpers::renderer::AsGlesRenderer;
 use crate::render_helpers::{resources, shaders, RenderTarget};
 use crate::utils::{get_monotonic_time, is_laptop_panel, logical_output, PanelOrientation};
-
-const SUPPORTED_COLOR_FORMATS: [Fourcc; 4] = [
-    Fourcc::Xrgb8888,
-    Fourcc::Xbgr8888,
-    Fourcc::Argb8888,
-    Fourcc::Abgr8888,
-];
 
 pub struct Tty {
     config: Rc<RefCell<Config>>,
@@ -105,31 +110,6 @@ pub struct Tty {
     ipc_outputs: Arc<Mutex<IpcOutputMap>>,
 }
 
-pub type TtyRenderer<'render> = MultiRenderer<
-    'render,
-    'render,
-    GbmGlesBackend<GlesRenderer, DrmDeviceFd>,
-    GbmGlesBackend<GlesRenderer, DrmDeviceFd>,
->;
-
-pub type TtyFrame<'render, 'frame, 'buffer> = MultiFrame<
-    'render,
-    'render,
-    'frame,
-    'buffer,
-    GbmGlesBackend<GlesRenderer, DrmDeviceFd>,
-    GbmGlesBackend<GlesRenderer, DrmDeviceFd>,
->;
-
-pub type TtyRendererError<'render> = <TtyRenderer<'render> as RendererSuper>::Error;
-
-type GbmDrmCompositor = DrmCompositor<
-    GbmAllocator<DrmDeviceFd>,
-    GbmFramebufferExporter<DrmDeviceFd>,
-    (OutputPresentationFeedback, Duration),
-    DrmDeviceFd,
->;
-
 pub struct OutputDevice {
     token: RegistrationToken,
     // Can be None for display-only devices such as DisplayLink.
@@ -149,12 +129,6 @@ pub struct OutputDevice {
     active_leases: Vec<DrmLease>,
 }
 
-// A connected, but not necessarily enabled, crtc.
-#[derive(Debug, Clone)]
-pub struct CrtcInfo {
-    id: OutputId,
-    name: OutputName,
-}
 
 impl OutputDevice {
     pub fn lease_request(
@@ -365,49 +339,6 @@ impl OutputDevice {
 
         Ok(())
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct TtyOutputState {
-    node: DrmNode,
-    crtc: crtc::Handle,
-}
-
-struct Surface {
-    name: OutputName,
-    compositor: GbmDrmCompositor,
-    connector: connector::Handle,
-    dmabuf_feedback: Option<SurfaceDmabufFeedback>,
-    gamma_props: Option<GammaProps>,
-    /// Gamma change to apply upon session resume.
-    pending_gamma_change: Option<Option<Vec<u16>>>,
-    /// Tracy frame that goes from vblank to vblank.
-    vblank_frame: Option<tracy_client::Frame>,
-    /// Frame name for the VBlank frame.
-    vblank_frame_name: tracy_client::FrameName,
-    /// Plot name for the time since presentation plot.
-    time_since_presentation_plot_name: tracy_client::PlotName,
-    /// Plot name for the presentation misprediction plot.
-    presentation_misprediction_plot_name: tracy_client::PlotName,
-    sequence_delta_plot_name: tracy_client::PlotName,
-}
-
-pub struct SurfaceDmabufFeedback {
-    pub render: DmabufFeedback,
-    pub scanout: DmabufFeedback,
-}
-
-struct GammaProps {
-    crtc: crtc::Handle,
-    gamma_lut: property::Handle,
-    gamma_lut_size: property::Handle,
-    previous_blob: Option<NonZeroU64>,
-}
-
-struct ConnectorProperties<'a> {
-    device: &'a DrmDevice,
-    connector: connector::Handle,
-    properties: Vec<(property::Info, property::RawValue)>,
 }
 
 impl Tty {
