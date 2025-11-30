@@ -486,7 +486,7 @@ impl<W: LayoutElement> FloatingSpace<W> {
     }
 
     pub fn stored_or_default_tile_pos(&self, tile: &Tile<W>) -> Option<Point<f64, Logical>> {
-        let pos = tile.floating_pos.map(|pos| self.scale_by_working_area(pos));
+        let pos = tile.floating_pos().map(|pos| self.scale_by_working_area(pos));
         pos.or_else(|| {
             tile.window().rules().default_floating_position.map(|pos| {
                 let relative_to = pos.relative_to;
@@ -555,16 +555,16 @@ impl<W: LayoutElement> FloatingSpace<W> {
         assert_eq!(self.tiles.len(), self.data.len());
 
         for (i, (tile, data)) in zip(&self.tiles, &self.data).enumerate() {
-            assert!(Rc::ptr_eq(&self.options, &tile.options));
+            assert!(Rc::ptr_eq(&self.options, tile.options()));
             assert_eq!(self.view_size, tile.view_size());
-            assert_eq!(self.clock, tile.clock);
+            assert_eq!(self.clock, tile.clock());
             assert_eq!(self.scale, tile.scale());
             tile.verify_invariants();
 
-            if let Some(idx) = tile.floating_preset_width_idx {
+            if let Some(idx) = tile.floating_preset_width_idx() {
                 assert!(idx < self.options.layout.preset_column_widths.len());
             }
-            if let Some(idx) = tile.floating_preset_height_idx {
+            if let Some(idx) = tile.floating_preset_height_idx() {
                 assert!(idx < self.options.layout.preset_window_heights.len());
             }
 

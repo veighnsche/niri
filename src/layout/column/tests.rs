@@ -44,8 +44,8 @@ impl<W: LayoutElement> Column<W> {
         let mut total_height = 0.;
         let mut total_min_height = 0.;
         for (tile, data) in zip(&self.tiles, &self.data) {
-            assert!(Rc::ptr_eq(&self.options, &tile.options));
-            assert_eq!(self.clock, tile.clock);
+            assert!(Rc::ptr_eq(&self.options, tile.options()));
+            assert_eq!(self.clock, tile.clock());
             assert_eq!(self.scale, tile.scale());
             assert_eq!(
                 self.pending_sizing_mode(),

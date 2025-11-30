@@ -786,7 +786,7 @@ impl<W: LayoutElement> Layout<W> {
                     move_win_id = Some(window_id.clone());
                 }
                 InteractiveMoveState::Moving(move_) => {
-                    assert_eq!(self.clock, move_.tile.clock);
+                    assert_eq!(self.clock, move_.tile.clock());
                     assert!(move_.tile.window().pending_sizing_mode().is_normal());
 
                     move_.tile.verify_invariants();
@@ -797,7 +797,7 @@ impl<W: LayoutElement> Layout<W> {
                         .with_merged_layout(move_.workspace_config.as_ref().map(|(_, c)| c))
                         .adjusted_for_scale(scale);
                     assert_eq!(
-                        &*move_.tile.options, &options,
+                        &**move_.tile.options(), &options,
                         "interactive moved tile options must be \
                          base options adjusted for output scale"
                     );
@@ -809,28 +809,28 @@ impl<W: LayoutElement> Layout<W> {
                     assert_abs_diff_eq!(tile_pos.x, rounded_pos.x, epsilon = 1e-5);
                     assert_abs_diff_eq!(tile_pos.y, rounded_pos.y, epsilon = 1e-5);
 
-                    if let Some(alpha) = &move_.tile.alpha_animation {
+                    if let Some((alpha_to, hold_after_done)) = move_.tile.alpha_animation_details() {
                         if move_.is_floating {
                             assert_eq!(
-                                alpha.anim.to(),
+                                alpha_to,
                                 1.,
                                 "interactively moved floating tile can animate alpha only to 1"
                             );
 
                             assert!(
-                                !alpha.hold_after_done,
+                                !hold_after_done,
                                 "interactively moved floating tile \
                                  cannot have held alpha animation"
                             );
                         } else {
                             assert_ne!(
-                                alpha.anim.to(),
+                                alpha_to,
                                 1.,
                                 "interactively moved scrolling tile must animate alpha to not 1"
                             );
 
                             assert!(
-                                alpha.hold_after_done,
+                                hold_after_done,
                                 "interactively moved scrolling tile \
                                  must have held alpha animation"
                             );
@@ -976,7 +976,7 @@ impl<W: LayoutElement> Layout<W> {
 
                 // When going to floating, restore the floating window size.
                 if move_.is_floating {
-                    let floating_size = move_.tile.floating_window_size;
+                    let floating_size = move_.tile.floating_window_size();
                     let win = move_.tile.window_mut();
                     let mut size =
                         floating_size.unwrap_or_else(|| win.expected_size().unwrap_or_default());

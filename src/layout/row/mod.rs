@@ -1102,7 +1102,7 @@ impl<W: LayoutElement> Row<W> {
                         .iter_mut()
                         .find(|tile| tile.window().id() == window)
                     {
-                        tile.floating_window_size = Some(fullscreen_size);
+                        tile.set_floating_window_size(Some(fullscreen_size));
                     }
                 }
 

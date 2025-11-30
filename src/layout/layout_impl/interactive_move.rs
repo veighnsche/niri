@@ -212,7 +212,7 @@ impl<W: LayoutElement> Layout<W> {
                             .tiles_mut()
                             .find(|tile| *tile.window().id() == window_id)
                             .unwrap();
-                        tile.interactive_move_offset = pointer_delta.upscale(factor);
+                        tile.set_interactive_move_offset(pointer_delta.upscale(factor));
                         (is_floating, workspace_config)
                     });
 
@@ -227,7 +227,7 @@ impl<W: LayoutElement> Layout<W> {
                                 .tiles_mut()
                                 .find(|tile| *tile.window().id() == window_id)
                                 .map(|tile| {
-                                    tile.interactive_move_offset = pointer_delta.upscale(factor);
+                                    tile.set_interactive_move_offset(pointer_delta.upscale(factor));
                                 })
                         });
                         if found_floating.is_none() {
@@ -313,7 +313,7 @@ impl<W: LayoutElement> Layout<W> {
                 let is_floating = was_floating || should_restore_to_floating;
 
                 tile.stop_move_animations();
-                tile.interactive_move_offset = Point::from((0., 0.));
+                tile.reset_interactive_move_offset();
                 tile.window().output_enter(&output);
                 tile.window().set_preferred_scale_transform(
                     output.current_scale(),
@@ -338,7 +338,7 @@ impl<W: LayoutElement> Layout<W> {
                     // fullscreen/maximize. For windows that were already floating, don't request
                     // a size - they'll keep their current size during the move.
                     if should_restore_to_floating {
-                        let floating_size = tile.floating_window_size;
+                        let floating_size = tile.floating_window_size();
                         let win = tile.window_mut();
                         let mut size = floating_size
                             .unwrap_or_else(|| win.expected_size().unwrap_or_default());
@@ -464,8 +464,8 @@ impl<W: LayoutElement> Layout<W> {
 
                     // Try canvas first for window operations
                     if let Some((_row_idx, tile)) = mon.canvas_mut().find_window_mut(&window_id) {
-                        let offset = tile.interactive_move_offset;
-                        tile.interactive_move_offset = Point::from((0., 0.));
+                        let offset = tile.interactive_move_offset();
+                        tile.reset_interactive_move_offset();
                         tile.animate_move_from(offset);
 
                         // Unlock view
@@ -488,8 +488,8 @@ impl<W: LayoutElement> Layout<W> {
                 for ws in self.workspaces_mut() {
                     if let Some(tile) = ws.tiles_mut().find(|tile| *tile.window().id() == window_id)
                     {
-                        let offset = tile.interactive_move_offset;
-                        tile.interactive_move_offset = Point::from((0., 0.));
+                        let offset = tile.interactive_move_offset();
+                        tile.reset_interactive_move_offset();
                         tile.animate_move_from(offset);
                     }
 
@@ -664,7 +664,7 @@ impl<W: LayoutElement> Layout<W> {
                         let tile_render_loc = move_.tile_render_location(zoom);
 
                         let mut tile = move_.tile;
-                        tile.floating_pos = None;
+                        tile.clear_floating_pos();
 
                         match insert_ws {
                             InsertWorkspace::Existing(_) => {
@@ -673,7 +673,7 @@ impl<W: LayoutElement> Layout<W> {
                                     // TEAM_035: Extract row from tuple and call method
                                     let (_, ws) = mon.canvas.rows().nth(ws_idx).unwrap();
                                     let pos = ws.floating_logical_to_size_frac(pos);
-                                    tile.floating_pos = Some(pos);
+                                    tile.set_floating_pos(Some(pos));
                                 } else {
                                     tracing::error!(
                                         "offset unset for inserting a floating tile \
@@ -692,7 +692,7 @@ impl<W: LayoutElement> Layout<W> {
                         // expected size, because the client may have resized itself during the
                         // move.
                         let size = tile.window().size();
-                        tile.floating_window_size = Some(size);
+                        tile.set_floating_window_size(Some(size));
 
                         // TEAM_035: Extract row from tuple
                         let (_, ws) = mon.canvas.rows().nth(ws_idx).unwrap();

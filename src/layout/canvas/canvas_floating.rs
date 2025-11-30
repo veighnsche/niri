@@ -144,7 +144,7 @@ impl<W: LayoutElement> Canvas2D<W> {
         let size = tile.tile_size();
         let pos = self.floating.clamp_within_working_area(pos, size);
         let pos = self.floating.logical_to_size_frac(pos);
-        tile.floating_pos = Some(pos);
+        tile.set_floating_pos(Some(pos));
     }
 
     /// Switches focus between floating and tiled layers.

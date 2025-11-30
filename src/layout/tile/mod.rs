@@ -65,26 +65,26 @@ pub struct Tile<W: LayoutElement> {
     fullscreen_backdrop: SolidColorBuffer,
 
     /// Whether the tile should float upon unfullscreening.
-    pub(super) restore_to_floating: bool,
+    restore_to_floating: bool,
 
     /// The size that the window should assume when going floating.
     ///
     /// This is generally the last size the window had when it was floating. It can be unknown if
     /// the window starts out in the tiling layout or fullscreen.
-    pub(super) floating_window_size: Option<Size<i32, Logical>>,
+    floating_window_size: Option<Size<i32, Logical>>,
 
     /// The position that the tile should assume when going floating, relative to the floating
     /// space working area.
     ///
     /// This is generally the last position the tile had when it was floating. It can be unknown if
     /// the window starts out in the tiling layout.
-    pub(super) floating_pos: Option<Point<f64, SizeFrac>>,
+    floating_pos: Option<Point<f64, SizeFrac>>,
 
     /// Currently selected preset width index when this tile is floating.
-    pub(super) floating_preset_width_idx: Option<usize>,
+    floating_preset_width_idx: Option<usize>,
 
     /// Currently selected preset height index when this tile is floating.
-    pub(super) floating_preset_height_idx: Option<usize>,
+    floating_preset_height_idx: Option<usize>,
 
     /// The animation upon opening a window.
     open_animation: Option<OpenAnimation>,
@@ -99,10 +99,10 @@ pub struct Tile<W: LayoutElement> {
     move_y_animation: Option<MoveAnimation>,
 
     /// The animation of the tile's opacity.
-    pub(super) alpha_animation: Option<AlphaAnimation>,
+    alpha_animation: Option<AlphaAnimation>,
 
     /// Offset during the initial interactive move rubberband.
-    pub(super) interactive_move_offset: Point<f64, Logical>,
+    interactive_move_offset: Point<f64, Logical>,
 
     /// Snapshot of the last render for use in the close animation.
     unmap_snapshot: Option<TileRenderSnapshot>,
@@ -119,10 +119,10 @@ pub struct Tile<W: LayoutElement> {
     scale: f64,
 
     /// Clock for driving animations.
-    pub(super) clock: Clock,
+    clock: Clock,
 
     /// Configurable properties of the layout.
-    pub(super) options: Rc<Options>,
+    options: Rc<Options>,
 }
 
 #[derive(Debug)]
@@ -149,14 +149,14 @@ struct MoveAnimation {
 }
 
 #[derive(Debug)]
-pub(super) struct AlphaAnimation {
-    pub(super) anim: Animation,
+struct AlphaAnimation {
+    anim: Animation,
     /// Whether the animation should persist after it's done.
     ///
     /// This is used by things like interactive move which need to animate alpha to
     /// semitransparent, then hold it at semitransparent for a while, until the operation
     /// completes.
-    pub(super) hold_after_done: bool,
+    hold_after_done: bool,
     offscreen: OffscreenBuffer,
 }
 
@@ -832,5 +832,94 @@ impl<W: LayoutElement> Tile<W> {
     /// TEAM_059: Get the stored floating window size
     pub fn floating_window_size(&self) -> Option<Size<i32, Logical>> {
         self.floating_window_size
+    }
+
+    // === Floating position accessors ===
+
+    /// Get the stored floating position (relative to floating space working area).
+    pub fn floating_pos(&self) -> Option<Point<f64, SizeFrac>> {
+        self.floating_pos
+    }
+
+    /// Set the floating position.
+    pub fn set_floating_pos(&mut self, pos: Option<Point<f64, SizeFrac>>) {
+        self.floating_pos = pos;
+    }
+
+    /// Clear the floating position.
+    pub fn clear_floating_pos(&mut self) {
+        self.floating_pos = None;
+    }
+
+    // === Floating preset index accessors ===
+
+    /// Get the floating preset width index.
+    pub fn floating_preset_width_idx(&self) -> Option<usize> {
+        self.floating_preset_width_idx
+    }
+
+    /// Set the floating preset width index.
+    pub fn set_floating_preset_width_idx(&mut self, idx: Option<usize>) {
+        self.floating_preset_width_idx = idx;
+    }
+
+    /// Clear the floating preset width index.
+    pub fn clear_floating_preset_width_idx(&mut self) {
+        self.floating_preset_width_idx = None;
+    }
+
+    /// Get the floating preset height index.
+    pub fn floating_preset_height_idx(&self) -> Option<usize> {
+        self.floating_preset_height_idx
+    }
+
+    /// Set the floating preset height index.
+    pub fn set_floating_preset_height_idx(&mut self, idx: Option<usize>) {
+        self.floating_preset_height_idx = idx;
+    }
+
+    /// Clear the floating preset height index.
+    pub fn clear_floating_preset_height_idx(&mut self) {
+        self.floating_preset_height_idx = None;
+    }
+
+    // === Interactive move offset accessors ===
+
+    /// Get the interactive move offset.
+    pub fn interactive_move_offset(&self) -> Point<f64, Logical> {
+        self.interactive_move_offset
+    }
+
+    /// Set the interactive move offset.
+    pub fn set_interactive_move_offset(&mut self, offset: Point<f64, Logical>) {
+        self.interactive_move_offset = offset;
+    }
+
+    /// Reset the interactive move offset to zero.
+    pub fn reset_interactive_move_offset(&mut self) {
+        self.interactive_move_offset = Point::from((0., 0.));
+    }
+
+    // === Alpha animation accessor ===
+
+    /// Check if an alpha animation is active.
+    pub fn has_alpha_animation(&self) -> bool {
+        self.alpha_animation.is_some()
+    }
+
+    /// Get alpha animation details for testing.
+    /// Returns (target_alpha, hold_after_done) if animation exists.
+    #[cfg(test)]
+    pub fn alpha_animation_details(&self) -> Option<(f64, bool)> {
+        self.alpha_animation
+            .as_ref()
+            .map(|alpha| (alpha.anim.to(), alpha.hold_after_done))
+    }
+
+    // === Clock accessor ===
+
+    /// Get a clone of the clock.
+    pub fn clock(&self) -> Clock {
+        self.clock.clone()
     }
 }

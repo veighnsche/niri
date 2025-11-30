@@ -30,7 +30,7 @@ impl<W: LayoutElement> FloatingSpace<W> {
 
         let len = self.options.layout.preset_column_widths.len();
         let tile = &mut self.tiles[idx];
-        let preset_idx = if let Some(idx) = tile.floating_preset_width_idx {
+        let preset_idx = if let Some(idx) = tile.floating_preset_width_idx() {
             (idx + if forwards { 1 } else { len - 1 }) % len
         } else {
             let current_window = tile.window_expected_or_current_size().w;
@@ -67,7 +67,7 @@ impl<W: LayoutElement> FloatingSpace<W> {
         let preset = self.options.layout.preset_column_widths[preset_idx];
         self.set_window_width(Some(&id), SizeChange::from(preset), true);
 
-        self.tiles[idx].floating_preset_width_idx = Some(preset_idx);
+        self.tiles[idx].set_floating_preset_width_idx(Some(preset_idx));
 
         self.interactive_resize_end(Some(&id));
     }
@@ -82,7 +82,7 @@ impl<W: LayoutElement> FloatingSpace<W> {
 
         let len = self.options.layout.preset_window_heights.len();
         let tile = &mut self.tiles[idx];
-        let preset_idx = if let Some(idx) = tile.floating_preset_height_idx {
+        let preset_idx = if let Some(idx) = tile.floating_preset_height_idx() {
             (idx + if forwards { 1 } else { len - 1 }) % len
         } else {
             let current_window = tile.window_expected_or_current_size().h;
@@ -120,7 +120,7 @@ impl<W: LayoutElement> FloatingSpace<W> {
         self.set_window_height(Some(&id), SizeChange::from(preset), true);
 
         let tile = &mut self.tiles[idx];
-        tile.floating_preset_height_idx = Some(preset_idx);
+        tile.set_floating_preset_height_idx(Some(preset_idx));
 
         self.interactive_resize_end(Some(&id));
     }
@@ -136,7 +136,7 @@ impl<W: LayoutElement> FloatingSpace<W> {
         let idx = self.idx_of(id).unwrap();
 
         let tile = &mut self.tiles[idx];
-        tile.floating_preset_width_idx = None;
+        tile.clear_floating_preset_width_idx();
 
         let available_size = self.working_area.size.w;
         let win = tile.window();
@@ -185,7 +185,7 @@ impl<W: LayoutElement> FloatingSpace<W> {
         let idx = self.idx_of(id).unwrap();
 
         let tile = &mut self.tiles[idx];
-        tile.floating_preset_height_idx = None;
+        tile.clear_floating_preset_height_idx();
 
         let available_size = self.working_area.size.h;
         let win = tile.window();

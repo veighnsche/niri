@@ -22,7 +22,7 @@ impl<W: LayoutElement> Column<W> {
         width: ColumnWidth,
         is_full_width: bool,
     ) -> Self {
-        let options = tile.options.clone();
+        let options = tile.options().clone();
 
         let display_mode = tile
             .window()
@@ -52,7 +52,7 @@ impl<W: LayoutElement> Column<W> {
             working_area,
             parent_area,
             scale,
-            clock: tile.clock.clone(),
+            clock: tile.clock(),
             options,
         };
 

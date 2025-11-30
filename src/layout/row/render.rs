@@ -149,7 +149,7 @@ impl<W: LayoutElement> Row<W> {
                 // Handle visibility for tabbed mode.
                 // We want to animate opacity when going in and out of tabbed mode,
                 // so we selectively ignore "visible" here when animating alpha.
-                let visible = visible || tile.alpha_animation.is_some();
+                let visible = visible || tile.has_alpha_animation();
                 if !visible {
                     continue;
                 }
