@@ -50,7 +50,7 @@ use niri_config::{Border, PresetSize, Struts};
 use niri_ipc::ColumnDisplay;
 pub use render::RowRenderElement;
 use smithay::backend::renderer::gles::GlesRenderer;
-use smithay::output::Output;
+// TEAM_104: Removed unused Output import (current_output() was dead code)
 use smithay::utils::{Logical, Point, Rectangle, Serial, Size};
 use smithay::wayland::compositor::with_states;
 use smithay::wayland::shell::xdg::SurfaceCachedState;
@@ -327,7 +327,8 @@ impl<W: LayoutElement> Row<W> {
             }
 
             let is_tabbed = col.display_mode == ColumnDisplay::Tabbed;
-            let extra_size = Size::new(0.0, 0.0); // TEAM_027: TODO - calculate proper extra_size
+            // TEAM_104: Use column's extra_size (tab indicator size in tabbed mode)
+            let extra_size = col.extra_size();
 
             // If transactions are disabled, also disable combined throttling, for more intuitive
             // behavior. In tabbed display mode, only one window is visible, so individual
@@ -982,13 +983,7 @@ impl<W: LayoutElement> Row<W> {
         None
     }
 
-    /// Get the current output for this row.
-    /// TEAM_022: Stub implementation - rows don't directly track outputs
-    pub fn current_output(&self) -> Option<Output> {
-        // TEAM_022: TODO - rows should get output from monitor/canvas
-        None
-    }
-
+    // TEAM_104: Removed current_output() - dead code, rows get output from monitor/canvas
     // TEAM_064: active_window_mut, is_urgent moved to state.rs
     // TEAM_064: window_under, resize_edges_under moved to hit_test.rs
 
@@ -1130,9 +1125,10 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Update the layout config for this row.
-    /// TEAM_022: Stub implementation
+    /// TEAM_104: Intentionally a no-op - rows inherit layout config from their
+    /// parent Monitor via options. Per-row config is not supported.
     pub fn update_layout_config(&mut self, _config: Option<niri_config::LayoutPart>) {
-        // TEAM_022: TODO - rows don't have individual layout configs
+        // No-op: rows inherit config from monitor options
     }
 
     /// Resolve scrolling width for a window.
@@ -1160,17 +1156,14 @@ impl<W: LayoutElement> Row<W> {
         }
     }
 
-    /// Make a tile for a window.
-    /// TEAM_025: Stub implementation
-    pub fn make_tile(&mut self, _window: W, _activate: bool) {
-        // TEAM_025: TODO - implement tile creation
-    }
+    // TEAM_104: Removed make_tile() - dead code, tile creation is done via Canvas2D::make_tile()
 
-    /// Handle descendants added.
-    /// TEAM_025: Stub implementation
-    pub fn descendants_added(&mut self, _id: &W::Id) -> bool {
-        // TEAM_025: TODO - implement descendants handling
-        false
+    /// Handle descendants added (e.g., popups, subsurfaces).
+    /// TEAM_104: For tiled rows, we just check if the window exists.
+    /// Unlike floating windows, tiled windows don't need stacking order changes.
+    pub fn descendants_added(&self, id: &W::Id) -> bool {
+        // Check if any column contains this window
+        self.columns.iter().any(|col| col.contains(id))
     }
 
     /// Compute scroll amount needed to activate a window.

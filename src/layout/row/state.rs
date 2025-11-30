@@ -54,7 +54,6 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Check if this row has any windows or a name.
-    /// TEAM_022: Stub implementation
     pub fn has_windows_or_name(&self) -> bool {
         self.has_windows() || self.name().is_some()
     }
@@ -94,7 +93,6 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Get mutable reference to the active window.
-    /// TEAM_022: Stub implementation
     pub fn active_window_mut(&mut self) -> Option<&mut W> {
         if let Some(col) = self.active_column_mut() {
             let active_tile_idx = col.active_tile_idx;
@@ -107,7 +105,6 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Get the visual rectangle of the active tile.
-    /// TEAM_022: Stub implementation
     pub fn active_tile_visual_rectangle(&self) -> Option<Rectangle<f64, Logical>> {
         self.active_column()
             .and_then(|col| col.tiles_iter().nth(col.active_tile_idx))

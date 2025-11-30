@@ -31,11 +31,22 @@ impl<W: LayoutElement> Row<W> {
     }
 
     /// Activate window without raising it in the stacking order.
-    /// TEAM_025: Stub implementation - rows don't have stacking order
-    pub fn activate_window_without_raising(&mut self, _window: &W::Id) -> bool {
-        // TEAM_025: TODO - implement activation without raising
-        // For rows, this is a no-op since rows don't have stacking order
-        false
+    /// TEAM_104: For tiled rows, this is the same as activate_window since
+    /// rows don't have a stacking order (unlike floating windows).
+    pub fn activate_window_without_raising(&mut self, window: &W::Id) -> bool {
+        // Find the column containing this window
+        let column_idx = self.columns.iter().position(|col| col.contains(window));
+        let Some(column_idx) = column_idx else {
+            return false;
+        };
+        let column = &mut self.columns[column_idx];
+
+        // Activate the window within its column
+        column.activate_window(window);
+        // Activate the column within the row
+        self.activate_column(column_idx);
+
+        true
     }
 
     // =========================================================================

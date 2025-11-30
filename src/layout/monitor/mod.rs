@@ -487,11 +487,8 @@ impl<W: LayoutElement> Monitor<W> {
         }
     }
 
-    /// Previous workspace index (for workspace switching).
-    pub fn previous_workspace_idx(&self) -> Option<usize> {
-        // TEAM_022: Not implemented for canvas
-        None
-    }
+    // TEAM_104: Removed previous_workspace_idx() - dead code, Canvas2D doesn't track
+    // workspace history (use camera bookmarks instead for position memory)
 
     /// Activate a workspace/row by index.
     pub fn activate_workspace(&mut self, idx: usize) {
