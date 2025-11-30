@@ -89,8 +89,25 @@ pub(super) struct TtyOutputState {
 /// A connected, but not necessarily enabled, crtc.
 #[derive(Debug, Clone)]
 pub struct CrtcInfo {
-    pub(super) id: OutputId,
-    pub(super) name: OutputName,
+    pub(crate) id: OutputId,
+    pub(crate) name: OutputName,
+}
+
+impl CrtcInfo {
+    /// Create a new CrtcInfo.
+    pub fn new(id: OutputId, name: OutputName) -> Self {
+        Self { id, name }
+    }
+
+    /// Get the output ID.
+    pub fn id(&self) -> OutputId {
+        self.id
+    }
+
+    /// Get the output name.
+    pub fn name(&self) -> &OutputName {
+        &self.name
+    }
 }
 
 /// Surface state for a connected output.

@@ -131,4 +131,4 @@ mod tests {
 
 ## Next Phase
 
-[Phase T1.4: Create DeviceManager Subsystem](phase-T1.4-extract-lifecycle.md)
+[Phase T1.4a: DeviceManager Struct & Accessors](phase-T1.4a-device-manager-struct.md)

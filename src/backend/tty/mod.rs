@@ -7,6 +7,7 @@
 //!
 //! `Tty` is a thin coordinator that dispatches events to subsystems.
 
+mod devices;
 mod types;
 
 use std::cell::RefCell;
@@ -48,7 +49,7 @@ use smithay::backend::session::{Event as SessionEvent, Session};
 use smithay::backend::udev::{self, UdevBackend, UdevEvent};
 use smithay::output::{Mode, Output, OutputModeSource, PhysicalProperties};
 use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
-use smithay::reexports::calloop::{Dispatcher, LoopHandle, RegistrationToken};
+use smithay::reexports::calloop::{Dispatcher, LoopHandle};
 use smithay::reexports::drm::control::atomic::AtomicModeReq;
 use smithay::reexports::drm::control::dumbbuffer::DumbBuffer;
 use smithay::reexports::drm::control::{
@@ -62,16 +63,16 @@ use smithay::reexports::wayland_protocols;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::{DeviceFd, Transform};
 use smithay::wayland::dmabuf::{DmabufFeedbackBuilder, DmabufGlobal};
-use smithay::wayland::drm_lease::{
-    DrmLease, DrmLeaseBuilder, DrmLeaseRequest, DrmLeaseState, LeaseRejected,
-};
+use smithay::wayland::drm_lease::DrmLeaseState;
 use smithay::wayland::presentation::Refresh;
 use smithay_drm_extras::drm_scanner::{DrmScanEvent, DrmScanner};
 use wayland_protocols::wp::linux_dmabuf::zv1::server::zwp_linux_dmabuf_feedback_v1::TrancheFlags;
 use wayland_protocols::wp::presentation_time::server::wp_presentation_feedback;
 
+pub use devices::OutputDevice;
 pub use types::{CrtcInfo, SurfaceDmabufFeedback, TtyFrame, TtyRenderer, TtyRendererError};
 use types::{ConnectorProperties, GammaProps, GbmDrmCompositor, Surface, TtyOutputState, SUPPORTED_COLOR_FORMATS};
+use devices::format_connector_name;
 
 use super::{IpcOutputMap, RenderResult};
 use crate::backend::OutputId;
@@ -110,95 +111,9 @@ pub struct Tty {
     ipc_outputs: Arc<Mutex<IpcOutputMap>>,
 }
 
-pub struct OutputDevice {
-    token: RegistrationToken,
-    // Can be None for display-only devices such as DisplayLink.
-    render_node: Option<DrmNode>,
-    drm_scanner: DrmScanner,
-    surfaces: HashMap<crtc::Handle, Surface>,
-    known_crtcs: HashMap<crtc::Handle, CrtcInfo>,
-    // SAFETY: drop after all the objects used with them are dropped.
-    // See https://github.com/Smithay/smithay/issues/1102.
-    drm: DrmDevice,
-    gbm: GbmDevice<DrmDeviceFd>,
-    // For display-only devices this will be the allocator from the primary device.
-    allocator: GbmAllocator<DrmDeviceFd>,
-
-    pub drm_lease_state: Option<DrmLeaseState>,
-    non_desktop_connectors: HashSet<(connector::Handle, crtc::Handle)>,
-    active_leases: Vec<DrmLease>,
-}
-
-
+// Additional impl for OutputDevice that uses functions from this module.
+// Will be moved to devices.rs in Phase T1.3 when helpers are extracted.
 impl OutputDevice {
-    pub fn lease_request(
-        &self,
-        request: DrmLeaseRequest,
-    ) -> Result<DrmLeaseBuilder, LeaseRejected> {
-        let mut builder = DrmLeaseBuilder::new(&self.drm);
-        for connector in request.connectors {
-            let (_, crtc) = self
-                .non_desktop_connectors
-                .iter()
-                .find(|(conn, _)| connector == *conn)
-                .ok_or_else(|| {
-                    warn!("Attempted to lease connector that is not non-desktop");
-                    LeaseRejected::default()
-                })?;
-            builder.add_connector(connector);
-            builder.add_crtc(*crtc);
-            let planes = self.drm.planes(crtc).map_err(LeaseRejected::with_cause)?;
-            let (primary_plane, primary_plane_claim) = planes
-                .primary
-                .iter()
-                .find_map(|plane| {
-                    self.drm
-                        .claim_plane(plane.handle, *crtc)
-                        .map(|claim| (plane, claim))
-                })
-                .ok_or_else(LeaseRejected::default)?;
-            builder.add_plane(primary_plane.handle, primary_plane_claim);
-        }
-        Ok(builder)
-    }
-
-    pub fn new_lease(&mut self, lease: DrmLease) {
-        self.active_leases.push(lease);
-    }
-
-    pub fn remove_lease(&mut self, lease_id: u32) {
-        self.active_leases.retain(|l| l.id() != lease_id);
-    }
-
-    pub fn known_crtc_name(
-        &self,
-        crtc: &crtc::Handle,
-        conn: &connector::Info,
-        disable_monitor_names: bool,
-    ) -> OutputName {
-        if disable_monitor_names {
-            let conn_name = format_connector_name(conn);
-            return OutputName {
-                connector: conn_name,
-                make: None,
-                model: None,
-                serial: None,
-            };
-        }
-
-        let Some(info) = self.known_crtcs.get(crtc) else {
-            let conn_name = format_connector_name(conn);
-            error!("crtc for connector {conn_name} missing from known");
-            return OutputName {
-                connector: conn_name,
-                make: None,
-                model: None,
-                serial: None,
-            };
-        };
-        info.name.clone()
-    }
-
     fn cleanup_mismatching_resources(
         &self,
         should_be_off: &dyn Fn(crtc::Handle, &connector::Info) -> bool,
@@ -3239,13 +3154,7 @@ pub fn set_gamma_for_crtc(
     Ok(())
 }
 
-fn format_connector_name(connector: &connector::Info) -> String {
-    format!(
-        "{}-{}",
-        connector.interface().as_str(),
-        connector.interface_id(),
-    )
-}
+// format_connector_name is now in devices.rs
 
 fn make_output_name(
     device: &DrmDevice,

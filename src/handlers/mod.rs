@@ -667,8 +667,7 @@ impl DrmLeaseHandler for State {
             .tty()
             .get_device_from_node(node)
             .unwrap()
-            .drm_lease_state
-            .as_mut()
+            .lease_state_mut()
             .unwrap()
     }
 

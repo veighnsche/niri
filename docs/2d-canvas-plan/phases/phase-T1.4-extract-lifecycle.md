@@ -1,13 +1,16 @@
 # Phase T1.4: Create DeviceManager Subsystem
 
-> **Status**: ⏳ PENDING  
-> **Time Estimate**: ~1.5 hours  
-> **Risk Level**: 🟡 Medium  
-> **Architectural Benefit**: ⭐⭐⭐ High - core subsystem owning device state
+> **⚠️ THIS PHASE HAS BEEN SPLIT**
+>
+> This phase was too large and has been split into two parts:
+> - [Phase T1.4a: DeviceManager Struct & Accessors](phase-T1.4a-device-manager-struct.md) (~45 min)
+> - [Phase T1.4b: DeviceManager Lifecycle Methods](phase-T1.4b-device-manager-lifecycle.md) (~1 hour)
+>
+> Please follow those documents instead.
 
 ---
 
-## Goal
+## Original Goal (for reference)
 
 Create the `DeviceManager` subsystem that **OWNS** all DRM device state. This is the most important subsystem extraction.
 

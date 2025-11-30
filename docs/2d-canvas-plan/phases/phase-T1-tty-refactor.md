@@ -185,7 +185,8 @@ impl OutputManager {
 | [T1.1](phase-T1.1-extract-types.md) | Types & module structure | Foundation | 30m |
 | [T1.2](phase-T1.2-extract-device.md) | OutputDevice enrichment | Better encapsulation | 45m |
 | [T1.3](phase-T1.3-extract-helpers.md) | Pure helper functions | ⭐⭐⭐ Testable | 45m |
-| [T1.4](phase-T1.4-extract-lifecycle.md) | DeviceManager subsystem | ⭐⭐⭐ Owns device state | 1.5h |
+| [T1.4a](phase-T1.4a-device-manager-struct.md) | DeviceManager struct | ⭐⭐⭐ Core subsystem | 45m |
+| [T1.4b](phase-T1.4b-device-manager-lifecycle.md) | DeviceManager lifecycle | ⭐⭐⭐ Device hotplug | 1h |
 | [T1.5](phase-T1.5-extract-connectors.md) | Connectors into DeviceManager | Unified lifecycle | 45m |
 | [T1.6](phase-T1.6-extract-render.md) | RenderManager subsystem | ⭐⭐⭐ Owns render state | 1h |
 | [T1.7](phase-T1.7-extract-output.md) | OutputManager subsystem | ⭐⭐⭐ Owns IPC/config | 1h |
@@ -197,10 +198,11 @@ impl OutputManager {
 1. **T1.1 Types first** - Creates module structure and shared types
 2. **T1.2 OutputDevice** - Enrich the existing type before subsystems use it
 3. **T1.3 Helpers** - Pure functions needed by all subsystems
-4. **T1.4 DeviceManager** - Core subsystem, biggest extraction
-5. **T1.5 Connectors** - Integrate into DeviceManager
-6. **T1.6 RenderManager** - Depends on DeviceManager existing
-7. **T1.7 OutputManager** - Final piece, IPC/config management
+4. **T1.4a DeviceManager struct** - Create the subsystem structure
+5. **T1.4b DeviceManager lifecycle** - Move device hotplug logic
+6. **T1.5 Connectors** - Integrate into DeviceManager
+7. **T1.6 RenderManager** - Depends on DeviceManager existing
+8. **T1.7 OutputManager** - Final piece, IPC/config management
 
 ---
 
