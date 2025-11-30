@@ -1,241 +1,284 @@
-# Phase T1.7: Extract Output Management
+# Phase T1.7: Create OutputManager Subsystem
 
 > **Status**: ⏳ PENDING  
-> **Time Estimate**: ~30 minutes  
+> **Time Estimate**: ~1 hour  
 > **Risk Level**: 🟢 Low  
-> **Architectural Benefit**: ⭐⭐ Medium - organizes remaining output code
+> **Architectural Benefit**: ⭐⭐⭐ High - isolates IPC/config state
 
 ---
 
 ## Goal
 
-Extract output management functions into `src/backend/tty/output.rs`. These are the remaining functions that deal with output configuration:
-- IPC output reporting
-- Gamma control
-- VRR control
-- Monitor enable/disable
-- Config changes
+Create the `OutputManager` subsystem that handles IPC output reporting, gamma control, VRR, and configuration changes.
 
 ---
 
-## What Moves
-
-### IPC Output Management (lines 2057-2173, ~120 lines)
+## What OutputManager Owns
 
 ```rust
-impl Tty {
-    fn refresh_ipc_outputs(&self, niri: &mut Niri)
+pub struct OutputManager {
+    ipc_outputs: Arc<Mutex<IpcOutputMap>>,
+    update_config_on_resume: bool,
+    update_ignored_nodes_on_resume: bool,
+}
+```
+
+---
+
+## OutputManager API
+
+```rust
+impl OutputManager {
+    pub fn new() -> Self
+
+    // === IPC ===
+    pub fn refresh_ipc_outputs(&self, devices: &DeviceManager, niri: &Niri)
     pub fn ipc_outputs(&self) -> Arc<Mutex<IpcOutputMap>>
-}
-```
 
-### Gamma Control (lines 2012-2056, ~45 lines)
+    // === Gamma ===
+    pub fn get_gamma_size(&self, devices: &DeviceManager, output: &Output) -> anyhow::Result<u32>
+    pub fn set_gamma(&mut self, devices: &mut DeviceManager, output: &Output, ramp: Option<Vec<u16>>) -> anyhow::Result<()>
 
-```rust
-impl Tty {
-    pub fn get_gamma_size(&self, output: &Output) -> anyhow::Result<u32>
-    pub fn set_gamma(&mut self, output: &Output, ramp: Option<Vec<u16>>) -> anyhow::Result<()>
-}
-```
+    // === VRR ===
+    pub fn set_output_on_demand_vrr(&mut self, devices: &mut DeviceManager, niri: &mut Niri, output: &Output, enable_vrr: bool)
 
-### VRR Control (lines 2205-2234, ~30 lines)
+    // === Monitor Control ===
+    pub fn set_monitors_active(&mut self, devices: &mut DeviceManager, active: bool)
 
-```rust
-impl Tty {
-    pub fn set_output_on_demand_vrr(&mut self, niri: &mut Niri, output: &Output, enable_vrr: bool)
-}
-```
-
-### Monitor Control (lines 2186-2204, ~20 lines)
-
-```rust
-impl Tty {
-    pub fn set_monitors_active(&mut self, active: bool)
-}
-```
-
-### Config Changes (lines 2235-2500, ~265 lines)
-
-```rust
-impl Tty {
-    pub fn update_ignored_nodes_config(&mut self, niri: &mut Niri)
-    fn should_disable_laptop_panels(&self, is_lid_closed: bool) -> bool
-    pub fn on_output_config_changed(&mut self, niri: &mut Niri)
-}
-```
-
-### Device Access (lines 2501-2530, ~30 lines)
-
-```rust
-impl Tty {
-    pub fn get_device_from_node(&mut self, node: DrmNode) -> Option<&mut OutputDevice>
-    pub fn disconnected_connector_name_by_name_match(&self, target: &str) -> Option<OutputName>
+    // === Configuration ===
+    pub fn on_output_config_changed(&mut self, devices: &mut DeviceManager, niri: &mut Niri, config: &Config)
+    pub fn mark_config_update_on_resume(&mut self)
+    pub fn mark_ignored_nodes_update_on_resume(&mut self)
+    pub fn needs_config_update_on_resume(&self) -> bool
+    pub fn needs_ignored_nodes_update_on_resume(&self) -> bool
+    pub fn clear_resume_flags(&mut self)
 }
 ```
 
 ---
 
-## Why This is Good Architecture
-
-1. **Cleanup phase** - Organizes remaining code after larger extractions
-2. **Related functionality** - All output control in one place
-3. **Config handling isolated** - Config changes don't pollute other code
-4. **IPC separate** - Output reporting is distinct from output management
-
----
-
-## Target: `src/backend/tty/output.rs`
+## Implementation: `src/backend/tty/outputs.rs`
 
 ```rust
-//! Output management for TTY backend.
+//! Output management subsystem for TTY backend.
 //!
-//! Handles:
-//! - IPC output reporting
-//! - Gamma control
-//! - VRR (Variable Refresh Rate) control
-//! - Monitor enable/disable
-//! - Configuration changes
+//! Handles IPC output reporting, gamma control, VRR, and configuration.
 
 use std::sync::{Arc, Mutex};
+
 use smithay::backend::drm::DrmNode;
 use smithay::output::Output;
 
-use super::Tty;
-use super::device::OutputDevice;
+use super::devices::DeviceManager;
+use super::helpers;
 use crate::backend::IpcOutputMap;
 use crate::niri::Niri;
-use niri_config::OutputName;
+use niri_config::{Config, OutputName};
 
-impl Tty {
-    // === IPC ===
+/// Output management subsystem.
+///
+/// OWNS:
+/// - IPC output map for external queries
+/// - Resume update flags
+pub struct OutputManager {
+    ipc_outputs: Arc<Mutex<IpcOutputMap>>,
+    update_config_on_resume: bool,
+    update_ignored_nodes_on_resume: bool,
+}
 
-    /// Refresh the IPC output map with current state.
-    pub(super) fn refresh_ipc_outputs(&self, niri: &mut Niri) {
-        // ...
+impl OutputManager {
+    pub fn new() -> Self {
+        Self {
+            ipc_outputs: Arc::new(Mutex::new(HashMap::new())),
+            update_config_on_resume: false,
+            update_ignored_nodes_on_resume: false,
+        }
     }
 
-    /// Get the IPC output map for external queries.
+    // === IPC ===
+
+    pub fn refresh_ipc_outputs(&self, devices: &DeviceManager, niri: &Niri) {
+        let mut ipc_outputs = self.ipc_outputs.lock().unwrap();
+        ipc_outputs.clear();
+
+        for (node, device) in devices.iter() {
+            for (crtc, surface) in device.surfaces() {
+                // Build IPC output info
+                // ...
+            }
+        }
+    }
+
     pub fn ipc_outputs(&self) -> Arc<Mutex<IpcOutputMap>> {
         Arc::clone(&self.ipc_outputs)
     }
 
     // === Gamma ===
 
-    /// Get the gamma LUT size for an output.
-    pub fn get_gamma_size(&self, output: &Output) -> anyhow::Result<u32> {
-        // ...
+    pub fn get_gamma_size(
+        &self,
+        devices: &DeviceManager,
+        output: &Output,
+    ) -> anyhow::Result<u32> {
+        let (node, crtc) = Self::find_output(output)?;
+        let device = devices.get(&node).context("missing device")?;
+        let surface = device.surface(crtc).context("missing surface")?;
+
+        if let Some(gamma_props) = &surface.gamma_props {
+            gamma_props.gamma_size(device.drm())
+        } else {
+            // Legacy gamma
+            let info = device.drm().get_crtc(crtc)?;
+            Ok(info.gamma_length() as u32)
+        }
     }
 
-    /// Set the gamma LUT for an output.
     pub fn set_gamma(
         &mut self,
+        devices: &mut DeviceManager,
         output: &Output,
         ramp: Option<Vec<u16>>,
     ) -> anyhow::Result<()> {
-        // ...
+        let (node, crtc) = Self::find_output(output)?;
+        let device = devices.get_mut(&node).context("missing device")?;
+        let surface = device.surface_mut(crtc).context("missing surface")?;
+
+        if let Some(gamma_props) = &mut surface.gamma_props {
+            gamma_props.set_gamma(device.drm(), ramp.as_deref())
+        } else {
+            helpers::set_gamma_for_crtc(device.drm(), crtc, ramp.as_deref())
+        }
     }
 
     // === VRR ===
 
-    /// Enable or disable on-demand VRR for an output.
     pub fn set_output_on_demand_vrr(
         &mut self,
+        devices: &mut DeviceManager,
         niri: &mut Niri,
         output: &Output,
         enable_vrr: bool,
     ) {
+        let Some((node, crtc)) = Self::find_output(output) else {
+            return;
+        };
+        let Some(device) = devices.get_mut(&node) else {
+            return;
+        };
+        let Some(surface) = device.surface_mut(crtc) else {
+            return;
+        };
+
+        // Toggle VRR
+        surface.vrr_enabled = enable_vrr;
         // ...
     }
 
     // === Monitor Control ===
 
-    /// Enable or disable all monitors (for screen lock, etc.).
-    pub fn set_monitors_active(&mut self, active: bool) {
-        // ...
+    pub fn set_monitors_active(&mut self, devices: &mut DeviceManager, active: bool) {
+        for device in devices.iter_mut() {
+            for surface in device.surfaces_mut() {
+                // Enable/disable DPMS
+                // ...
+            }
+        }
     }
 
     // === Configuration ===
 
-    /// Update ignored DRM nodes based on config.
-    pub fn update_ignored_nodes_config(&mut self, niri: &mut Niri) {
-        // ...
+    pub fn on_output_config_changed(
+        &mut self,
+        devices: &mut DeviceManager,
+        niri: &mut Niri,
+        config: &Config,
+    ) {
+        // Re-scan and apply config to all outputs
+        for (node, device) in devices.iter_mut() {
+            // ...
+        }
+        self.refresh_ipc_outputs(devices, niri);
     }
 
-    /// Check if laptop panels should be disabled (lid closed).
-    pub(super) fn should_disable_laptop_panels(&self, is_lid_closed: bool) -> bool {
-        // ...
+    pub fn mark_config_update_on_resume(&mut self) {
+        self.update_config_on_resume = true;
     }
 
-    /// Handle output configuration changes.
-    pub fn on_output_config_changed(&mut self, niri: &mut Niri) {
-        // ...
+    pub fn mark_ignored_nodes_update_on_resume(&mut self) {
+        self.update_ignored_nodes_on_resume = true;
     }
 
-    // === Device Access ===
-
-    /// Get a mutable reference to a device by DRM node.
-    pub fn get_device_from_node(&mut self, node: DrmNode) -> Option<&mut OutputDevice> {
-        self.devices.get_mut(&node)
+    pub fn needs_config_update_on_resume(&self) -> bool {
+        self.update_config_on_resume
     }
 
-    /// Find a disconnected connector name by matching against target.
-    pub fn disconnected_connector_name_by_name_match(
-        &self,
-        target: &str,
-    ) -> Option<OutputName> {
-        // ...
+    pub fn needs_ignored_nodes_update_on_resume(&self) -> bool {
+        self.update_ignored_nodes_on_resume
+    }
+
+    pub fn clear_resume_flags(&mut self) {
+        self.update_config_on_resume = false;
+        self.update_ignored_nodes_on_resume = false;
+    }
+
+    fn find_output(output: &Output) -> Option<(DrmNode, crtc::Handle)> {
+        let state = output.user_data().get::<super::types::TtyOutputState>()?;
+        Some((state.node, state.crtc))
     }
 }
 ```
 
 ---
 
-## Also Extract: GammaProps
+## Final Tty Structure
 
-The `impl GammaProps` block (lines 2534-2670, ~140 lines) should go to `gamma.rs`:
+After all phases, `Tty` becomes a thin coordinator:
 
 ```rust
-// src/backend/tty/gamma.rs
+pub struct Tty {
+    // Core integration (not subsystem-able)
+    config: Rc<RefCell<Config>>,
+    session: LibSeatSession,
+    udev_dispatcher: Dispatcher<'static, UdevBackend, State>,
+    libinput: Libinput,
 
-//! Gamma LUT management for TTY backend.
-
-use smithay::backend::drm::DrmDevice;
-use smithay::reexports::drm::control::{crtc, property};
-
-pub(super) struct GammaProps {
-    pub crtc: crtc::Handle,
-    pub gamma_lut: property::Handle,
-    pub gamma_lut_size: u64,
-    pub previous_blob: Option<NonZeroU64>,
+    // Subsystems (OWN their state)
+    pub(crate) devices: DeviceManager,
+    pub(crate) render: RenderManager,
+    pub(crate) outputs: OutputManager,
 }
 
-impl GammaProps {
-    pub fn new(device: &DrmDevice, crtc: crtc::Handle) -> anyhow::Result<Self> {
-        // ...
+impl Tty {
+    // Thin delegation
+    pub fn render(&mut self, niri: &mut Niri, output: &Output, target: Duration) -> RenderResult {
+        self.render.render(&mut self.devices, niri, output, target)
     }
 
-    pub fn gamma_size(&self, device: &DrmDevice) -> anyhow::Result<u32> {
-        // ...
+    pub fn ipc_outputs(&self) -> Arc<Mutex<IpcOutputMap>> {
+        self.outputs.ipc_outputs()
     }
 
-    pub fn set_gamma(&mut self, device: &DrmDevice, gamma: Option<&[u16]>) -> anyhow::Result<()> {
-        // ...
-    }
-
-    pub fn restore_gamma(&self, device: &DrmDevice) -> anyhow::Result<()> {
-        // ...
+    // Event dispatch
+    fn on_udev_event(&mut self, niri: &mut Niri, event: UdevEvent) {
+        match event {
+            UdevEvent::Added { device_id, path } => {
+                self.devices.device_added(device_id, &path, ...);
+            }
+            // ...
+        }
     }
 }
 ```
 
 ---
 
-## Verification
+## Verification Checklist
 
 - [ ] IPC output queries work (`niri msg outputs`)
 - [ ] Gamma control works
 - [ ] VRR toggle works
 - [ ] Config reload works
+- [ ] Monitor power control works
 - [ ] `cargo check` passes
 
 ---
@@ -244,50 +287,35 @@ impl GammaProps {
 
 | File | Change |
 |------|--------|
-| `src/backend/tty/output.rs` | Created (~530 LOC) |
-| `src/backend/tty/gamma.rs` | Created (~150 LOC) |
-| `src/backend/tty/mod.rs` | Removed output methods, added `mod output; mod gamma` |
+| `src/backend/tty/outputs.rs` | `OutputManager` subsystem (~650 LOC) |
+| `src/backend/tty/mod.rs` | Final thin coordinator structure |
 
 ---
 
-## Final State
+## Final Architecture Summary
 
-After this phase, `mod.rs` should contain only:
-- `Tty` struct definition
-- `new()` constructor
-- `init()` initialization
-- Public API methods that delegate to other modules
-- Module declarations and re-exports
+```
+src/backend/tty/
+├── mod.rs          # Tty thin coordinator (~200 LOC)
+├── types.rs        # Type definitions (~150 LOC)
+├── helpers.rs      # Pure functions (~400 LOC)
+├── devices.rs      # DeviceManager subsystem (~1100 LOC)
+│                   #   - OutputDevice
+│                   #   - Device lifecycle
+│                   #   - Connector handling
+├── render.rs       # RenderManager subsystem (~500 LOC)
+├── outputs.rs      # OutputManager subsystem (~650 LOC)
+└── gamma.rs        # GammaProps (~150 LOC)
 
-Target: ~300 LOC in `mod.rs`
+Total: ~3150 LOC (down from 3473)
+```
 
----
+### Key Improvements
 
-## Verification Checklist (Full Refactor)
-
-- [ ] `cargo check` passes
-- [ ] `cargo test` passes
-- [ ] Monitor hotplug works
-- [ ] VT switching works
-- [ ] Gamma/VRR control works
-- [ ] IPC queries work
-- [ ] No functionality regression
-
----
-
-## Summary
-
-This completes the TTY refactor. The 3473-line monolith is now split into:
-
-| File | LOC | Responsibility |
-|------|-----|----------------|
-| `mod.rs` | ~300 | Struct, init, coordination |
-| `types.rs` | ~150 | Type definitions |
-| `device.rs` | ~250 | OutputDevice management |
-| `helpers.rs` | ~400 | Pure helper functions |
-| `lifecycle.rs` | ~650 | Device add/change/remove |
-| `connectors.rs` | ~400 | Connect/disconnect |
-| `render.rs` | ~420 | Rendering pipeline |
-| `output.rs` | ~530 | Output control |
-| `gamma.rs` | ~150 | Gamma LUT |
-| **Total** | ~3250 | (similar to original) |
+| Metric | Before | After |
+|--------|--------|-------|
+| `Tty` fields | 15+ | 7 |
+| God object | Yes | No |
+| Encapsulation | None | ✅ Private fields |
+| Testability | Low | ✅ Each subsystem |
+| Cognitive load | High | ⬇️ Per-subsystem |

@@ -1,196 +1,291 @@
-# Phase T1.4: Extract Device Lifecycle
+# Phase T1.4: Create DeviceManager Subsystem
 
 > **Status**: ⏳ PENDING  
-> **Time Estimate**: ~1 hour  
+> **Time Estimate**: ~1.5 hours  
 > **Risk Level**: 🟡 Medium  
-> **Architectural Benefit**: ⭐⭐⭐ High - isolates complex device management
+> **Architectural Benefit**: ⭐⭐⭐ High - core subsystem owning device state
 
 ---
 
 ## Goal
 
-Extract device lifecycle management into `src/backend/tty/lifecycle.rs`. This is the largest extraction but has clear boundaries:
-- Device added (udev)
-- Device changed (hotplug)
-- Device removed (unplug)
-- Session events (VT switch)
-- Udev events
+Create the `DeviceManager` subsystem that **OWNS** all DRM device state. This is the most important subsystem extraction.
+
+**Key principle**: `DeviceManager` owns its state privately and exposes an intentional API.
 
 ---
 
-## What Moves
-
-### Event Handlers (lines 542-711, ~170 lines)
+## What DeviceManager Owns
 
 ```rust
-impl Tty {
-    fn on_udev_event(&mut self, niri: &mut Niri, event: UdevEvent)
-    fn on_session_event(&mut self, niri: &mut Niri, event: SessionEvent)
-}
-```
-
-### Device Add/Change/Remove (lines 712-1179, ~470 lines)
-
-```rust
-impl Tty {
-    fn device_added(&mut self, device_id: dev_t, path: PathBuf, niri: &mut Niri)
-    fn device_changed(&mut self, device_id: dev_t, niri: &mut Niri, cleanup: bool)
-    fn device_removed(&mut self, device_id: dev_t, niri: &mut Niri)
+pub struct DeviceManager {
+    // ALL PRIVATE - encapsulated state
+    devices: HashMap<DrmNode, OutputDevice>,
+    primary_node: DrmNode,
+    primary_render_node: DrmNode,
+    ignored_nodes: HashSet<DrmNode>,
+    gpu_manager: GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>>,
+    dmabuf_global: Option<DmabufGlobal>,
 }
 ```
 
 ---
 
-## Why This is Good Architecture
-
-1. **Clear lifecycle boundary** - All device add/remove logic in one place
-2. **Complex but isolated** - These functions are large but don't touch rendering
-3. **Event-driven** - Clear input (events) to output (state changes)
-4. **Easier debugging** - Device issues are isolated to one file
-
----
-
-## Method Breakdown
-
-### `on_udev_event` (~60 lines)
-Dispatches udev events to `device_added`, `device_changed`, `device_removed`.
-
-### `on_session_event` (~110 lines)
-Handles VT switching:
-- Pause: Disable DRM, pause devices
-- Resume: Re-enable DRM, resume devices, update configs
-
-### `device_added` (~195 lines)
-When a new GPU is detected:
-1. Open DRM device
-2. Initialize GBM
-3. Set up GPU manager
-4. Create dmabuf global if primary
-5. Scan for connectors
-
-### `device_changed` (~165 lines)
-When GPU configuration changes (hotplug):
-1. Re-scan connectors
-2. Handle new/removed connectors
-3. Update surfaces
-
-### `device_removed` (~110 lines)
-When a GPU is unplugged:
-1. Remove surfaces
-2. Clean up dmabuf global
-3. Remove from GPU manager
-
----
-
-## Target: `src/backend/tty/lifecycle.rs`
+## DeviceManager API
 
 ```rust
-//! Device lifecycle management for TTY backend.
+impl DeviceManager {
+    // === Constructor ===
+    pub fn new(
+        primary_node: DrmNode,
+        primary_render_node: DrmNode,
+        ignored_nodes: HashSet<DrmNode>,
+        gpu_manager: GpuManager<...>,
+    ) -> Self
+
+    // === Device Lifecycle ===
+    pub fn device_added(
+        &mut self,
+        device_id: dev_t,
+        path: &Path,
+        session: &LibSeatSession,
+        event_loop: &LoopHandle<State>,
+        niri: &mut Niri,
+    ) -> anyhow::Result<()>
+
+    pub fn device_changed(&mut self, device_id: dev_t, niri: &mut Niri, cleanup: bool)
+
+    pub fn device_removed(&mut self, device_id: dev_t, niri: &mut Niri, event_loop: &LoopHandle<State>)
+
+    // === Session Events ===
+    pub fn pause_devices(&mut self)
+    pub fn resume_devices(&mut self, niri: &mut Niri)
+
+    // === Access ===
+    pub fn get(&self, node: &DrmNode) -> Option<&OutputDevice>
+    pub fn get_mut(&mut self, node: &DrmNode) -> Option<&mut OutputDevice>
+    pub fn iter(&self) -> impl Iterator<Item = (&DrmNode, &OutputDevice)>
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&DrmNode, &mut OutputDevice)>
+
+    // === Node Info ===
+    pub fn primary_node(&self) -> DrmNode
+    pub fn primary_render_node(&self) -> DrmNode
+    pub fn is_ignored(&self, node: &DrmNode) -> bool
+    pub fn update_ignored_nodes(&mut self, ignored: HashSet<DrmNode>)
+
+    // === GPU Manager ===
+    pub fn gpu_manager(&self) -> &GpuManager<...>
+    pub fn gpu_manager_mut(&mut self) -> &mut GpuManager<...>
+
+    // === DmaBuf ===
+    pub fn dmabuf_global(&self) -> Option<&DmabufGlobal>
+    pub fn set_dmabuf_global(&mut self, global: Option<DmabufGlobal>)
+}
+```
+
+---
+
+## Implementation: `src/backend/tty/devices.rs`
+
+```rust
+//! Device management subsystem.
 //!
-//! Handles:
-//! - Device add/change/remove events from udev
-//! - Session events (VT switching)
-//! - GPU hotplug scenarios
+//! This subsystem OWNS all DRM device state and provides the device lifecycle API.
 
-use std::path::PathBuf;
+use std::collections::{HashMap, HashSet};
+use std::path::Path;
+
 use libc::dev_t;
-use smithay::backend::session::Event as SessionEvent;
-use smithay::backend::udev::UdevEvent;
+use smithay::backend::drm::{DrmDeviceFd, DrmNode};
+use smithay::backend::renderer::gles::GlesRenderer;
+use smithay::backend::renderer::multigpu::gbm::GbmGlesBackend;
+use smithay::backend::renderer::multigpu::GpuManager;
+use smithay::backend::session::libseat::LibSeatSession;
+use smithay::reexports::calloop::LoopHandle;
+use smithay::wayland::dmabuf::DmabufGlobal;
 
-use super::Tty;
-use crate::niri::Niri;
+use super::helpers::{ignored_nodes_from_config, primary_node_from_config};
+use crate::niri::{Niri, State};
 
+/// Device management subsystem.
+///
+/// OWNS all DRM device state:
+/// - Connected devices (GPUs)
+/// - Primary/render node tracking
+/// - GPU manager for multi-GPU
+/// - DmaBuf global
+pub struct DeviceManager {
+    devices: HashMap<DrmNode, OutputDevice>,
+    primary_node: DrmNode,
+    primary_render_node: DrmNode,
+    ignored_nodes: HashSet<DrmNode>,
+    gpu_manager: GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>>,
+    dmabuf_global: Option<DmabufGlobal>,
+}
+
+impl DeviceManager {
+    pub fn new(
+        primary_node: DrmNode,
+        primary_render_node: DrmNode,
+        ignored_nodes: HashSet<DrmNode>,
+        gpu_manager: GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>>,
+    ) -> Self {
+        Self {
+            devices: HashMap::new(),
+            primary_node,
+            primary_render_node,
+            ignored_nodes,
+            gpu_manager,
+            dmabuf_global: None,
+        }
+    }
+
+    // === Device Lifecycle ===
+
+    pub fn device_added(
+        &mut self,
+        device_id: dev_t,
+        path: &Path,
+        session: &LibSeatSession,
+        event_loop: &LoopHandle<State>,
+        niri: &mut Niri,
+    ) -> anyhow::Result<()> {
+        // Implementation moved from Tty::device_added
+        // ... ~200 lines
+        todo!()
+    }
+
+    pub fn device_changed(&mut self, device_id: dev_t, niri: &mut Niri, cleanup: bool) {
+        // Implementation moved from Tty::device_changed
+        // ... ~160 lines
+        todo!()
+    }
+
+    pub fn device_removed(
+        &mut self,
+        device_id: dev_t,
+        niri: &mut Niri,
+        event_loop: &LoopHandle<State>,
+    ) {
+        // Implementation moved from Tty::device_removed
+        // ... ~110 lines
+        todo!()
+    }
+
+    // === Session Events ===
+
+    pub fn pause_devices(&mut self) {
+        for device in self.devices.values_mut() {
+            device.drm_mut().pause();
+            if let Some(lease_state) = device.lease_state_mut() {
+                lease_state.suspend();
+            }
+        }
+    }
+
+    pub fn resume_devices(&mut self, niri: &mut Niri) {
+        for (node, device) in self.devices.iter_mut() {
+            if let Err(err) = device.drm_mut().activate(false) {
+                tracing::warn!("error activating DRM device: {err:?}");
+            }
+            if let Some(lease_state) = device.lease_state_mut() {
+                lease_state.resume::<State>();
+            }
+        }
+    }
+
+    // === Access ===
+
+    pub fn get(&self, node: &DrmNode) -> Option<&OutputDevice> {
+        self.devices.get(node)
+    }
+
+    pub fn get_mut(&mut self, node: &DrmNode) -> Option<&mut OutputDevice> {
+        self.devices.get_mut(node)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&DrmNode, &OutputDevice)> {
+        self.devices.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&DrmNode, &mut OutputDevice)> {
+        self.devices.iter_mut()
+    }
+
+    // === Node Info ===
+
+    pub fn primary_node(&self) -> DrmNode {
+        self.primary_node
+    }
+
+    pub fn primary_render_node(&self) -> DrmNode {
+        self.primary_render_node
+    }
+
+    pub fn is_ignored(&self, node: &DrmNode) -> bool {
+        self.ignored_nodes.contains(node)
+    }
+
+    // === GPU Manager ===
+
+    pub fn gpu_manager(&self) -> &GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>> {
+        &self.gpu_manager
+    }
+
+    pub fn gpu_manager_mut(&mut self) -> &mut GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>> {
+        &mut self.gpu_manager
+    }
+
+    // === DmaBuf ===
+
+    pub fn dmabuf_global(&self) -> Option<&DmabufGlobal> {
+        self.dmabuf_global.as_ref()
+    }
+
+    pub fn set_dmabuf_global(&mut self, global: Option<DmabufGlobal>) {
+        self.dmabuf_global = global;
+    }
+}
+```
+
+---
+
+## Migration: Update Tty
+
+```rust
+// BEFORE
 impl Tty {
-    /// Handle udev events (device add/change/remove).
-    pub(super) fn on_udev_event(&mut self, niri: &mut Niri, event: UdevEvent) {
+    fn device_added(&mut self, ...) { ... }
+    fn device_removed(&mut self, ...) { ... }
+}
+
+// AFTER
+impl Tty {
+    fn on_udev_event(&mut self, niri: &mut Niri, event: UdevEvent) {
         match event {
             UdevEvent::Added { device_id, path } => {
-                if !self.session.is_active() {
-                    return;
+                // Delegate to subsystem
+                if let Err(err) = self.devices.device_added(
+                    device_id, &path, &self.session, &niri.event_loop, niri
+                ) {
+                    tracing::warn!("error adding device: {err:?}");
                 }
-                self.device_added(device_id, path, niri);
             }
-            UdevEvent::Changed { device_id } => {
-                if !self.session.is_active() {
-                    return;
-                }
-                self.device_changed(device_id, niri, false);
-            }
-            UdevEvent::Removed { device_id } => {
-                if !self.session.is_active() {
-                    return;
-                }
-                self.device_removed(device_id, niri);
-            }
+            // ...
         }
-    }
-
-    /// Handle session events (VT switch, etc.).
-    pub(super) fn on_session_event(&mut self, niri: &mut Niri, event: SessionEvent) {
-        match event {
-            SessionEvent::PauseSession => {
-                // Disable DRM, pause devices...
-            }
-            SessionEvent::ActivateSession => {
-                // Re-enable DRM, resume devices...
-            }
-        }
-    }
-
-    /// Handle a new DRM device being added.
-    pub(super) fn device_added(
-        &mut self,
-        device_id: dev_t,
-        path: PathBuf,
-        niri: &mut Niri,
-    ) {
-        // 1. Open DRM device
-        // 2. Initialize GBM
-        // 3. Set up GPU manager
-        // 4. Create dmabuf global if primary
-        // 5. Scan for connectors
-    }
-
-    /// Handle DRM device configuration change (hotplug).
-    pub(super) fn device_changed(
-        &mut self,
-        device_id: dev_t,
-        niri: &mut Niri,
-        cleanup: bool,
-    ) {
-        // 1. Re-scan connectors
-        // 2. Handle new/removed connectors
-        // 3. Update surfaces
-    }
-
-    /// Handle DRM device removal.
-    pub(super) fn device_removed(&mut self, device_id: dev_t, niri: &mut Niri) {
-        // 1. Remove surfaces
-        // 2. Clean up dmabuf global
-        // 3. Remove from GPU manager
     }
 }
 ```
 
 ---
 
-## Dependencies
+## Verification Checklist
 
-This module uses:
-- `helpers.rs`: `primary_node_from_render_node`, `ignored_nodes_from_config`
-- `device.rs`: `OutputDevice`, `CrtcInfo`
-- `connectors.rs`: `connector_connected`, `connector_disconnected`
-
-Order matters: Extract helpers and device first, then lifecycle.
-
----
-
-## Verification
-
-- [ ] Device hotplug works (test with `echo 1 > /sys/class/drm/.../status`)
-- [ ] VT switching works (`Ctrl+Alt+F2`, `Ctrl+Alt+F1`)
+- [ ] `DeviceManager` owns all device state privately
+- [ ] All device lifecycle goes through `DeviceManager` API
+- [ ] `Tty` delegates to `DeviceManager`
+- [ ] GPU hotplug works
 - [ ] `cargo check` passes
-- [ ] GPU add/remove logs appear correctly
 
 ---
 
@@ -198,11 +293,11 @@ Order matters: Extract helpers and device first, then lifecycle.
 
 | File | Change |
 |------|--------|
-| `src/backend/tty/lifecycle.rs` | Created (~650 LOC) |
-| `src/backend/tty/mod.rs` | Removed lifecycle methods, added `mod lifecycle` |
+| `src/backend/tty/devices.rs` | `DeviceManager` subsystem (~700 LOC) |
+| `src/backend/tty/mod.rs` | `Tty` delegates to `devices` |
 
 ---
 
 ## Next Phase
 
-After completing this phase, proceed to [Phase T1.5: Extract Connectors](phase-T1.5-extract-connectors.md).
+[Phase T1.5: Integrate Connectors into DeviceManager](phase-T1.5-extract-connectors.md)
