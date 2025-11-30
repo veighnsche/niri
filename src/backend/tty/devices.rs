@@ -12,11 +12,11 @@ use std::mem;
 use std::os::fd::OwnedFd;
 use std::time::Duration;
 
-use anyhow::{bail, ensure, Context};
+use anyhow::{bail, ensure, Context, anyhow};
 use libc::dev_t;
 use niri_config::Config;
 use smithay::backend::allocator::gbm::{GbmAllocator, GbmDevice, GbmBufferFlags};
-use smithay::backend::drm::{DrmDevice, DrmDeviceFd, DrmNode, NodeType, DrmEvent, compositor::{DrmCompositor, FrameFlags}, VrrSupport};
+use smithay::backend::drm::{DrmDevice, DrmDeviceFd, DrmNode, NodeType, DrmEvent, compositor::DrmCompositor, VrrSupport};
 use smithay::backend::renderer::{ImportDma, ImportEgl};
 use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::backend::renderer::multigpu::gbm::GbmGlesBackend;
@@ -28,6 +28,10 @@ use smithay::reexports::drm::control::{connector, crtc};
 use smithay::reexports::rustix::fs::OFlags;
 use smithay::utils::DeviceFd;
 use smithay::backend::egl::{EGLDisplay, EGLDevice};
+use smithay::backend::renderer::{DebugFlags};
+use smithay::backend::allocator::format::FormatSet;
+use smithay::reexports::gbm::Modifier;
+use smithay::backend::drm::exporter::gbm::GbmFramebufferExporter;
 use smithay::output::{Mode, Output, OutputModeSource, PhysicalProperties};
 use smithay::wayland::dmabuf::{DmabufFeedbackBuilder, DmabufGlobal};
 use smithay::wayland::drm_lease::{
@@ -39,17 +43,31 @@ use tracing::{debug, error, warn};
 #[cfg(feature = "profile-with-tracy")]
 use tracy_client;
 
-use super::types::{CrtcInfo, Surface, TtyOutputState};
+use super::types::{CrtcInfo, Surface, TtyOutputState, ConnectorProperties, GammaProps};
 use super::helpers::{
-    surface_dmabuf_feedback, make_output_name, is_laptop_panel,
+    surface_dmabuf_feedback, make_output_name,
     pick_mode, find_drm_property, reset_hdr, get_panel_orientation,
     set_gamma_for_crtc, refresh_interval, calculate_drm_mode_from_modeline,
 };
 use crate::render_helpers::{resources, shaders};
 use crate::render_helpers::renderer::AsGlesRenderer;
 use crate::backend::OutputId;
-use crate::utils::is_laptop_panel;
+use crate::utils::{is_laptop_panel, PanelOrientation};
 use crate::niri::{Niri, State};
+
+/// The color formats supported by the DRM compositor.
+///
+/// These are the formats that we'll advertise as supported for rendering.
+const SUPPORTED_COLOR_FORMATS: &'static [smithay::backend::allocator::Fourcc] = &[
+    smithay::backend::allocator::Fourcc::Abgr2101010,
+    smithay::backend::allocator::Fourcc::Argb2101010,
+    smithay::backend::allocator::Fourcc::Xbgr2101010,
+    smithay::backend::allocator::Fourcc::Xrgb2101010,
+    smithay::backend::allocator::Fourcc::Abgr8888,
+    smithay::backend::allocator::Fourcc::Argb8888,
+    smithay::backend::allocator::Fourcc::Xbgr8888,
+    smithay::backend::allocator::Fourcc::Xrgb8888,
+];
 
 /// Result of device_changed operation.
 ///
@@ -1094,6 +1112,359 @@ impl DeviceManager {
 
         // Return the device FD for the caller to close via session
         TryInto::<OwnedFd>::try_into(device_fd).ok()
+    }
+
+    /// Handle connector connection - creates DRM surface and compositor.
+    ///
+    /// This is the largest method in the TTY backend (~347 LOC) and handles
+    /// creating a DRM surface when a monitor is connected.
+    pub fn connector_connected(
+        &mut self,
+        niri: &mut Niri,
+        node: DrmNode,
+        connector: connector::Info,
+        crtc: crtc::Handle,
+        config: &Rc<RefCell<Config>>,
+        debug_tint: bool,
+    ) -> anyhow::Result<()> {
+        let connector_name = format_connector_name(&connector);
+        debug!("connecting connector: {connector_name}");
+
+        // Extract values we need before getting mutable device reference.
+        let primary_render_node = self.primary_render_node();
+
+        let device = self.get_mut(&node).context("missing device")?;
+
+        let disable_monitor_names = config.borrow().debug.disable_monitor_names;
+        let output_name = device.known_crtc_name(&crtc, &connector, disable_monitor_names);
+
+        let non_desktop = find_drm_property(&device.drm, connector.handle(), "non-desktop")
+            .and_then(|(_, info, value)| info.value_type().convert_value(value).as_boolean())
+            .unwrap_or(false);
+
+        if non_desktop {
+            debug!("output is non desktop");
+            let description = output_name.format_description();
+            if let Some(lease_state) = &mut device.drm_lease_state {
+                lease_state.add_connector::<State>(connector.handle(), connector_name, description);
+            }
+            device
+                .non_desktop_connectors
+                .insert((connector.handle(), crtc));
+            return Ok(());
+        }
+
+        let config = config
+            .borrow()
+            .outputs
+            .find(&output_name)
+            .cloned()
+            .unwrap_or_default();
+
+        for m in connector.modes() {
+            trace!("{m:?}");
+        }
+
+        let mut mode = None;
+        if let Some(modeline) = &config.modeline {
+            match calculate_drm_mode_from_modeline(modeline) {
+                Ok(x) => mode = Some(x),
+                Err(err) => {
+                    warn!("invalid custom modeline; falling back to advertised modes: {err:?}");
+                }
+            }
+        }
+
+        let (mode, fallback) = match mode {
+            Some(x) => (x, false),
+            None => pick_mode(&connector, config.mode).ok_or_else(|| anyhow!("no mode"))?,
+        };
+
+        if fallback {
+            let target = config.mode.unwrap();
+            warn!(
+                "configured mode {}x{}{} could not be found, falling back to preferred",
+                target.mode.width,
+                target.mode.height,
+                if let Some(refresh) = target.mode.refresh {
+                    format!("@{refresh}")
+                } else {
+                    String::new()
+                },
+            );
+        }
+
+        debug!("picking mode: {mode:?}");
+
+        let mut orientation = None;
+        if let Ok(props) = ConnectorProperties::try_new(&device.drm, connector.handle()) {
+            match reset_hdr(&props) {
+                Ok(()) => (),
+                Err(err) => debug!("couldn't reset HDR properties: {err:?}"),
+            }
+
+            match get_panel_orientation(&props) {
+                Ok(x) => orientation = Some(x),
+                Err(err) => {
+                    trace!("couldn't get panel orientation: {err:?}");
+                }
+            }
+        } else {
+            warn!("failed to get connector properties");
+        };
+
+        let mut gamma_props = GammaProps::new(&device.drm, crtc)
+            .map_err(|err| debug!("couldn't get gamma properties: {err:?}"))
+            .ok();
+
+        // Reset gamma in case it was set before.
+        let res = if let Some(gamma_props) = &mut gamma_props {
+            gamma_props.set_gamma(&device.drm, None)
+        } else {
+            set_gamma_for_crtc(&device.drm, crtc, None)
+        };
+        if let Err(err) = res {
+            debug!("couldn't reset gamma: {err:?}");
+        }
+
+        let surface = device
+            .drm
+            .create_surface(crtc, mode, &[connector.handle()])?;
+
+        // Try to enable VRR if requested.
+        match surface.vrr_supported(connector.handle()) {
+            Ok(VrrSupport::Supported | VrrSupport::RequiresModeset) => {
+                // Even if on-demand, we still disable it until later checks.
+                let vrr = config.is_vrr_always_on();
+                let word = if vrr { "enabling" } else { "disabling" };
+
+                if let Err(err) = surface.use_vrr(vrr) {
+                    warn!("error {} VRR: {err:?}", word);
+                }
+            }
+            Ok(VrrSupport::NotSupported) => {
+                if !config.is_vrr_always_off() {
+                    warn!("cannot enable VRR because connector does not support it");
+                }
+
+                // Try to disable it anyway to work around a bug where resetting DRM state causes
+                // vrr_capable to be reset to 0, potentially leaving VRR_ENABLED at 1.
+                let _ = surface.use_vrr(false);
+            }
+            Err(err) => {
+                warn!("error querying for VRR support: {err:?}");
+            }
+        }
+
+        // Update the output mode.
+        let (physical_width, physical_height) = connector.size().unwrap_or((0, 0));
+
+        let output = Output::new(
+            connector_name.clone(),
+            PhysicalProperties {
+                size: (physical_width as i32, physical_height as i32).into(),
+                subpixel: connector.subpixel().into(),
+                model: output_name.model.as_deref().unwrap_or("Unknown").to_owned(),
+                make: output_name.make.as_deref().unwrap_or("Unknown").to_owned(),
+                serial_number: output_name
+                    .serial
+                    .as_deref()
+                    .unwrap_or("Unknown")
+                    .to_owned(),
+            },
+        );
+
+        let wl_mode = Mode::from(mode);
+        output.change_current_state(Some(wl_mode), None, None, None);
+        output.set_preferred(wl_mode);
+
+        output
+            .user_data()
+            .insert_if_missing(|| TtyOutputState { node, crtc });
+        output.user_data().insert_if_missing(|| output_name.clone());
+        if let Some(x) = orientation {
+            output.user_data().insert_if_missing(|| PanelOrientation(x));
+        }
+
+        // Extract device render_node before we need to re-borrow self.devices.
+        let device_render_node = device.render_node;
+        let render_node = device_render_node.unwrap_or(primary_render_node);
+
+        // Drop device reference temporarily to access gpu_manager.
+        let _ = device;
+        let render_formats = {
+            let renderer = self.gpu_manager_mut().single_renderer(&render_node)?;
+            let egl_context = renderer.as_ref().egl_context();
+            egl_context.dmabuf_render_formats().clone()
+        };
+
+        // Re-borrow device.
+        let device = self.get_mut(&node).context("missing device")?;
+
+        // Filter out the CCS modifiers as they have increased bandwidth, causing some monitor
+        // configurations to stop working.
+        //
+        // For display only devices, restrict to linear buffers for best compatibility.
+        //
+        // The invalid modifier attempt below should make this unnecessary in some cases, but it
+        // would still be a bad idea to remove this until Smithay has some kind of full-device
+        // modesetting test that is able to "downgrade" existing connector modifiers to get enough
+        // bandwidth for a newly connected one.
+        let render_formats = render_formats
+            .iter()
+            .copied()
+            .filter(|format| {
+                if device_render_node.is_none() {
+                    return format.modifier == Modifier::Linear;
+                }
+
+                let is_ccs = matches!(
+                    format.modifier,
+                    Modifier::I915_y_tiled_ccs
+                    // I915_FORMAT_MOD_Yf_TILED_CCS
+                    | Modifier::Unrecognized(0x100000000000005)
+                    | Modifier::I915_y_tiled_gen12_rc_ccs
+                    | Modifier::I915_y_tiled_gen12_mc_ccs
+                    // I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS_CC
+                    | Modifier::Unrecognized(0x100000000000008)
+                    // I915_FORMAT_MOD_4_TILED_DG2_RC_CCS
+                    | Modifier::Unrecognized(0x10000000000000a)
+                    // I915_FORMAT_MOD_4_TILED_DG2_MC_CCS
+                    | Modifier::Unrecognized(0x10000000000000b)
+                    // I915_FORMAT_MOD_4_TILED_DG2_RC_CCS_CC
+                    | Modifier::Unrecognized(0x10000000000000c)
+                );
+
+                !is_ccs
+            })
+            .collect::<FormatSet>();
+
+        // Create the compositor.
+        let res = DrmCompositor::new(
+            OutputModeSource::Auto(output.clone()),
+            surface,
+            None,
+            device.allocator.clone(),
+            GbmFramebufferExporter::new(device.gbm.clone(), device.render_node.into()),
+            SUPPORTED_COLOR_FORMATS.iter().copied(),
+            // This is only used to pick a good internal format, so it can use the surface's render
+            // formats, even though we only ever render on the primary GPU.
+            render_formats.clone(),
+            device.drm.cursor_size(),
+            Some(device.gbm.clone()),
+        );
+
+        let mut compositor = match res {
+            Ok(x) => x,
+            Err(err) => {
+                warn!("error creating DRM compositor, will try with invalid modifier: {err:?}");
+
+                let render_formats = render_formats
+                    .iter()
+                    .copied()
+                    .filter(|format| format.modifier == Modifier::Invalid)
+                    .collect::<FormatSet>();
+
+                // DrmCompositor::new() consumed the surface...
+                let surface = device
+                    .drm
+                    .create_surface(crtc, mode, &[connector.handle()])?;
+
+                DrmCompositor::new(
+                    OutputModeSource::Auto(output.clone()),
+                    surface,
+                    None,
+                    device.allocator.clone(),
+                    GbmFramebufferExporter::new(device.gbm.clone(), device.render_node.into()),
+                    SUPPORTED_COLOR_FORMATS.iter().copied(),
+                    render_formats,
+                    device.drm.cursor_size(),
+                    Some(device.gbm.clone()),
+                )
+                .context("error creating DRM compositor")?
+            }
+        };
+
+        if debug_tint {
+            compositor.set_debug_flags(DebugFlags::TINT);
+        }
+
+        // Drop device to access gpu_manager_mut for dmabuf feedback.
+        let _ = device;
+
+        let mut dmabuf_feedback = None;
+        if let Ok(primary_renderer) = self.gpu_manager_mut().single_renderer(&primary_render_node) {
+            let primary_formats = primary_renderer.dmabuf_formats();
+
+            match surface_dmabuf_feedback(
+                &compositor,
+                primary_formats,
+                primary_render_node,
+                device_render_node,
+                node,
+            ) {
+                Ok(feedback) => {
+                    dmabuf_feedback = Some(feedback);
+                }
+                Err(err) => {
+                    warn!("error building dmabuf feedback: {err:?}");
+                }
+            }
+        }
+
+        // Some buggy monitors replug upon powering off, so powering on here would prevent such
+        // monitors from powering off. Therefore, we avoid unconditionally powering on.
+        if !niri.outputs.monitors_active() {
+            if let Err(err) = compositor.clear() {
+                warn!("error clearing drm surface: {err:?}");
+            }
+        }
+
+        let vrr_enabled = compositor.vrr_enabled();
+
+        let vblank_frame_name =
+            tracy_client::FrameName::new_leak(format!("vblank on {connector_name}"));
+        let time_since_presentation_plot_name = tracy_client::PlotName::new_leak(format!(
+            "{connector_name} time since presentation, ms"
+        ));
+        let presentation_misprediction_plot_name = tracy_client::PlotName::new_leak(format!(
+            "{connector_name} presentation misprediction, ms"
+        ));
+        let sequence_delta_plot_name =
+            tracy_client::PlotName::new_leak(format!("{connector_name} sequence delta"));
+
+        let surface = Surface {
+            name: output_name,
+            connector: connector.handle(),
+            compositor,
+            dmabuf_feedback,
+            gamma_props,
+            pending_gamma_change: None,
+            vblank_frame: None,
+            vblank_frame_name,
+            time_since_presentation_plot_name,
+            presentation_misprediction_plot_name,
+            sequence_delta_plot_name,
+        };
+
+        // Re-borrow device to insert surface.
+        let device = self.get_mut(&node).context("missing device")?;
+        let res = device.surfaces.insert(crtc, surface);
+        assert!(res.is_none(), "crtc must not have already existed");
+
+        niri.add_output(output.clone(), Some(refresh_interval(mode)), vrr_enabled);
+
+        if niri.outputs.monitors_active() {
+            // Redraw the new monitor.
+            niri.event_loop.insert_idle(move |state| {
+                // Guard against output disconnecting before the idle has a chance to run.
+                if state.niri.outputs.state(&output).is_some() {
+                    state.niri.queue_redraw(&output);
+                }
+            });
+        }
+
+        Ok(())
     }
 }
 

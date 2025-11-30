@@ -1,11 +1,14 @@
 //! TTY/DRM backend for native display.
 //!
 //! This module uses the **subsystem ownership pattern**:
-//! - `DeviceManager` - owns all DRM device state (future)
-//! - `RenderManager` - owns rendering state (future)
-//! - `OutputManager` - owns IPC/config state (future)
+//! - `DeviceManager` (devices.rs) - owns all DRM device state and lifecycle
+//! - `RenderManager` (render.rs) - owns rendering and vblank handling
+//! - `OutputManager` (outputs.rs) - owns IPC and output configuration
 //!
-//! `Tty` is a thin coordinator that dispatches events to subsystems.
+//! `Tty` is a thin coordinator that:
+//! - Holds session and udev state
+//! - Dispatches events to subsystems
+//! - Provides public API delegation
 
 mod devices;
 mod helpers;
@@ -18,54 +21,40 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::iter::zip;
 use std::num::NonZeroU64;
-use std::os::fd::{AsFd, OwnedFd};
+use std::os::fd::AsFd;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::mem;
 
-use anyhow::{anyhow, bail, ensure, Context};
+use anyhow::{anyhow, ensure, Context};
 use bytemuck::cast_slice_mut;
 use libc::dev_t;
 use niri_config::{Config, OutputName};
 use smithay::backend::allocator::dmabuf::Dmabuf;
-use smithay::backend::allocator::format::FormatSet;
-use smithay::backend::allocator::gbm::{GbmAllocator, GbmBufferFlags, GbmDevice};
-use smithay::backend::drm::compositor::{DrmCompositor, FrameFlags, PrimaryPlaneElement};
-use smithay::backend::drm::exporter::gbm::GbmFramebufferExporter;
+use smithay::backend::allocator::gbm::GbmDevice;
 use smithay::backend::drm::{
-    DrmDevice, DrmDeviceFd, DrmEvent, DrmEventMetadata, DrmEventTime, DrmNode, NodeType, VrrSupport,
+    DrmDevice, DrmDeviceFd, DrmEventMetadata, DrmEventTime, DrmNode, NodeType,
 };
 use smithay::backend::egl::context::ContextPriority;
-use smithay::backend::egl::{EGLDevice, EGLDisplay};
 use smithay::backend::libinput::{LibinputInputBackend, LibinputSessionInterface};
 use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::backend::renderer::multigpu::gbm::GbmGlesBackend;
 use smithay::backend::renderer::multigpu::GpuManager;
-use smithay::backend::renderer::{DebugFlags, ImportDma, ImportEgl};
+use smithay::backend::renderer::ImportDma;
 use smithay::backend::session::libseat::LibSeatSession;
 use smithay::backend::session::{Event as SessionEvent, Session};
 use smithay::backend::udev::{self, UdevBackend, UdevEvent};
-use smithay::output::{Mode, Output, OutputModeSource, PhysicalProperties};
-use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
+use smithay::output::Output;
 use smithay::reexports::calloop::{Dispatcher, LoopHandle};
 use smithay::reexports::drm::control::atomic::AtomicModeReq;
 use smithay::reexports::drm::control::dumbbuffer::DumbBuffer;
 use smithay::reexports::drm::control::{
-    connector, crtc, plane, property, AtomicCommitFlags, Device, ModeFlags, ModeTypeFlags, PlaneType,
+    connector, crtc, plane, property, AtomicCommitFlags, Device, PlaneType,
 };
-use smithay::reexports::gbm::Modifier;
 use smithay::reexports::input::Libinput;
-use smithay::reexports::rustix::fs::OFlags;
-use smithay::reexports::wayland_protocols;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
-use smithay::utils::DeviceFd;
-use smithay::wayland::dmabuf::DmabufFeedbackBuilder;
-use smithay::wayland::drm_lease::DrmLeaseState;
-use smithay::wayland::presentation::Refresh;
-use smithay_drm_extras::drm_scanner::{DrmScanEvent, DrmScanner};
-use wayland_protocols::wp::presentation_time::server::wp_presentation_feedback;
 
 pub use devices::{DeviceManager, OutputDevice};
 pub use helpers::{calculate_drm_mode_from_modeline, calculate_mode_cvt, set_gamma_for_crtc};
@@ -74,20 +63,15 @@ pub use render::RenderManager;
 pub use types::{CrtcInfo, SurfaceDmabufFeedback, TtyFrame, TtyRenderer, TtyRendererError};
 use devices::format_connector_name;
 use helpers::{
-    find_drm_property, get_drm_property, get_panel_orientation, ignored_nodes_from_config,
-    is_vrr_capable, make_output_name, pick_mode, primary_node_from_config, refresh_interval,
-    reset_hdr, surface_dmabuf_feedback,
+    find_drm_property, get_drm_property, ignored_nodes_from_config, primary_node_from_config,
+    reset_hdr,
 };
-use types::{ConnectorProperties, GammaProps, Surface, TtyOutputState, SUPPORTED_COLOR_FORMATS};
+use types::{ConnectorProperties, GammaProps, TtyOutputState};
 
 use super::{IpcOutputMap, RenderResult};
-use crate::backend::OutputId;
-use crate::frame_clock::FrameClock;
-use crate::niri::{Niri, RedrawState, State};
-use crate::render_helpers::debug::draw_damage;
+use crate::niri::{Niri, State};
 use crate::render_helpers::renderer::AsGlesRenderer;
-use crate::render_helpers::{resources, shaders, RenderTarget};
-use crate::utils::{get_monotonic_time, is_laptop_panel, logical_output, PanelOrientation};
+use crate::utils::{get_monotonic_time, is_laptop_panel};
 
 pub struct Tty {
     config: Rc<RefCell<Config>>,
@@ -614,345 +598,15 @@ impl Tty {
         connector: connector::Info,
         crtc: crtc::Handle,
     ) -> anyhow::Result<()> {
-        let connector_name = format_connector_name(&connector);
-        debug!("connecting connector: {connector_name}");
-
-        // Extract values we need before getting mutable device reference.
-        let primary_render_node = self.devices.primary_render_node();
-
-        let device = self.devices.get_mut(&node).context("missing device")?;
-
-        let disable_monitor_names = self.config.borrow().debug.disable_monitor_names;
-        let output_name = device.known_crtc_name(&crtc, &connector, disable_monitor_names);
-
-        let non_desktop = find_drm_property(&device.drm, connector.handle(), "non-desktop")
-            .and_then(|(_, info, value)| info.value_type().convert_value(value).as_boolean())
-            .unwrap_or(false);
-
-        if non_desktop {
-            debug!("output is non desktop");
-            let description = output_name.format_description();
-            if let Some(lease_state) = &mut device.drm_lease_state {
-                lease_state.add_connector::<State>(connector.handle(), connector_name, description);
-            }
-            device
-                .non_desktop_connectors
-                .insert((connector.handle(), crtc));
-            return Ok(());
-        }
-
-        let config = self
-            .config
-            .borrow()
-            .outputs
-            .find(&output_name)
-            .cloned()
-            .unwrap_or_default();
-
-        for m in connector.modes() {
-            trace!("{m:?}");
-        }
-
-        let mut mode = None;
-        if let Some(modeline) = &config.modeline {
-            match calculate_drm_mode_from_modeline(modeline) {
-                Ok(x) => mode = Some(x),
-                Err(err) => {
-                    warn!("invalid custom modeline; falling back to advertised modes: {err:?}");
-                }
-            }
-        }
-
-        let (mode, fallback) = match mode {
-            Some(x) => (x, false),
-            None => pick_mode(&connector, config.mode).ok_or_else(|| anyhow!("no mode"))?,
-        };
-
-        if fallback {
-            let target = config.mode.unwrap();
-            warn!(
-                "configured mode {}x{}{} could not be found, falling back to preferred",
-                target.mode.width,
-                target.mode.height,
-                if let Some(refresh) = target.mode.refresh {
-                    format!("@{refresh}")
-                } else {
-                    String::new()
-                },
-            );
-        }
-
-        debug!("picking mode: {mode:?}");
-
-        let mut orientation = None;
-        if let Ok(props) = ConnectorProperties::try_new(&device.drm, connector.handle()) {
-            match reset_hdr(&props) {
-                Ok(()) => (),
-                Err(err) => debug!("couldn't reset HDR properties: {err:?}"),
-            }
-
-            match get_panel_orientation(&props) {
-                Ok(x) => orientation = Some(x),
-                Err(err) => {
-                    trace!("couldn't get panel orientation: {err:?}");
-                }
-            }
-        } else {
-            warn!("failed to get connector properties");
-        };
-
-        let mut gamma_props = GammaProps::new(&device.drm, crtc)
-            .map_err(|err| debug!("couldn't get gamma properties: {err:?}"))
-            .ok();
-
-        // Reset gamma in case it was set before.
-        let res = if let Some(gamma_props) = &mut gamma_props {
-            gamma_props.set_gamma(&device.drm, None)
-        } else {
-            set_gamma_for_crtc(&device.drm, crtc, None)
-        };
-        if let Err(err) = res {
-            debug!("couldn't reset gamma: {err:?}");
-        }
-
-        let surface = device
-            .drm
-            .create_surface(crtc, mode, &[connector.handle()])?;
-
-        // Try to enable VRR if requested.
-        match surface.vrr_supported(connector.handle()) {
-            Ok(VrrSupport::Supported | VrrSupport::RequiresModeset) => {
-                // Even if on-demand, we still disable it until later checks.
-                let vrr = config.is_vrr_always_on();
-                let word = if vrr { "enabling" } else { "disabling" };
-
-                if let Err(err) = surface.use_vrr(vrr) {
-                    warn!("error {} VRR: {err:?}", word);
-                }
-            }
-            Ok(VrrSupport::NotSupported) => {
-                if !config.is_vrr_always_off() {
-                    warn!("cannot enable VRR because connector does not support it");
-                }
-
-                // Try to disable it anyway to work around a bug where resetting DRM state causes
-                // vrr_capable to be reset to 0, potentially leaving VRR_ENABLED at 1.
-                let _ = surface.use_vrr(false);
-            }
-            Err(err) => {
-                warn!("error querying for VRR support: {err:?}");
-            }
-        }
-
-        // Update the output mode.
-        let (physical_width, physical_height) = connector.size().unwrap_or((0, 0));
-
-        let output = Output::new(
-            connector_name.clone(),
-            PhysicalProperties {
-                size: (physical_width as i32, physical_height as i32).into(),
-                subpixel: connector.subpixel().into(),
-                model: output_name.model.as_deref().unwrap_or("Unknown").to_owned(),
-                make: output_name.make.as_deref().unwrap_or("Unknown").to_owned(),
-                serial_number: output_name
-                    .serial
-                    .as_deref()
-                    .unwrap_or("Unknown")
-                    .to_owned(),
-            },
-        );
-
-        let wl_mode = Mode::from(mode);
-        output.change_current_state(Some(wl_mode), None, None, None);
-        output.set_preferred(wl_mode);
-
-        output
-            .user_data()
-            .insert_if_missing(|| TtyOutputState { node, crtc });
-        output.user_data().insert_if_missing(|| output_name.clone());
-        if let Some(x) = orientation {
-            output.user_data().insert_if_missing(|| PanelOrientation(x));
-        }
-
-        // Extract device render_node before we need to re-borrow self.devices.
-        let device_render_node = device.render_node;
-        let render_node = device_render_node.unwrap_or(primary_render_node);
-
-        // Drop device reference temporarily to access gpu_manager.
-        let _ = device;
-        let render_formats = {
-            let renderer = self.devices.gpu_manager_mut().single_renderer(&render_node)?;
-            let egl_context = renderer.as_ref().egl_context();
-            egl_context.dmabuf_render_formats().clone()
-        };
-
-        // Re-borrow device.
-        let device = self.devices.get_mut(&node).context("missing device")?;
-
-        // Filter out the CCS modifiers as they have increased bandwidth, causing some monitor
-        // configurations to stop working.
-        //
-        // For display only devices, restrict to linear buffers for best compatibility.
-        //
-        // The invalid modifier attempt below should make this unnecessary in some cases, but it
-        // would still be a bad idea to remove this until Smithay has some kind of full-device
-        // modesetting test that is able to "downgrade" existing connector modifiers to get enough
-        // bandwidth for a newly connected one.
-        let render_formats = render_formats
-            .iter()
-            .copied()
-            .filter(|format| {
-                if device_render_node.is_none() {
-                    return format.modifier == Modifier::Linear;
-                }
-
-                let is_ccs = matches!(
-                    format.modifier,
-                    Modifier::I915_y_tiled_ccs
-                    // I915_FORMAT_MOD_Yf_TILED_CCS
-                    | Modifier::Unrecognized(0x100000000000005)
-                    | Modifier::I915_y_tiled_gen12_rc_ccs
-                    | Modifier::I915_y_tiled_gen12_mc_ccs
-                    // I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS_CC
-                    | Modifier::Unrecognized(0x100000000000008)
-                    // I915_FORMAT_MOD_4_TILED_DG2_RC_CCS
-                    | Modifier::Unrecognized(0x10000000000000a)
-                    // I915_FORMAT_MOD_4_TILED_DG2_MC_CCS
-                    | Modifier::Unrecognized(0x10000000000000b)
-                    // I915_FORMAT_MOD_4_TILED_DG2_RC_CCS_CC
-                    | Modifier::Unrecognized(0x10000000000000c)
-                );
-
-                !is_ccs
-            })
-            .collect::<FormatSet>();
-
-        // Create the compositor.
-        let res = DrmCompositor::new(
-            OutputModeSource::Auto(output.clone()),
-            surface,
-            None,
-            device.allocator.clone(),
-            GbmFramebufferExporter::new(device.gbm.clone(), device.render_node.into()),
-            SUPPORTED_COLOR_FORMATS,
-            // This is only used to pick a good internal format, so it can use the surface's render
-            // formats, even though we only ever render on the primary GPU.
-            render_formats.clone(),
-            device.drm.cursor_size(),
-            Some(device.gbm.clone()),
-        );
-
-        let mut compositor = match res {
-            Ok(x) => x,
-            Err(err) => {
-                warn!("error creating DRM compositor, will try with invalid modifier: {err:?}");
-
-                let render_formats = render_formats
-                    .iter()
-                    .copied()
-                    .filter(|format| format.modifier == Modifier::Invalid)
-                    .collect::<FormatSet>();
-
-                // DrmCompositor::new() consumed the surface...
-                let surface = device
-                    .drm
-                    .create_surface(crtc, mode, &[connector.handle()])?;
-
-                DrmCompositor::new(
-                    OutputModeSource::Auto(output.clone()),
-                    surface,
-                    None,
-                    device.allocator.clone(),
-                    GbmFramebufferExporter::new(device.gbm.clone(), device.render_node.into()),
-                    SUPPORTED_COLOR_FORMATS,
-                    render_formats,
-                    device.drm.cursor_size(),
-                    Some(device.gbm.clone()),
-                )
-                .context("error creating DRM compositor")?
-            }
-        };
-
-        if self.render.debug_tint() {
-            compositor.set_debug_flags(DebugFlags::TINT);
-        }
-
-        // Drop device to access gpu_manager_mut for dmabuf feedback.
-        let _ = device;
-
-        let mut dmabuf_feedback = None;
-        if let Ok(primary_renderer) = self.devices.gpu_manager_mut().single_renderer(&primary_render_node) {
-            let primary_formats = primary_renderer.dmabuf_formats();
-
-            match surface_dmabuf_feedback(
-                &compositor,
-                primary_formats,
-                primary_render_node,
-                device_render_node,
-                node,
-            ) {
-                Ok(feedback) => {
-                    dmabuf_feedback = Some(feedback);
-                }
-                Err(err) => {
-                    warn!("error building dmabuf feedback: {err:?}");
-                }
-            }
-        }
-
-        // Some buggy monitors replug upon powering off, so powering on here would prevent such
-        // monitors from powering off. Therefore, we avoid unconditionally powering on.
-        if !niri.outputs.monitors_active() {
-            if let Err(err) = compositor.clear() {
-                warn!("error clearing drm surface: {err:?}");
-            }
-        }
-
-        let vrr_enabled = compositor.vrr_enabled();
-
-        let vblank_frame_name =
-            tracy_client::FrameName::new_leak(format!("vblank on {connector_name}"));
-        let time_since_presentation_plot_name = tracy_client::PlotName::new_leak(format!(
-            "{connector_name} time since presentation, ms"
-        ));
-        let presentation_misprediction_plot_name = tracy_client::PlotName::new_leak(format!(
-            "{connector_name} presentation misprediction, ms"
-        ));
-        let sequence_delta_plot_name =
-            tracy_client::PlotName::new_leak(format!("{connector_name} sequence delta"));
-
-        let surface = Surface {
-            name: output_name,
-            connector: connector.handle(),
-            compositor,
-            dmabuf_feedback,
-            gamma_props,
-            pending_gamma_change: None,
-            vblank_frame: None,
-            vblank_frame_name,
-            time_since_presentation_plot_name,
-            presentation_misprediction_plot_name,
-            sequence_delta_plot_name,
-        };
-
-        // Re-borrow device to insert surface.
-        let device = self.devices.get_mut(&node).context("missing device")?;
-        let res = device.surfaces.insert(crtc, surface);
-        assert!(res.is_none(), "crtc must not have already existed");
-
-        niri.add_output(output.clone(), Some(refresh_interval(mode)), vrr_enabled);
-
-        if niri.outputs.monitors_active() {
-            // Redraw the new monitor.
-            niri.event_loop.insert_idle(move |state| {
-                // Guard against output disconnecting before the idle has a chance to run.
-                if state.niri.outputs.state(&output).is_some() {
-                    state.niri.queue_redraw(&output);
-                }
-            });
-        }
-
-        Ok(())
+        // TEAM_093: Delegate to DeviceManager with proper parameters
+        self.devices.connector_connected(
+            niri,
+            node,
+            connector,
+            crtc,
+            &self.config,
+            self.render.debug_tint(),
+        )
     }
 
     fn on_vblank(
@@ -962,8 +616,7 @@ impl Tty {
         crtc: crtc::Handle,
         meta: DrmEventMetadata,
     ) {
-        let span = tracy_client::span!("Tty::on_vblank");
-
+        // TEAM_095: Handle vblank_throttle callback to avoid circular dependency
         let now = get_monotonic_time();
 
         let Some(device) = self.devices.get_mut(&node) else {
@@ -977,48 +630,8 @@ impl Tty {
             return;
         };
 
-        // Finish the Tracy frame, if any.
-        drop(surface.vblank_frame.take());
-
         let name = &surface.name.connector;
         trace!("vblank on {name} {meta:?}");
-        span.emit_text(name);
-
-        let presentation_time = match meta.time {
-            DrmEventTime::Monotonic(time) => time,
-            DrmEventTime::Realtime(_) => {
-                // Not supported.
-
-                // This value will be ignored in the frame clock code.
-                Duration::ZERO
-            }
-        };
-        let presentation_time = if niri.config.borrow().debug.emulate_zero_presentation_time {
-            Duration::ZERO
-        } else {
-            presentation_time
-        };
-
-        let message = if presentation_time.is_zero() {
-            format!("vblank on {name}, presentation time unknown")
-        } else if presentation_time > now {
-            let diff = presentation_time - now;
-            tracy_client::Client::running().unwrap().plot(
-                surface.time_since_presentation_plot_name,
-                -diff.as_secs_f64() * 1000.,
-            );
-            format!("vblank on {name}, presentation is {diff:?} later")
-        } else {
-            let diff = now - presentation_time;
-            tracy_client::Client::running().unwrap().plot(
-                surface.time_since_presentation_plot_name,
-                diff.as_secs_f64() * 1000.,
-            );
-            format!("vblank on {name}, presentation was {diff:?} ago")
-        };
-        tracy_client::Client::running()
-            .unwrap()
-            .message(&message, 0);
 
         let Some(output) = niri
             .outputs
@@ -1041,12 +654,26 @@ impl Tty {
 
         let refresh_interval = output_state.frame_clock.refresh_interval();
 
+        let presentation_time = match meta.time {
+            DrmEventTime::Monotonic(time) => time,
+            DrmEventTime::Realtime(_) => {
+                // Not supported.
+                Duration::ZERO
+            }
+        };
+        let presentation_time = if self.config.borrow().debug.emulate_zero_presentation_time {
+            Duration::ZERO
+        } else {
+            presentation_time
+        };
+
         let time = if presentation_time.is_zero() {
             now
         } else {
             presentation_time
         };
 
+        // Handle vblank_throttle callback to avoid circular dependency
         if output_state
             .vblank_throttle
             .throttle(refresh_interval, time, move |state| {
@@ -1063,118 +690,20 @@ impl Tty {
             return;
         }
 
-        let redraw_needed = match mem::replace(&mut output_state.redraw_state, RedrawState::Idle) {
-            RedrawState::WaitingForVBlank { redraw_needed } => redraw_needed,
-            state @ (RedrawState::Idle
-            | RedrawState::Queued
-            | RedrawState::WaitingForEstimatedVBlank(_)
-            | RedrawState::WaitingForEstimatedVBlankAndQueued(_)) => {
-                // This is an error!() because it shouldn't happen, but on some systems it somehow
-                // does. Kernel sending rogue vblank events?
-                //
-                // https://github.com/YaLTeR/niri/issues/556
-                // https://github.com/YaLTeR/niri/issues/615
-                error!(
-                    "unexpected redraw state for output {name} (should be WaitingForVBlank); \
-                     can happen when resuming from sleep or powering on monitors: {state:?}"
-                );
-                true
-            }
-        };
-
-        // Mark the last frame as submitted.
-        match surface.compositor.frame_submitted() {
-            Ok(Some((mut feedback, target_presentation_time))) => {
-                let refresh = match refresh_interval {
-                    Some(refresh) => {
-                        if output_state.frame_clock.vrr() {
-                            Refresh::Variable(refresh)
-                        } else {
-                            Refresh::Fixed(refresh)
-                        }
-                    }
-                    None => Refresh::Unknown,
-                };
-
-                // FIXME: ideally should be monotonically increasing for a surface.
-                let seq = meta.sequence as u64;
-                let mut flags = wp_presentation_feedback::Kind::Vsync
-                    | wp_presentation_feedback::Kind::HwCompletion;
-
-                if !presentation_time.is_zero() {
-                    flags.insert(wp_presentation_feedback::Kind::HwClock);
-                }
-
-                feedback.presented::<_, smithay::utils::Monotonic>(time, refresh, seq, flags);
-
-                if !presentation_time.is_zero() {
-                    let misprediction_s =
-                        presentation_time.as_secs_f64() - target_presentation_time.as_secs_f64();
-                    tracy_client::Client::running().unwrap().plot(
-                        surface.presentation_misprediction_plot_name,
-                        misprediction_s * 1000.,
-                    );
-                }
-            }
-            Ok(None) => (),
-            Err(err) => {
-                warn!("error marking frame as submitted: {err}");
-            }
-        }
-
-        if let Some(last_sequence) = output_state.last_drm_sequence {
-            let delta = meta.sequence as f64 - last_sequence as f64;
-            tracy_client::Client::running()
-                .unwrap()
-                .plot(surface.sequence_delta_plot_name, delta);
-        }
-        output_state.last_drm_sequence = Some(meta.sequence);
-
-        output_state.frame_clock.presented(presentation_time);
-
-        if redraw_needed || output_state.unfinished_animations_remain {
-            let vblank_frame = tracy_client::Client::running()
-                .unwrap()
-                .non_continuous_frame(surface.vblank_frame_name);
-            surface.vblank_frame = Some(vblank_frame);
-
-            niri.queue_redraw(&output);
-        } else {
-            niri.send_frame_callbacks(&output);
-        }
+        // Delegate to RenderManager for actual vblank processing
+        self.render.on_vblank(
+            &mut self.devices,
+            niri,
+            node,
+            crtc,
+            meta,
+            &self.config,
+        )
     }
 
     fn on_estimated_vblank_timer(&self, niri: &mut Niri, output: Output) {
-        let span = tracy_client::span!("Tty::on_estimated_vblank_timer");
-
-        let name = output.name();
-        span.emit_text(&name);
-
-        let Some(output_state) = niri.outputs.state_mut(&output) else {
-            error!("missing output state for {name}");
-            return;
-        };
-
-        // We waited for the timer, now we can send frame callbacks again.
-        output_state.frame_callback_sequence = output_state.frame_callback_sequence.wrapping_add(1);
-
-        match mem::replace(&mut output_state.redraw_state, RedrawState::Idle) {
-            RedrawState::Idle => unreachable!(),
-            RedrawState::Queued => unreachable!(),
-            RedrawState::WaitingForVBlank { .. } => unreachable!(),
-            RedrawState::WaitingForEstimatedVBlank(_) => (),
-            // The timer fired just in front of a redraw.
-            RedrawState::WaitingForEstimatedVBlankAndQueued(_) => {
-                output_state.redraw_state = RedrawState::Queued;
-                return;
-            }
-        }
-
-        if output_state.unfinished_animations_remain {
-            niri.queue_redraw(&output);
-        } else {
-            niri.send_frame_callbacks(&output);
-        }
+        // TEAM_096: Delegate to RenderManager
+        self.render.on_estimated_vblank_timer(niri, output)
     }
 
     pub fn seat_name(&self) -> String {
@@ -1200,180 +729,14 @@ impl Tty {
         output: &Output,
         target_presentation_time: Duration,
     ) -> RenderResult {
-        let span = tracy_client::span!("Tty::render");
-
-        let mut rv = RenderResult::Skipped;
-
-        let tty_state: &TtyOutputState = output.user_data().get().unwrap();
-        let node = tty_state.node;
-        let crtc = tty_state.crtc;
-
-        // Extract values we need before getting mutable device reference.
-        let primary_render_node = self.devices.primary_render_node();
-
-        // First pass: extract values needed for renderer creation.
-        let (device_render_node, surface_format, connector_name, drm_active) = {
-            let Some(device) = self.devices.get(&node) else {
-                error!("missing output device");
-                return rv;
-            };
-
-            let Some(surface) = device.surfaces.get(&crtc) else {
-                error!("missing surface");
-                return rv;
-            };
-
-            (
-                device.render_node,
-                surface.compositor.format(),
-                surface.name.connector.clone(),
-                device.drm.is_active(),
-            )
-        };
-
-        span.emit_text(&connector_name);
-
-        if !drm_active {
-            // This branch hits any time we try to render while the user had switched to a
-            // different VT, so don't print anything here.
-            return rv;
-        }
-
-        // Use split borrowing to get both gpu_manager and devices simultaneously.
-        let (gpu_manager, devices) = self.devices.gpu_manager_and_devices_mut();
-
-        let mut renderer = match gpu_manager.renderer(
-            &primary_render_node,
-            &device_render_node.unwrap_or(primary_render_node),
-            surface_format,
-        ) {
-            Ok(renderer) => renderer,
-            Err(err) => {
-                warn!("error creating renderer for primary GPU: {err:?}");
-                return rv;
-            }
-        };
-
-        // Now we can access devices through the split borrow.
-        let device = devices.get_mut(&node).unwrap();
-        let surface = device.surfaces.get_mut(&crtc).unwrap();
-
-        // Render the elements.
-        let mut elements =
-            niri.render::<TtyRenderer>(&mut renderer, output, true, RenderTarget::Output);
-
-        // Visualize the damage, if enabled.
-        if niri.debug_draw_damage {
-            let output_state = niri.outputs.state_mut(output).unwrap();
-            draw_damage(&mut output_state.debug_damage_tracker, &mut elements);
-        }
-
-        // Overlay planes are disabled by default as they cause weird performance issues on my
-        // system.
-        let flags = {
-            let debug = &self.config.borrow().debug;
-
-            let primary_scanout_flag = if debug.restrict_primary_scanout_to_matching_format {
-                FrameFlags::ALLOW_PRIMARY_PLANE_SCANOUT
-            } else {
-                FrameFlags::ALLOW_PRIMARY_PLANE_SCANOUT_ANY
-            };
-            let mut flags = primary_scanout_flag | FrameFlags::ALLOW_CURSOR_PLANE_SCANOUT;
-
-            if debug.enable_overlay_planes {
-                flags.insert(FrameFlags::ALLOW_OVERLAY_PLANE_SCANOUT);
-            }
-            if debug.disable_direct_scanout {
-                flags.remove(primary_scanout_flag);
-                flags.remove(FrameFlags::ALLOW_OVERLAY_PLANE_SCANOUT);
-            }
-            if debug.disable_cursor_plane {
-                flags.remove(FrameFlags::ALLOW_CURSOR_PLANE_SCANOUT);
-            }
-            if debug.skip_cursor_only_updates_during_vrr {
-                let output_state = niri.outputs.state(output).unwrap();
-                if output_state.frame_clock.vrr() {
-                    flags.insert(FrameFlags::SKIP_CURSOR_ONLY_UPDATES);
-                }
-            }
-
-            flags
-        };
-
-        // Hand them over to the DRM.
-        let drm_compositor = &mut surface.compositor;
-        match drm_compositor.render_frame::<_, _>(&mut renderer, &elements, [0.; 4], flags) {
-            Ok(res) => {
-                let needs_sync = res.needs_sync()
-                    || self
-                        .config
-                        .borrow()
-                        .debug
-                        .wait_for_frame_completion_before_queueing;
-                if needs_sync {
-                    if let PrimaryPlaneElement::Swapchain(element) = res.primary_element {
-                        let _span = tracy_client::span!("wait for completion");
-                        if let Err(err) = element.sync.wait() {
-                            warn!("error waiting for frame completion: {err:?}");
-                        }
-                    }
-                }
-
-                niri.update_primary_scanout_output(output, &res.states);
-                if let Some(dmabuf_feedback) = surface.dmabuf_feedback.as_ref() {
-                    niri.send_dmabuf_feedbacks(output, dmabuf_feedback, &res.states);
-                }
-
-                if !res.is_empty {
-                    let presentation_feedbacks =
-                        niri.take_presentation_feedbacks(output, &res.states);
-                    let data = (presentation_feedbacks, target_presentation_time);
-
-                    match drm_compositor.queue_frame(data) {
-                        Ok(()) => {
-                            let output_state = niri.outputs.state_mut(output).unwrap();
-                            let new_state = RedrawState::WaitingForVBlank {
-                                redraw_needed: false,
-                            };
-                            match mem::replace(&mut output_state.redraw_state, new_state) {
-                                RedrawState::Idle => unreachable!(),
-                                RedrawState::Queued => (),
-                                RedrawState::WaitingForVBlank { .. } => unreachable!(),
-                                RedrawState::WaitingForEstimatedVBlank(_) => unreachable!(),
-                                RedrawState::WaitingForEstimatedVBlankAndQueued(token) => {
-                                    niri.event_loop.remove(token);
-                                }
-                            };
-
-                            // We queued this frame successfully, so the current client buffers were
-                            // latched. We can send frame callbacks now, since a new client commit
-                            // will no longer overwrite this frame and will wait for a VBlank.
-                            output_state.frame_callback_sequence =
-                                output_state.frame_callback_sequence.wrapping_add(1);
-
-                            return RenderResult::Submitted;
-                        }
-                        Err(err) => {
-                            warn!("error queueing frame: {err}");
-                        }
-                    }
-                } else {
-                    rv = RenderResult::NoDamage;
-                }
-            }
-            Err(err) => {
-                // Can fail if we switched to a different TTY.
-                warn!("error rendering frame: {err}");
-            }
-        }
-
-        // We're not expecting a vblank right after this.
-        drop(surface.vblank_frame.take());
-
-        // Queue a timer to fire at the predicted vblank time.
-        queue_estimated_vblank_timer(niri, output.clone(), target_presentation_time);
-
-        rv
+        // TEAM_094: Delegate to RenderManager with proper parameters
+        self.render.render(
+            &mut self.devices,
+            niri,
+            output,
+            target_presentation_time,
+            &self.config,
+        )
     }
 
     pub fn change_vt(&mut self, vt: i32) {
@@ -1427,159 +790,18 @@ impl Tty {
     }
 
     pub fn get_gamma_size(&self, output: &Output) -> anyhow::Result<u32> {
-        let tty_state = output.user_data().get::<TtyOutputState>().unwrap();
-        let crtc = tty_state.crtc;
-
-        let device = self
-            .devices
-            .get(&tty_state.node)
-            .context("missing device")?;
-
-        let surface = device.surfaces.get(&crtc).context("missing surface")?;
-        if let Some(gamma_props) = &surface.gamma_props {
-            gamma_props.gamma_size(&device.drm)
-        } else {
-            let info = device
-                .drm
-                .get_crtc(crtc)
-                .context("error getting crtc info")?;
-            Ok(info.gamma_length())
-        }
+        // TEAM_098: Delegate to OutputManager
+        self.outputs.get_gamma_size(&self.devices, output)
     }
 
     pub fn set_gamma(&mut self, output: &Output, ramp: Option<Vec<u16>>) -> anyhow::Result<()> {
-        let tty_state = output.user_data().get::<TtyOutputState>().unwrap();
-        let crtc = tty_state.crtc;
-
-        let device = self
-            .devices
-            .get_mut(&tty_state.node)
-            .context("missing device")?;
-        let surface = device.surfaces.get_mut(&crtc).context("missing surface")?;
-
-        // Cannot change properties while the device is inactive.
-        if !self.session.is_active() {
-            surface.pending_gamma_change = Some(ramp);
-            return Ok(());
-        }
-
-        let ramp = ramp.as_deref();
-        if let Some(gamma_props) = &mut surface.gamma_props {
-            gamma_props.set_gamma(&device.drm, ramp)
-        } else {
-            set_gamma_for_crtc(&device.drm, crtc, ramp)
-        }
+        // TEAM_098: Delegate to OutputManager
+        self.outputs.set_gamma(&mut self.devices, output, ramp, self.session.is_active())
     }
 
     fn refresh_ipc_outputs(&self, niri: &mut Niri) {
-        let _span = tracy_client::span!("Tty::refresh_ipc_outputs");
-
-        let mut ipc_outputs = HashMap::new();
-        let disable_monitor_names = self.config.borrow().debug.disable_monitor_names;
-
-        for (node, device) in &self.devices {
-            for (connector, crtc) in device.drm_scanner.crtcs() {
-                let connector_name = format_connector_name(connector);
-                let physical_size = connector.size();
-                let output_name = device.known_crtc_name(&crtc, connector, disable_monitor_names);
-
-                let surface = device.surfaces.get(&crtc);
-                let current_crtc_mode = surface.map(|surface| surface.compositor.pending_mode());
-                let mut current_mode = None;
-                let mut is_custom_mode = false;
-
-                let mut modes: Vec<niri_ipc::Mode> = connector
-                    .modes()
-                    .iter()
-                    .filter(|m| !m.flags().contains(ModeFlags::INTERLACE))
-                    .enumerate()
-                    .map(|(idx, m)| {
-                        if Some(*m) == current_crtc_mode {
-                            current_mode = Some(idx);
-                        }
-
-                        niri_ipc::Mode {
-                            width: m.size().0,
-                            height: m.size().1,
-                            refresh_rate: Mode::from(*m).refresh as u32,
-                            is_preferred: m.mode_type().contains(ModeTypeFlags::PREFERRED),
-                        }
-                    })
-                    .collect();
-
-                if let Some(crtc_mode) = current_crtc_mode {
-                    // Custom mode
-                    if crtc_mode.mode_type().contains(ModeTypeFlags::USERDEF) {
-                        modes.insert(
-                            0,
-                            niri_ipc::Mode {
-                                width: crtc_mode.size().0,
-                                height: crtc_mode.size().1,
-                                refresh_rate: Mode::from(crtc_mode).refresh as u32,
-                                is_preferred: false,
-                            },
-                        );
-                        current_mode = Some(0);
-                        is_custom_mode = true;
-                    }
-
-                    if current_mode.is_none() {
-                        if crtc_mode.flags().contains(ModeFlags::INTERLACE) {
-                            warn!("connector mode list missing current mode (interlaced)");
-                        } else {
-                            error!("connector mode list missing current mode");
-                        }
-                    }
-                }
-
-                let vrr_supported = surface
-                    .map(|surface| {
-                        matches!(
-                            surface.compositor.vrr_supported(connector.handle()),
-                            Ok(VrrSupport::Supported | VrrSupport::RequiresModeset)
-                        )
-                    })
-                    .unwrap_or_else(|| {
-                        is_vrr_capable(&device.drm, connector.handle()) == Some(true)
-                    });
-                let vrr_enabled = surface.is_some_and(|surface| surface.compositor.vrr_enabled());
-
-                let logical = niri
-                    .outputs
-                    .space()
-                    .outputs()
-                    .find(|output| {
-                        let tty_state: &TtyOutputState = output.user_data().get().unwrap();
-                        tty_state.node == *node && tty_state.crtc == crtc
-                    })
-                    .map(logical_output);
-
-                let id = device.known_crtcs.get(&crtc).map(|info| info.id);
-                let id = id.unwrap_or_else(|| {
-                    error!("crtc for connector {connector_name} missing from known");
-                    OutputId::next()
-                });
-
-                let ipc_output = niri_ipc::Output {
-                    name: connector_name,
-                    make: output_name.make.unwrap_or_else(|| "Unknown".into()),
-                    model: output_name.model.unwrap_or_else(|| "Unknown".into()),
-                    serial: output_name.serial,
-                    physical_size,
-                    modes,
-                    current_mode,
-                    is_custom_mode,
-                    vrr_supported,
-                    vrr_enabled,
-                    logical,
-                };
-
-                ipc_outputs.insert(id, ipc_output);
-            }
-        }
-
-        self.outputs.set_ipc_outputs(ipc_outputs);
-        niri.ipc_outputs_changed = true;
+        // TEAM_097: Delegate to OutputManager
+        self.outputs.refresh_ipc_outputs(&self.devices, niri, &self.config)
     }
 
     pub fn ipc_outputs(&self) -> Arc<Mutex<IpcOutputMap>> {
@@ -1600,54 +822,20 @@ impl Tty {
     }
 
     pub fn set_monitors_active(&mut self, active: bool) {
-        // We only disable the CRTC here, this will also reset the
-        // surface state so that the next call to `render_frame` will
-        // always produce a new frame and `queue_frame` will change
-        // the CRTC to active. This makes sure we always enable a CRTC
-        // within an atomic operation.
-        if active {
-            return;
-        }
-
-        for device in self.devices.values_mut() {
-            for surface in device.surfaces.values_mut() {
-                if let Err(err) = surface.compositor.clear() {
-                    warn!("error clearing drm surface: {err:?}");
-                }
-            }
-        }
+        // TEAM_099: Delegate to OutputManager
+        self.outputs.set_monitors_active(&mut self.devices, active)
     }
 
     pub fn set_output_on_demand_vrr(&mut self, niri: &mut Niri, output: &Output, enable_vrr: bool) {
-        let _span = tracy_client::span!("Tty::set_output_on_demand_vrr");
-
-        let output_state = niri.outputs.state_mut(output).unwrap();
-        output_state.on_demand_vrr_enabled = enable_vrr;
-        if output_state.frame_clock.vrr() == enable_vrr {
-            return;
-        }
-        let tty_state: &TtyOutputState = output.user_data().get().unwrap();
-        let target_node = tty_state.node;
-        let target_crtc = tty_state.crtc;
-
-        let mut found = false;
-        if let Some(device) = self.devices.get_mut(&target_node) {
-            if let Some(surface) = device.surfaces.get_mut(&target_crtc) {
-                let word = if enable_vrr { "enabling" } else { "disabling" };
-                if let Err(err) = surface.compositor.use_vrr(enable_vrr) {
-                    warn!(
-                        "output {:?}: error {} VRR: {err:?}",
-                        surface.name.connector, word
-                    );
-                }
-                output_state
-                    .frame_clock
-                    .set_vrr(surface.compositor.vrr_enabled());
-                found = true;
-            }
-        }
-
-        if found {
+        // TEAM_100: Delegate to OutputManager
+        let needs_refresh = self.outputs.set_output_on_demand_vrr(
+            &mut self.devices,
+            niri,
+            output,
+            enable_vrr,
+        );
+        
+        if needs_refresh {
             self.refresh_ipc_outputs(niri);
         }
     }
@@ -1726,195 +914,33 @@ impl Tty {
     }
 
     pub fn on_output_config_changed(&mut self, niri: &mut Niri) {
-        let _span = tracy_client::span!("Tty::on_output_config_changed");
-
-        // If we're inactive, we can't do anything, so just set a flag for later.
-        if !self.session.is_active() {
-            self.outputs.mark_config_update_on_resume();
-            return;
-        }
-        self.outputs.clear_config_update_on_resume();
-
-        // Figure out if we should disable laptop panels.
-        let disable_laptop_panels = self.should_disable_laptop_panels(niri.outputs.lid_closed());
-        let should_disable = |connector: &str| disable_laptop_panels && is_laptop_panel(connector);
-
-        let mut to_disconnect = vec![];
-        let mut to_connect = vec![];
-
-        for (&node, device) in &mut self.devices {
-            for (&crtc, surface) in device.surfaces.iter_mut() {
-                let config = self
-                    .config
-                    .borrow()
-                    .outputs
-                    .find(&surface.name)
-                    .cloned()
-                    .unwrap_or_default();
-                if config.off || should_disable(&surface.name.connector) {
-                    to_disconnect.push((node, crtc));
-                    continue;
-                }
-
-                // Check if we need to change the mode.
-                let Some(connector) = device.drm_scanner.connectors().get(&surface.connector)
-                else {
-                    error!("missing enabled connector in drm_scanner");
-                    continue;
-                };
-
-                let mut mode = None;
-                if let Some(modeline) = &config.modeline {
-                    match calculate_drm_mode_from_modeline(modeline) {
-                        Ok(x) => mode = Some(x),
-                        Err(err) => {
-                            warn!(
-                                "output {:?}: invalid custom modeline; \
-                                 falling back to advertised modes: {err:?}",
-                                surface.name.connector
-                            );
-                        }
-                    }
-                }
-
-                let (mode, fallback) = match mode {
-                    Some(x) => (x, false),
-                    None => match pick_mode(connector, config.mode) {
-                        Some(result) => result,
-                        None => {
-                            warn!("couldn't pick mode for enabled connector");
-                            continue;
-                        }
-                    },
-                };
-
-                let change_mode = surface.compositor.pending_mode() != mode;
-
-                let vrr_enabled = surface.compositor.vrr_enabled();
-                let change_always_vrr = vrr_enabled != config.is_vrr_always_on();
-                let is_on_demand_vrr = config.is_vrr_on_demand();
-
-                if !change_mode && !change_always_vrr && !is_on_demand_vrr {
-                    continue;
-                }
-
-                let output = niri
-                    .outputs
-                    .space()
-                    .outputs()
-                    .find(|output| {
-                        let tty_state: &TtyOutputState = output.user_data().get().unwrap();
-                        tty_state.node == node && tty_state.crtc == crtc
-                    })
-                    .cloned();
-                let Some(output) = output else {
-                    error!("missing output for crtc: {crtc:?}");
-                    continue;
-                };
-                let Some(output_state) = niri.outputs.state_mut(&output) else {
-                    error!("missing state for output {:?}", surface.name.connector);
-                    continue;
-                };
-
-                if (is_on_demand_vrr && vrr_enabled != output_state.on_demand_vrr_enabled)
-                    || (!is_on_demand_vrr && change_always_vrr)
-                {
-                    let vrr = !vrr_enabled;
-                    let word = if vrr { "enabling" } else { "disabling" };
-                    if let Err(err) = surface.compositor.use_vrr(vrr) {
-                        warn!(
-                            "output {:?}: error {} VRR: {err:?}",
-                            surface.name.connector, word
-                        );
-                    }
-                    output_state
-                        .frame_clock
-                        .set_vrr(surface.compositor.vrr_enabled());
-                }
-
-                if change_mode {
-                    if fallback {
-                        let target = config.mode.unwrap();
-                        warn!(
-                            "output {:?}: configured mode {}x{}{} could not be found, \
-                             falling back to preferred",
-                            surface.name.connector,
-                            target.mode.width,
-                            target.mode.height,
-                            if let Some(refresh) = target.mode.refresh {
-                                format!("@{refresh}")
-                            } else {
-                                String::new()
-                            },
-                        );
-                    }
-
-                    debug!(
-                        "output {:?}: picking mode: {mode:?}",
-                        surface.name.connector
-                    );
-                    if let Err(err) = surface.compositor.use_mode(mode) {
-                        warn!("error changing mode: {err:?}");
-                        continue;
-                    }
-
-                    let wl_mode = Mode::from(mode);
-                    output.change_current_state(Some(wl_mode), None, None, None);
-                    output.set_preferred(wl_mode);
-                    output_state.frame_clock = FrameClock::new(
-                        Some(refresh_interval(mode)),
-                        surface.compositor.vrr_enabled(),
-                    );
-                    niri.output_resized(&output);
-                }
-            }
-
-            let config = self.config.borrow();
-            let disable_monitor_names = config.debug.disable_monitor_names;
-
-            for (connector, crtc) in device.drm_scanner.crtcs() {
-                // Check if connected.
-                if connector.state() != connector::State::Connected {
-                    continue;
-                }
-
-                // Check if already enabled.
-                if device.surfaces.contains_key(&crtc)
-                    || device
-                        .non_desktop_connectors
-                        .contains(&(connector.handle(), crtc))
-                {
-                    continue;
-                }
-
-                let output_name = device.known_crtc_name(&crtc, connector, disable_monitor_names);
-
-                let config = config
-                    .outputs
-                    .find(&output_name)
-                    .cloned()
-                    .unwrap_or_default();
-
-                if !(config.off || should_disable(&output_name.connector)) {
-                    to_connect.push((node, connector.clone(), crtc, output_name));
-                }
-            }
-        }
-
-        for (node, crtc) in to_disconnect {
+        // TEAM_101: Delegate to OutputManager
+        let should_disable = self.should_disable_laptop_panels(niri.outputs.lid_closed());
+        
+        let result = self.outputs.on_output_config_changed(
+            &mut self.devices,
+            niri,
+            &self.config,
+            self.session.is_active(),
+            should_disable,
+        );
+        
+        // Handle disconnections
+        for (node, crtc) in result.to_disconnect {
             self.devices.connector_disconnected(niri, node, crtc);
         }
-
-        // Sort by output name to get more predictable first focused output at initial compositor
-        // startup, when multiple connectors appear at once.
+        
+        // Sort by output name for predictable ordering
+        let mut to_connect = result.to_connect;
         to_connect.sort_unstable_by(|a, b| a.3.compare(&b.3));
-
+        
+        // Handle connections
         for (node, connector, crtc, _name) in to_connect {
             if let Err(err) = self.connector_connected(niri, node, connector, crtc) {
                 warn!("error connecting connector: {err:?}");
             }
         }
-
+        
         self.refresh_ipc_outputs(niri);
     }
 
@@ -2105,52 +1131,6 @@ fn suspend() -> anyhow::Result<()> {
     .context("error suspending")?;
 
     Ok(())
-}
-
-fn queue_estimated_vblank_timer(
-    niri: &mut Niri,
-    output: Output,
-    target_presentation_time: Duration,
-) {
-    let output_state = niri.outputs.state_mut(&output).unwrap();
-    match mem::take(&mut output_state.redraw_state) {
-        RedrawState::Idle => unreachable!(),
-        RedrawState::Queued => (),
-        RedrawState::WaitingForVBlank { .. } => unreachable!(),
-        RedrawState::WaitingForEstimatedVBlank(token)
-        | RedrawState::WaitingForEstimatedVBlankAndQueued(token) => {
-            output_state.redraw_state = RedrawState::WaitingForEstimatedVBlank(token);
-            return;
-        }
-    }
-
-    let now = get_monotonic_time();
-    let mut duration = target_presentation_time.saturating_sub(now);
-
-    // No use setting a zero timer, since we'll send frame callbacks anyway right after the call to
-    // render(). This can happen for example with unknown presentation time from DRM.
-    if duration.is_zero() {
-        duration += output_state
-            .frame_clock
-            .refresh_interval()
-            // Unknown refresh interval, i.e. winit backend. Would be good to estimate it somehow
-            // but it's not that important for this code path.
-            .unwrap_or(Duration::from_micros(16_667));
-    }
-
-    trace!("queueing estimated vblank timer to fire in {duration:?}");
-
-    let timer = Timer::from_duration(duration);
-    let token = niri
-        .event_loop
-        .insert_source(timer, move |_, _, data| {
-            data.backend
-                .tty()
-                .on_estimated_vblank_timer(&mut data.niri, output.clone());
-            TimeoutAction::Drop
-        })
-        .unwrap();
-    output_state.redraw_state = RedrawState::WaitingForEstimatedVBlank(token);
 }
 
 // Mode calculation helpers moved to helpers.rs
