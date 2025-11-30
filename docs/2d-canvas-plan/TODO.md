@@ -85,20 +85,19 @@ src/layout/  (79 files)
 
 ### BUG-004: Mod+R/Mod+F affects tiled windows when floating is active ✅ FIXED
 
-### BUG-005: Floating window close animation missing ⚠️ ATTEMPTED
+### BUG-005: Floating window close animation missing ✅ FIXED
 **Severity**: Medium  
 **Expected**: Floating windows should have close animation like tiled windows  
 **Actual**: Floating windows disappear instantly when closed  
-**Attempted Fix**: TEAM_106 - Layout::start_close_animation_for_window now checks floating space  
-**Status**: NOT VERIFIED - User reports still broken. See `.bugs/BUG_floating_close_animation.md`
+**Root Cause**: `Layout::store_unmap_snapshot` didn't check floating space - snapshot never stored  
+**Fix**: TEAM_107 - Added `store_unmap_snapshot_if_empty`/`clear_unmap_snapshot` to FloatingSpace, updated Layout methods to check floating first. See `.bugs/BUG_floating_close_animation.md`
 
-### BUG-006: No window selected after floating window closes ⚠️ ATTEMPTED
+### BUG-006: No window selected after floating window closes ✅ FIXED
 **Severity**: High  
 **Expected**: When floating window closes, focus should fall back to a tiled window  
 **Actual**: No window is selected/focused after closing floating window  
-**Original behavior**: Main branch always keeps a window active if any exist  
-**Attempted Fix**: TEAM_106 - Added update_focus_after_removing() to Canvas2D  
-**Status**: NOT VERIFIED - User reports still broken. See `.bugs/BUG_floating_close_no_focus.md`  
+**Root Cause**: `Layout::remove_window()` bypassed `Canvas2D::remove_window()`, directly calling `floating.remove_tile()` without `update_focus_after_removing()`  
+**Fix**: TEAM_108 - Made `update_focus_after_removing` public, added calls in `Layout::remove_window()` for both MonitorSet branches. See `.bugs/BUG_floating_close_no_focus.md`  
 
 ---
 

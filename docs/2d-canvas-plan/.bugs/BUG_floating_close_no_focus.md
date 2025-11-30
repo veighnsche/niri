@@ -18,7 +18,7 @@ When a floating window is closed, no window becomes selected/focused. The tiled 
 | 001 | TEAM_106 | floating_is_active not updated on remove | INCONCLUSIVE | Added update_focus_after_removing() but not tested |
 
 ## Current Status
-INVESTIGATING
+**FIXED** by TEAM_108
 
 ## Investigation Notes (TEAM_106)
 
@@ -56,9 +56,25 @@ But this is just the flag - there might be additional activation logic elsewhere
 - `src/layout/layout_impl/window_ops.rs` - Layout::remove_window
 - `src/niri.rs` - window close handling
 
-## Recommended Next Steps for CHASE_002
-1. Check main branch for what happens AFTER `update_focus_floating_tiling_after_removing()`
-2. Look for any `activate_window()` calls after window removal
-3. Check if `refresh()` or `advance_animations()` triggers focus updates
-4. Add logging to see if `floating_is_active` is being set correctly
-5. Check if the active row has an active tile that should receive focus
+## Root Cause (TEAM_108)
+
+The bug was in `Layout::remove_window()` (`src/layout/layout_impl/window_ops.rs`).
+
+**Problem**: This method directly calls `mon.canvas.floating.remove_tile(window)` bypassing `Canvas2D::remove_window()` which has the `update_focus_after_removing()` logic.
+
+**Code path**:
+1. Window closes → Layout::remove_window() is called
+2. `floating.remove_tile()` called directly ❌
+3. `update_focus_after_removing()` NOT called
+4. `floating_is_active` stays `true` even though floating is empty
+5. Focus queries check empty floating space → no focus
+
+## Fix (TEAM_108)
+
+1. Made `Canvas2D::update_focus_after_removing()` public
+2. Added call to `mon.canvas.update_focus_after_removing(true)` after floating removal in `Layout::remove_window()`
+3. Fixed both `MonitorSet::Normal` and `MonitorSet::NoOutputs` branches
+
+## Files Modified
+- `src/layout/canvas/canvas_floating.rs` - Made `update_focus_after_removing` public
+- `src/layout/layout_impl/window_ops.rs` - Added focus update calls

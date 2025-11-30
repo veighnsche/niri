@@ -238,6 +238,8 @@ impl<W: LayoutElement> Layout<W> {
                     // TEAM_059: Check floating space first
                     if mon.canvas.floating.has_window(window) {
                         let removed = mon.canvas.floating.remove_tile(window);
+                        // TEAM_108: Update focus - if floating is now empty, switch to tiled
+                        mon.canvas.update_focus_after_removing(true);
                         return Some(removed);
                     }
 
@@ -321,6 +323,8 @@ impl<W: LayoutElement> Layout<W> {
                 // TEAM_059: Check floating space first
                 if canvas.floating.has_window(window) {
                     let removed = canvas.floating.remove_tile(window);
+                    // TEAM_108: Update focus - if floating is now empty, switch to tiled
+                    canvas.update_focus_after_removing(true);
                     return Some(removed);
                 }
 

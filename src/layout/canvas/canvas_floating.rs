@@ -245,7 +245,8 @@ impl<W: LayoutElement> Canvas2D<W> {
     }
     
     /// TEAM_106: Update floating_is_active after removing a window (like main branch)
-    fn update_focus_after_removing(&mut self, removed_from_floating: bool) {
+    /// TEAM_108: Made public so Layout::remove_window can call it
+    pub fn update_focus_after_removing(&mut self, removed_from_floating: bool) {
         if removed_from_floating {
             // If floating is now empty, switch focus to tiled
             if self.floating.is_empty() {

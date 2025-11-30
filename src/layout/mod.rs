@@ -1668,9 +1668,16 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
+        // TEAM_107: Check floating space first, then rows
         match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
+                    // Check floating first
+                    if mon.canvas.floating.has_window(window) {
+                        mon.canvas.floating.store_unmap_snapshot_if_empty(renderer, window);
+                        return;
+                    }
+                    // Then check rows
                     for (_, ws) in mon.canvas.rows_mut() {
                         if ws.has_window(window) {
                             ws.store_unmap_snapshot_if_empty(renderer, window);
@@ -1680,6 +1687,12 @@ impl<W: LayoutElement> Layout<W> {
                 }
             }
             MonitorSet::NoOutputs { canvas, .. } => {
+                // Check floating first
+                if canvas.floating.has_window(window) {
+                    canvas.floating.store_unmap_snapshot_if_empty(renderer, window);
+                    return;
+                }
+                // Then check rows
                 for (_, ws) in canvas.rows_mut() {
                     if ws.has_window(window) {
                         ws.store_unmap_snapshot_if_empty(renderer, window);
@@ -1698,9 +1711,16 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
+        // TEAM_107: Check floating space first, then rows
         match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
+                    // Check floating first
+                    if mon.canvas.floating.has_window(window) {
+                        mon.canvas.floating.clear_unmap_snapshot(window);
+                        return;
+                    }
+                    // Then check rows
                     for (_, ws) in mon.canvas.rows_mut() {
                         if ws.has_window(window) {
                             ws.clear_unmap_snapshot(window);
@@ -1710,6 +1730,12 @@ impl<W: LayoutElement> Layout<W> {
                 }
             }
             MonitorSet::NoOutputs { canvas, .. } => {
+                // Check floating first
+                if canvas.floating.has_window(window) {
+                    canvas.floating.clear_unmap_snapshot(window);
+                    return;
+                }
+                // Then check rows
                 for (_, ws) in canvas.rows_mut() {
                     if ws.has_window(window) {
                         ws.clear_unmap_snapshot(window);

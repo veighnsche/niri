@@ -98,6 +98,26 @@ impl<W: LayoutElement> FloatingSpace<W> {
         self.start_close_animation_for_tile(renderer, snapshot, tile_size, tile_pos, blocker);
     }
 
+    // TEAM_107: Store unmap snapshot for floating window
+    pub fn store_unmap_snapshot_if_empty(&mut self, renderer: &mut GlesRenderer, window: &W::Id) {
+        for tile in &mut self.tiles {
+            if tile.window().id() == window {
+                tile.store_unmap_snapshot_if_empty(renderer);
+                return;
+            }
+        }
+    }
+
+    // TEAM_107: Clear unmap snapshot for floating window
+    pub fn clear_unmap_snapshot(&mut self, window: &W::Id) {
+        for tile in &mut self.tiles {
+            if tile.window().id() == window {
+                let _ = tile.take_unmap_snapshot();
+                return;
+            }
+        }
+    }
+
     pub fn start_close_animation_for_tile(
         &mut self,
         renderer: &mut GlesRenderer,

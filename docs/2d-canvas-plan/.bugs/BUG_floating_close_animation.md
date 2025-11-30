@@ -16,7 +16,7 @@ Floating windows disappear instantly when closed instead of playing the close an
 | 001 | TEAM_106 | Layout::start_close_animation_for_window doesn't check floating | INCONCLUSIVE | Added floating check but not tested |
 
 ## Current Status
-INVESTIGATING
+**FIXED** by TEAM_107
 
 ## Investigation Notes (TEAM_106)
 
@@ -45,9 +45,23 @@ if mon.canvas.floating.has_window(window) {
 2. `FloatingSpace::start_close_animation_for_window` might have its own issues
 3. The closing_windows list in FloatingSpace might not be rendered
 
-## Recommended Next Steps for CHASE_002
-1. Test if the fix works
-2. If not, add logging to see if `start_close_animation_for_window` is called
-3. Check if `FloatingSpace::closing_windows` is being populated
-4. Check if `FloatingSpace::render_elements` includes closing windows
-5. Verify the animation parameters are correct
+## Root Cause (TEAM_107)
+
+The bug was in `Layout::store_unmap_snapshot` - it only checked rows, not the floating space.
+
+**Code path**:
+1. Window closes → `handlers/xdg_shell.rs` calls `layout.store_unmap_snapshot()`
+2. `store_unmap_snapshot` checked rows but **NOT floating space** ❌
+3. No snapshot stored for floating windows
+4. Later `start_close_animation_for_window` was called (TEAM_106 fix)
+5. `tile.take_unmap_snapshot()` returned `None` → no animation
+
+## Fix (TEAM_107)
+
+1. Added `store_unmap_snapshot_if_empty` and `clear_unmap_snapshot` to `FloatingSpace`
+2. Updated `Layout::store_unmap_snapshot` to check floating first
+3. Updated `Layout::clear_unmap_snapshot` to check floating first
+
+## Files Modified
+- `src/layout/canvas/floating/render.rs` - Added snapshot methods
+- `src/layout/mod.rs` - Added floating checks to both snapshot methods
