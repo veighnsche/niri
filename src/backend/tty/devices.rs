@@ -6,6 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use anyhow::Context;
 use smithay::backend::allocator::gbm::{GbmAllocator, GbmDevice};
 use smithay::backend::drm::{DrmDevice, DrmDeviceFd, DrmNode};
 use smithay::backend::renderer::gles::GlesRenderer;
@@ -461,6 +462,29 @@ impl DeviceManager {
     /// Take the dmabuf global.
     pub fn take_dmabuf_global(&mut self) -> Option<DmabufGlobal> {
         self.dmabuf_global.take()
+    }
+
+    // === Session Events ===
+
+    /// Pause all DRM devices (called on session pause).
+    pub fn pause_devices(&mut self) {
+        for device in self.devices.values_mut() {
+            device.drm.pause();
+            if let Some(lease_state) = &mut device.drm_lease_state {
+                lease_state.suspend();
+            }
+        }
+    }
+
+    /// Activate a specific DRM device (called on session resume).
+    /// Returns Ok(()) if successful, Err if activation failed.
+    pub fn activate_device(&mut self, node: &DrmNode) -> anyhow::Result<()> {
+        let device = self.devices.get_mut(node).context("device not found")?;
+        device.drm.activate(false).context("error activating DRM device")?;
+        if let Some(lease_state) = &mut device.drm_lease_state {
+            lease_state.resume::<crate::niri::State>();
+        }
+        Ok(())
     }
 }
 

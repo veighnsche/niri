@@ -420,14 +420,7 @@ impl Tty {
                 debug!("pausing session");
 
                 self.libinput.suspend();
-
-                for device in self.devices.values_mut() {
-                    device.drm.pause();
-
-                    if let Some(lease_state) = &mut device.drm_lease_state {
-                        lease_state.suspend();
-                    }
-                }
+                self.devices.pause_devices();
             }
             SessionEvent::ActivateSession => {
                 debug!("resuming session");
@@ -484,13 +477,9 @@ impl Tty {
                 for node in remained_devices {
                     device_list.remove(&node.dev_id());
 
-                    // It hasn't been removed, update its state as usual.
-                    let device = self.devices.get_mut(&node).unwrap();
-                    if let Err(err) = device.drm.activate(false) {
+                    // Activate the DRM device and resume lease state.
+                    if let Err(err) = self.devices.activate_device(&node) {
                         warn!("error activating DRM device: {err:?}");
-                    }
-                    if let Some(lease_state) = &mut device.drm_lease_state {
-                        lease_state.resume::<State>();
                     }
 
                     // Refresh the connectors.
