@@ -9,10 +9,28 @@ use super::super::{InteractiveMoveState, Layout, LayoutElement, MonitorSet, Resi
 
 impl<W: LayoutElement> Layout<W> {
     pub fn toggle_width(&mut self, forwards: bool) {
-        let Some(workspace) = self.active_row_mut() else {
-            return;
-        };
-        workspace.toggle_width(forwards);
+        // TEAM_106: Handle floating windows like main branch
+        match &mut self.monitor_set {
+            MonitorSet::Normal {
+                monitors,
+                active_monitor_idx,
+                ..
+            } => {
+                let mon = &mut monitors[*active_monitor_idx];
+                if mon.canvas.floating_is_active {
+                    mon.canvas.floating.toggle_window_width(None, forwards);
+                } else if let Some(row) = mon.canvas.active_row_mut() {
+                    row.toggle_width(forwards);
+                }
+            }
+            MonitorSet::NoOutputs { canvas, .. } => {
+                if canvas.floating_is_active {
+                    canvas.floating.toggle_window_width(None, forwards);
+                } else if let Some(row) = canvas.active_row_mut() {
+                    row.toggle_width(forwards);
+                }
+            }
+        }
     }
 
     pub fn toggle_window_width(&mut self, window: Option<&W::Id>, forwards: bool) {
@@ -62,6 +80,24 @@ impl<W: LayoutElement> Layout<W> {
     }
 
     pub fn toggle_full_width(&mut self) {
+        // TEAM_106: Like main branch, do nothing if floating is active
+        match &self.monitor_set {
+            MonitorSet::Normal {
+                monitors,
+                active_monitor_idx,
+                ..
+            } => {
+                if monitors[*active_monitor_idx].canvas.floating_is_active {
+                    return;
+                }
+            }
+            MonitorSet::NoOutputs { canvas, .. } => {
+                if canvas.floating_is_active {
+                    return;
+                }
+            }
+        }
+        
         let Some(workspace) = self.active_row_mut() else {
             return;
         };

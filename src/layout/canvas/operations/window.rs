@@ -190,10 +190,17 @@ impl<W: LayoutElement> Canvas2D<W> {
 
     /// Workspace equivalent: activate window in canvas
     pub fn activate_window(&mut self, window: &W) -> bool {
+        // TEAM_106: Debug logging for BUG-001
+        let was_floating_active = self.floating_is_active;
+
         // Try floating first
         if self.floating.has_window(window.id()) {
             self.floating.activate_window(window.id());
             self.floating_is_active = true;
+            tracing::debug!(
+                "BUG001: activate_window -> FLOATING: was_floating_active={}, now floating_is_active=true",
+                was_floating_active
+            );
             return true;
         }
 
@@ -205,10 +212,18 @@ impl<W: LayoutElement> Canvas2D<W> {
                 if row.activate_window(window.id()) {
                     self.active_row_idx = row_idx;
                     self.floating_is_active = false;
+                    tracing::debug!(
+                        "BUG001: activate_window -> TILED row {}: was_floating_active={}, now floating_is_active=false",
+                        row_idx, was_floating_active
+                    );
                     return true;
                 }
             }
         }
+        tracing::debug!(
+            "BUG001: activate_window -> NOT FOUND: was_floating_active={}",
+            was_floating_active
+        );
         false
     }
 

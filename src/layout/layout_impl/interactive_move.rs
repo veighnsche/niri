@@ -26,6 +26,12 @@ impl<W: LayoutElement> Layout<W> {
         output: &Output,
         start_pos_within_output: Point<f64, Logical>,
     ) -> bool {
+        // TEAM_106: Debug logging for BUG-003
+        tracing::debug!(
+            "BUG003: interactive_move_begin called, already_moving={}",
+            self.interactive_move.is_some()
+        );
+        
         if self.interactive_move.is_some() {
             return false;
         }
@@ -128,6 +134,7 @@ impl<W: LayoutElement> Layout<W> {
                 is_floating,
                 pointer_ratio_within_window,
             } => {
+                tracing::debug!("BUG003: interactive_move_begin -> Tiled, is_floating={}", is_floating);
                 self.interactive_move = Some(InteractiveMoveState::Starting {
                     window_id,
                     pointer_delta: Point::from((0., 0.)),
@@ -146,6 +153,7 @@ impl<W: LayoutElement> Layout<W> {
             WindowLocation::Floating {
                 pointer_ratio_within_window,
             } => {
+                tracing::debug!("BUG003: interactive_move_begin -> Floating");
                 self.interactive_move = Some(InteractiveMoveState::Starting {
                     window_id,
                     pointer_delta: Point::from((0., 0.)),
@@ -155,7 +163,10 @@ impl<W: LayoutElement> Layout<W> {
                 // Floating windows don't need view locking
                 true
             }
-            WindowLocation::NotFound | WindowLocation::WrongOutput => false,
+            WindowLocation::NotFound | WindowLocation::WrongOutput => {
+                tracing::debug!("BUG003: interactive_move_begin -> NotFound or WrongOutput");
+                false
+            }
         }
     }
 
@@ -286,6 +297,12 @@ impl<W: LayoutElement> Layout<W> {
                 // in the middle of interactive_move_update() and the confusion that causes.
                 self.interactive_move = None;
 
+                // TEAM_106: Debug logging for BUG-002
+                tracing::debug!(
+                    "BUG002: interactive_move threshold exceeded, is_floating={}, about to remove window",
+                    is_floating
+                );
+
                 // Unset fullscreen before removing the tile. This will restore its size properly,
                 // and move it to floating if needed, so we don't have to deal with that here.
                 // TEAM_059: Only needed for tiled windows (floating can't be fullscreen/maximized)
@@ -298,6 +315,9 @@ impl<W: LayoutElement> Layout<W> {
                 } else {
                     false
                 };
+
+                // TEAM_106: Debug logging for BUG-002
+                tracing::debug!("BUG002: calling remove_window now");
 
                 let RemovedTile {
                     mut tile,

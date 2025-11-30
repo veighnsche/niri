@@ -316,6 +316,20 @@ impl<W: LayoutElement> FloatingSpace<W> {
     // Window Queries
     // =========================================================================
 
+    /// TEAM_106: Hit test for floating windows - returns window under point
+    pub fn window_under(&self, pos: Point<f64, Logical>) -> Option<(&W, crate::layout::HitType)> {
+        // Collect into vec so we can iterate in reverse (last = topmost in stacking)
+        let tiles: Vec<_> = self.tiles_with_render_positions().collect();
+        
+        for (tile, tile_pos) in tiles.into_iter().rev() {
+            // Use HitType::hit_tile which properly handles input regions and window positions
+            if let Some(rv) = crate::layout::HitType::hit_tile(tile, tile_pos, pos) {
+                return Some(rv);
+            }
+        }
+        None
+    }
+
     pub(crate) fn idx_of(&self, id: &W::Id) -> Option<usize> {
         self.tiles.iter().position(|tile| tile.window().id() == id)
     }

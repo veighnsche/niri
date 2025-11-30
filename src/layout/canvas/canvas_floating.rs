@@ -225,17 +225,39 @@ impl<W: LayoutElement> Canvas2D<W> {
     pub fn remove_window(&mut self, id: &W::Id) -> Option<RemovedTile<W>> {
         // Check floating first
         if self.floating.has_window(id) {
-            return Some(self.floating.remove_tile(id));
+            let removed = self.floating.remove_tile(id);
+            // TEAM_106: Update focus like main branch - if floating is now empty, switch to tiled
+            self.update_focus_after_removing(true);
+            return Some(removed);
         }
 
         // Check rows
         for row in self.rows.values_mut() {
             if row.contains(id) {
-                return Some(row.remove_tile(id, Transaction::new()));
+                let removed = row.remove_tile(id, Transaction::new());
+                // TEAM_106: Update focus like main branch - if tiled is now empty, switch to floating
+                self.update_focus_after_removing(false);
+                return Some(removed);
             }
         }
 
         None
+    }
+    
+    /// TEAM_106: Update floating_is_active after removing a window (like main branch)
+    fn update_focus_after_removing(&mut self, removed_from_floating: bool) {
+        if removed_from_floating {
+            // If floating is now empty, switch focus to tiled
+            if self.floating.is_empty() {
+                self.floating_is_active = false;
+            }
+        } else {
+            // If tiled is now empty but floating has windows, switch to floating
+            let tiled_empty = self.rows.values().all(|row| row.is_empty());
+            if tiled_empty && !self.floating.is_empty() {
+                self.floating_is_active = true;
+            }
+        }
     }
 
     /// Returns whether the canvas contains the given window (tiled or floating).

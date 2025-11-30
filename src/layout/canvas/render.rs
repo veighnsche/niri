@@ -15,6 +15,7 @@ impl<W: LayoutElement> Canvas2D<W> {
     /// Renders all elements in the canvas.
     ///
     /// Returns render elements for all visible rows, with camera offset applied.
+    /// NOTE: In Smithay, elements rendered FIRST appear on TOP (front-to-back order).
     pub fn render_elements<R: NiriRenderer>(
         &self,
         renderer: &mut R,
@@ -26,10 +27,28 @@ impl<W: LayoutElement> Canvas2D<W> {
         let _camera = self.camera_position();
         let _scale = Scale::from(self.scale);
 
-        // Render rows in order (active row last so it appears on top)
         let active_row_idx = self.active_row_idx;
 
-        // First render non-active rows
+        // TEAM_106: Render floating layer FIRST (so it appears on top)
+        let floating_focus_ring = focus_ring && self.floating_is_active;
+        let view_rect = self.working_area;
+        let floating_elements =
+            self.floating
+                .render_elements(renderer, view_rect, target, floating_focus_ring);
+        for elem in floating_elements {
+            rv.push(elem.into());
+        }
+
+        // Then render active row (with focus ring unless floating is active)
+        if let Some(row) = self.rows.get(&active_row_idx) {
+            let row_focus_ring = focus_ring && !self.floating_is_active;
+            let row_elements = row.render_elements(renderer, target, row_focus_ring);
+            for elem in row_elements {
+                rv.push(elem.into());
+            }
+        }
+
+        // Finally render non-active rows (at the back)
         for (&row_idx, row) in &self.rows {
             if row_idx == active_row_idx {
                 continue;
@@ -39,26 +58,6 @@ impl<W: LayoutElement> Canvas2D<W> {
             for elem in row_elements {
                 rv.push(elem.into());
             }
-        }
-
-        // Then render active row on top with focus ring (unless floating is active)
-        if let Some(row) = self.rows.get(&active_row_idx) {
-            let row_focus_ring = focus_ring && !self.floating_is_active;
-            let row_elements = row.render_elements(renderer, target, row_focus_ring);
-            for elem in row_elements {
-                rv.push(elem.into());
-            }
-        }
-
-        // TEAM_009: Render floating layer on top
-        let floating_focus_ring = focus_ring && self.floating_is_active;
-        // Use working_area as the view_rect for floating tiles
-        let view_rect = self.working_area;
-        let floating_elements =
-            self.floating
-                .render_elements(renderer, view_rect, target, floating_focus_ring);
-        for elem in floating_elements {
-            rv.push(elem.into());
         }
 
         rv

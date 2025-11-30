@@ -171,14 +171,43 @@ impl<W: LayoutElement> Row<W> {
         column_idx: usize,
         anim_config: Option<niri_config::Animation>,
     ) -> Column<W> {
+        // TEAM_106: Debug logging for BUG-002
+        tracing::debug!(
+            "BUG002: remove_column_by_idx_with_anim called: column_idx={}, num_columns={}, active_column_idx={}",
+            column_idx,
+            self.columns.len(),
+            self.active_column_idx
+        );
+
         // Animate movement of the other columns.
         let movement_config = anim_config.unwrap_or(self.options.animations.window_movement.0);
-        let offset = self.column_x(column_idx + 1) - self.column_x(column_idx);
+        let col_x_current = self.column_x(column_idx);
+        let col_x_next = self.column_x(column_idx + 1);
+        let offset = col_x_next - col_x_current;
+
+        // TEAM_106: Debug logging for BUG-002
+        tracing::debug!(
+            "BUG002: offset calculation: col_x({})={}, col_x({})={}, offset={}",
+            column_idx, col_x_current,
+            column_idx + 1, col_x_next,
+            offset
+        );
+
         if self.active_column_idx <= column_idx {
+            let num_animated = self.columns[column_idx + 1..].len();
+            tracing::debug!(
+                "BUG002: animating {} columns to RIGHT of removed (indices {}..): offset=+{}",
+                num_animated, column_idx + 1, offset
+            );
             for col in &mut self.columns[column_idx + 1..] {
                 col.animate_move_from_with_config(offset, movement_config);
             }
         } else {
+            let num_animated = self.columns[..column_idx].len();
+            tracing::debug!(
+                "BUG002: animating {} columns to LEFT of removed (indices ..{}): offset=-{}",
+                num_animated, column_idx, offset
+            );
             for col in &mut self.columns[..column_idx] {
                 col.animate_move_from_with_config(-offset, movement_config);
             }

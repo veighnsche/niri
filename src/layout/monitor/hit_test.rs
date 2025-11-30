@@ -79,6 +79,12 @@ impl<W: LayoutElement> Monitor<W> {
     // =========================================================================
 
     pub fn window_under(&self, pos_within_output: Point<f64, Logical>) -> Option<(&W, HitType)> {
+        // TEAM_106: Check floating windows FIRST (they render on top, so should be hit first)
+        if let Some((win, hit)) = self.canvas.floating.window_under(pos_within_output) {
+            return Some((win, hit));
+        }
+
+        // Then check tiled windows in rows
         let (ws, geo) = self.row_under(pos_within_output)?;
 
         // DEPRECATED(overview): Removed overview_progress zoom handling

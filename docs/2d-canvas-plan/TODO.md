@@ -1,7 +1,7 @@
 # niri Refactor — TODO
 
-> **Last Updated**: Nov 29, 2025 (TEAM_067 phase restructure)
-> **Status**: 🔴 Refactor in progress — NO NEW FEATURES until modularization complete
+> **Last Updated**: Nov 30, 2025 (TEAM_106 bug documentation)
+> **Status**: 🔴 CRITICAL BUGS — Fix Priority 0 bugs before continuing refactor
 > **Masterplan**: See [`phases/README.md`](phases/README.md) for detailed phase breakdown
 
 ---
@@ -60,14 +60,56 @@ src/layout/  (79 files)
 
 ---
 
+## 🐛 CRITICAL BUGS (Priority 0 — Fix Before Refactor Continues)
+
+> These bugs break core UX and must be fixed before proceeding.
+
+### BUG-001: Floating windows not rendering on top of tiles ✅ FIXED
+**Severity**: High  
+**Expected**: Floating windows should always render above tiled windows (their own layer)  
+**Actual**: Floating windows render behind tiles when clicking on tiles  
+**Original behavior**: Main branch keeps floaters on top even when tiles get focus  
+**Fix**: TEAM_106 - Fixed render order (floating first) and added hit testing for floating windows
+
+### BUG-002: Mod+drag causes all tiles to animate off-screen
+**Severity**: Critical  
+**Expected**: When picking up a window with Mod+drag, other tiles should only shift slightly to show drop targets  
+**Actual**: All other tiles IMMEDIATELY animate to the left and go off-screen fast  
+**Additional**: When dropped, tiles return. Picking up again causes them to fly left again.  
+
+### BUG-003: Cannot drag floating windows by title bar
+**Severity**: High  
+**Expected**: Floating windows can be dragged by clicking and dragging their title bar (CSD)  
+**Actual**: Title bar drag does not move floating windows  
+**Note**: Title bar buttons (close/maximize) now work, but drag doesn't
+
+### BUG-004: Mod+R/Mod+F affects tiled windows when floating is active ✅ FIXED
+
+### BUG-005: Floating window close animation missing ⚠️ ATTEMPTED
+**Severity**: Medium  
+**Expected**: Floating windows should have close animation like tiled windows  
+**Actual**: Floating windows disappear instantly when closed  
+**Attempted Fix**: TEAM_106 - Layout::start_close_animation_for_window now checks floating space  
+**Status**: NOT VERIFIED - User reports still broken. See `.bugs/BUG_floating_close_animation.md`
+
+### BUG-006: No window selected after floating window closes ⚠️ ATTEMPTED
+**Severity**: High  
+**Expected**: When floating window closes, focus should fall back to a tiled window  
+**Actual**: No window is selected/focused after closing floating window  
+**Original behavior**: Main branch always keeps a window active if any exist  
+**Attempted Fix**: TEAM_106 - Added update_focus_after_removing() to Canvas2D  
+**Status**: NOT VERIFIED - User reports still broken. See `.bugs/BUG_floating_close_no_focus.md`  
+
+---
+
 ## 🎯 REMAINING WORK
 
-> ⚠️ **REFACTOR FIRST**: No new features until modularization is complete.
+> ⚠️ **BUGS FIRST**: Fix Priority 0 bugs before continuing refactor.
 > Clean architecture enables sustainable feature development.
 
 ---
 
-### Part A: niri.rs Modular Refactor 🔴 BLOCKING
+### Part A: niri.rs Modular Refactor 🔴 BLOCKED (pending bug fixes)
 
 Split `src/niri.rs` (6604 LOC) into focused modules (<500 LOC each).
 

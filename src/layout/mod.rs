@@ -1762,9 +1762,16 @@ impl<W: LayoutElement> Layout<W> {
         }
 
         // TEAM_033: Destructure tuples from workspaces_mut()
+        // TEAM_106: Check floating space first, then rows
         match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => {
                 for mon in monitors {
+                    // Check floating first
+                    if mon.canvas.floating.has_window(window) {
+                        mon.canvas.floating.start_close_animation_for_window(renderer, window, blocker);
+                        return;
+                    }
+                    // Then check rows
                     for (_, row) in mon.canvas.rows_mut() {
                         if row.has_window(window) {
                             row.start_close_animation_for_window(renderer, window, blocker);
@@ -1774,6 +1781,12 @@ impl<W: LayoutElement> Layout<W> {
                 }
             }
             MonitorSet::NoOutputs { canvas, .. } => {
+                // Check floating first
+                if canvas.floating.has_window(window) {
+                    canvas.floating.start_close_animation_for_window(renderer, window, blocker);
+                    return;
+                }
+                // Then check rows
                 for (_, row) in canvas.rows_mut() {
                     if row.has_window(window) {
                         row.start_close_animation_for_window(renderer, window, blocker);
