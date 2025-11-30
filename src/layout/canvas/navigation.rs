@@ -59,9 +59,10 @@ impl<W: LayoutElement> Canvas2D<W> {
         self.active_row_idx = target_row;
 
         // Focus the same column index (or the last one if it doesn't exist)
+        // Use focus_column_idx (0-based) since active_column_idx() returns 0-based
         if let Some(row) = self.active_row_mut() {
             let max_col = row.column_count().saturating_sub(1);
-            row.focus_column(col_idx.min(max_col));
+            row.focus_column_idx(col_idx.min(max_col));
         }
 
         self.update_camera_y();

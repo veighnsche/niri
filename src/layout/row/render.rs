@@ -143,7 +143,7 @@ impl<W: LayoutElement> Row<W> {
                 let tile_pos = tile_pos.to_physical_precise_round(scale).to_logical(scale);
 
                 // For the active tile (which comes first), draw the focus ring.
-                let focus_ring = focus_ring && first;
+                let draw_focus_ring = focus_ring && first;
                 first = false;
 
                 // Handle visibility for tabbed mode.
@@ -155,7 +155,7 @@ impl<W: LayoutElement> Row<W> {
                 }
 
                 rv.extend(
-                    tile.render(renderer, tile_pos, focus_ring, target)
+                    tile.render(renderer, tile_pos, draw_focus_ring, target)
                         .map(Into::into),
                 );
             }

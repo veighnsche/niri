@@ -29,28 +29,39 @@ impl<W: LayoutElement> Layout<W> {
 
         // TEAM_033: Restructure to avoid borrow issues - find first, then operate
         for (monitor_idx, mon) in monitors.iter_mut().enumerate() {
-            // First find the workspace with the window (immutable scan)
-            let found_ws_idx = mon.canvas.rows().enumerate().find_map(|(idx, (_, ws))| {
+            // Check floating windows first (they're stored at Canvas level, not in rows)
+            if mon.canvas.floating.has_window(window) {
+                mon.canvas.floating.activate_window(window);
+                mon.canvas.floating_is_active = true;
+                *active_monitor_idx = monitor_idx;
+                return;
+            }
+
+            // Then check rows for tiled windows - use row key, not enumerate index
+            let found_row_key = mon.canvas.rows().find_map(|(row_key, ws)| {
                 if ws.has_window(window) {
-                    Some(idx)
+                    Some(row_key)
                 } else {
                     None
                 }
             });
 
-            if let Some(workspace_idx) = found_ws_idx {
+            if let Some(row_key) = found_row_key {
                 // Now activate the window
-                if let Some(ws) = mon.canvas.row_mut(workspace_idx as i32) {
+                if let Some(ws) = mon.canvas.row_mut(row_key) {
                     if ws.activate_window(window) {
                         *active_monitor_idx = monitor_idx;
+                        // Focus tiling when activating a tiled window
+                        mon.canvas.floating_is_active = false;
 
                         // If currently in the middle of a vertical swipe between the target
                         // row and some other, don't switch the row.
+                        let row_idx = row_key as usize;
                         match &mon.row_switch {
                             Some(RowSwitch::Gesture(gesture))
-                                if gesture.current_idx.floor() == workspace_idx as f64
-                                    || gesture.current_idx.ceil() == workspace_idx as f64 => {}
-                            _ => mon.switch_row(workspace_idx),
+                                if gesture.current_idx.floor() == row_idx as f64
+                                    || gesture.current_idx.ceil() == row_idx as f64 => {}
+                            _ => mon.switch_row(row_idx),
                         }
 
                         return;
@@ -77,29 +88,36 @@ impl<W: LayoutElement> Layout<W> {
         };
 
         for (monitor_idx, mon) in monitors.iter_mut().enumerate() {
-            // TEAM_035: Find workspace index first, then switch to avoid double borrow
-            let found_ws_idx =
+            // Check floating windows first (they're stored at Canvas level, not in rows)
+            if mon.canvas.floating.activate_window_without_raising(window) {
+                // Note: don't change floating_is_active - this is focus-follows-mouse
+                *active_monitor_idx = monitor_idx;
+                return;
+            }
+
+            // TEAM_035: Find row key first, then switch to avoid double borrow
+            let found_row_key =
                 mon.canvas
                     .rows_mut()
-                    .enumerate()
-                    .find_map(|(workspace_idx, (_, ws))| {
+                    .find_map(|(row_key, ws)| {
                         if ws.activate_window_without_raising(window) {
-                            Some(workspace_idx)
+                            Some(row_key)
                         } else {
                             None
                         }
                     });
 
-            if let Some(workspace_idx) = found_ws_idx {
+            if let Some(row_key) = found_row_key {
                 *active_monitor_idx = monitor_idx;
 
                 // If currently in the middle of a vertical swipe between the target row
                 // and some other, don't switch the row.
+                let row_idx = row_key as usize;
                 match &mon.row_switch {
                     Some(RowSwitch::Gesture(gesture))
-                        if gesture.current_idx.floor() == workspace_idx as f64
-                            || gesture.current_idx.ceil() == workspace_idx as f64 => {}
-                    _ => mon.switch_row(workspace_idx),
+                        if gesture.current_idx.floor() == row_idx as f64
+                            || gesture.current_idx.ceil() == row_idx as f64 => {}
+                    _ => mon.switch_row(row_idx),
                 }
 
                 return;

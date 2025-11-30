@@ -126,7 +126,7 @@ impl<W: LayoutElement> Row<W> {
 
     /// Focuses a specific column by 0-based index (internal use).
     // TEAM_040: Internal method for 0-based indexing
-    fn focus_column_idx(&mut self, idx: usize) {
+    pub(crate) fn focus_column_idx(&mut self, idx: usize) {
         if self.columns.is_empty() {
             return;
         }

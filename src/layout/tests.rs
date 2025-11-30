@@ -3561,6 +3561,65 @@ prop_compose! {
     }
 }
 
+/// Regression test: Activating a window by ID should activate the correct column.
+/// Previously there was an off-by-one bug where focus_row() called focus_column()
+/// (1-based) with a 0-based active_column_idx, causing the wrong column to be activated.
+#[test]
+fn activate_window_activates_correct_column() {
+    // Create 3 windows (3 columns: 0, 1, 2)
+    let ops = [
+        Op::AddOutput(0),
+        Op::AddWindow {
+            params: TestWindowParams::new(0),
+        },
+        Op::AddWindow {
+            params: TestWindowParams::new(1),
+        },
+        Op::AddWindow {
+            params: TestWindowParams::new(2),
+        },
+    ];
+
+    let mut layout = check_ops(ops);
+
+    // After adding 3 windows, the last one (window 2, column 2) should be active
+    let row = layout.active_row().expect("should have active row");
+    assert_eq!(row.active_column_idx(), 2, "window 2 should be in column 2");
+
+    // Activate window 1 (should activate column 1)
+    layout.activate_window(&1);
+    layout.verify_invariants();
+
+    let row = layout.active_row().expect("should have active row");
+    assert_eq!(
+        row.active_column_idx(),
+        1,
+        "activating window 1 should activate column 1, not column 0"
+    );
+
+    // Activate window 0 (should activate column 0)
+    layout.activate_window(&0);
+    layout.verify_invariants();
+
+    let row = layout.active_row().expect("should have active row");
+    assert_eq!(
+        row.active_column_idx(),
+        0,
+        "activating window 0 should activate column 0"
+    );
+
+    // Activate window 2 (should activate column 2)
+    layout.activate_window(&2);
+    layout.verify_invariants();
+
+    let row = layout.active_row().expect("should have active row");
+    assert_eq!(
+        row.active_column_idx(),
+        2,
+        "activating window 2 should activate column 2"
+    );
+}
+
 proptest! {
     #![proptest_config(ProptestConfig {
         cases: if std::env::var_os("RUN_SLOW_TESTS").is_none() {
