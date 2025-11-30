@@ -7,7 +7,6 @@ use std::time::Duration;
 
 use niri_config::OutputName;
 use smithay::backend::allocator::gbm::GbmAllocator;
-use smithay::backend::allocator::Fourcc;
 use smithay::backend::drm::compositor::DrmCompositor;
 use smithay::backend::drm::exporter::gbm::GbmFramebufferExporter;
 use smithay::backend::drm::{DrmDevice, DrmDeviceFd, DrmNode};
@@ -53,17 +52,6 @@ pub(super) type GbmDrmCompositor = DrmCompositor<
     (OutputPresentationFeedback, Duration),
     DrmDeviceFd,
 >;
-
-// =============================================================================
-// Constants
-// =============================================================================
-
-pub(super) const SUPPORTED_COLOR_FORMATS: [Fourcc; 4] = [
-    Fourcc::Xrgb8888,
-    Fourcc::Xbgr8888,
-    Fourcc::Argb8888,
-    Fourcc::Abgr8888,
-];
 
 // =============================================================================
 // Public Structs

@@ -1,6 +1,6 @@
 # Phase 05: Move `render` to RenderManager
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE  
 > **LOC**: ~181  
 > **Target**: `src/backend/tty/render.rs`  
 > **Source**: `src/backend/tty/mod.rs` lines 1598-1778

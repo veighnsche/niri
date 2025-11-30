@@ -160,48 +160,6 @@ impl OutputDevice {
         self.token
     }
 
-    // === Surface Management ===
-
-    /// Get a reference to a surface by CRTC handle.
-    pub(super) fn surface(&self, crtc: crtc::Handle) -> Option<&Surface> {
-        self.surfaces.get(&crtc)
-    }
-
-    /// Get a mutable reference to a surface by CRTC handle.
-    pub(super) fn surface_mut(&mut self, crtc: crtc::Handle) -> Option<&mut Surface> {
-        self.surfaces.get_mut(&crtc)
-    }
-
-    /// Check if a surface exists for the given CRTC.
-    pub fn has_surface(&self, crtc: crtc::Handle) -> bool {
-        self.surfaces.contains_key(&crtc)
-    }
-
-    /// Iterate over all surfaces.
-    pub(super) fn surfaces(&self) -> impl Iterator<Item = (&crtc::Handle, &Surface)> {
-        self.surfaces.iter()
-    }
-
-    /// Iterate over all surfaces mutably.
-    pub(super) fn surfaces_mut(&mut self) -> impl Iterator<Item = (&crtc::Handle, &mut Surface)> {
-        self.surfaces.iter_mut()
-    }
-
-    /// Get mutable access to all surface values.
-    pub(super) fn surfaces_values_mut(&mut self) -> impl Iterator<Item = &mut Surface> {
-        self.surfaces.values_mut()
-    }
-
-    /// Insert a surface for a CRTC.
-    pub(super) fn insert_surface(&mut self, crtc: crtc::Handle, surface: Surface) -> Option<Surface> {
-        self.surfaces.insert(crtc, surface)
-    }
-
-    /// Remove a surface for a CRTC.
-    pub(super) fn remove_surface(&mut self, crtc: crtc::Handle) -> Option<Surface> {
-        self.surfaces.remove(&crtc)
-    }
-
     // === CRTC Management ===
 
     /// Get info about a known CRTC.

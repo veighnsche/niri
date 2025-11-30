@@ -1,6 +1,6 @@
 # Phase 10: Move `set_monitors_active` to OutputManager
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE  
 > **LOC**: ~18  
 > **Target**: `src/backend/tty/outputs.rs`  
 > **Source**: `src/backend/tty/mod.rs` lines 2003-2020

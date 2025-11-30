@@ -1,6 +1,6 @@
 # Phase 03: Move `device_removed` to DeviceManager
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE  
 > **LOC**: ~108  
 > **Target**: `src/backend/tty/devices.rs`  
 > **Source**: `src/backend/tty/mod.rs` lines 901-1008

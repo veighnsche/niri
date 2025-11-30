@@ -1,6 +1,6 @@
 # Phase 06: Move `on_vblank` to RenderManager
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE  
 > **LOC**: ~188  
 > **Target**: `src/backend/tty/render.rs`  
 > **Source**: `src/backend/tty/mod.rs` lines 1359-1546

@@ -701,11 +701,6 @@ impl Tty {
         )
     }
 
-    fn on_estimated_vblank_timer(&self, niri: &mut Niri, output: Output) {
-        // TEAM_096: Delegate to RenderManager
-        self.render.on_estimated_vblank_timer(niri, output)
-    }
-
     pub fn seat_name(&self) -> String {
         self.session.seat()
     }

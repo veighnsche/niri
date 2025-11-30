@@ -1,6 +1,6 @@
 # Phase 12: Move `on_output_config_changed` to OutputManager
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE  
 > **LOC**: ~192  
 > **Target**: `src/backend/tty/outputs.rs`  
 > **Source**: `src/backend/tty/mod.rs` lines 2129-2320

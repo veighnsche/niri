@@ -1,6 +1,6 @@
 # Phase 02: Move `device_changed` to DeviceManager
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE  
 > **LOC**: ~163  
 > **Target**: `src/backend/tty/devices.rs`  
 > **Source**: `src/backend/tty/mod.rs` lines 737-899

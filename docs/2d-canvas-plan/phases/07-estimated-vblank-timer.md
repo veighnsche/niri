@@ -1,6 +1,6 @@
 # Phase 07: Move `on_estimated_vblank_timer` to RenderManager
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE  
 > **LOC**: ~32 (method) + ~45 (helper)  
 > **Target**: `src/backend/tty/render.rs`  
 > **Source**: `src/backend/tty/mod.rs` lines 1548-1579, 2511-2555

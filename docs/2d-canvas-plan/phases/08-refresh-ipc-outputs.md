@@ -1,6 +1,6 @@
 # Phase 08: Move `refresh_ipc_outputs` to OutputManager
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE  
 > **LOC**: ~110  
 > **Target**: `src/backend/tty/outputs.rs`  
 > **Source**: `src/backend/tty/mod.rs` lines 1875-1984

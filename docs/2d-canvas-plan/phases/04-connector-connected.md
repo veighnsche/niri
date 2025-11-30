@@ -1,6 +1,6 @@
 # Phase 04: Move `connector_connected` to DeviceManager
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE  
 > **LOC**: ~347  
 > **Target**: `src/backend/tty/devices.rs`  
 > **Source**: `src/backend/tty/mod.rs` lines 1011-1357

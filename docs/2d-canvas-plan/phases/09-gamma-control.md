@@ -1,6 +1,6 @@
 # Phase 09: Move Gamma Control to OutputManager
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE  
 > **LOC**: ~43  
 > **Target**: `src/backend/tty/outputs.rs`  
 > **Source**: `src/backend/tty/mod.rs` lines 1830-1873

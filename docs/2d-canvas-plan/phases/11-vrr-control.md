@@ -1,6 +1,6 @@
 # Phase 11: Move `set_output_on_demand_vrr` to OutputManager
 
-> **Status**: ⏳ PENDING  
+> **Status**: ✅ COMPLETE  
 > **LOC**: ~33  
 > **Target**: `src/backend/tty/outputs.rs`  
 > **Source**: `src/backend/tty/mod.rs` lines 2022-2054
