@@ -1,13 +1,19 @@
 //! Device management for TTY backend.
 //!
-//! This module contains `OutputDevice` which represents a single DRM device (GPU).
+//! This module contains:
+//! - `OutputDevice` - represents a single DRM device (GPU)
+//! - `DeviceManager` - owns all DRM device state (subsystem)
 
 use std::collections::{HashMap, HashSet};
 
 use smithay::backend::allocator::gbm::{GbmAllocator, GbmDevice};
 use smithay::backend::drm::{DrmDevice, DrmDeviceFd, DrmNode};
+use smithay::backend::renderer::gles::GlesRenderer;
+use smithay::backend::renderer::multigpu::gbm::GbmGlesBackend;
+use smithay::backend::renderer::multigpu::GpuManager;
 use smithay::reexports::calloop::RegistrationToken;
 use smithay::reexports::drm::control::{connector, crtc};
+use smithay::wayland::dmabuf::DmabufGlobal;
 use smithay::wayland::drm_lease::{
     DrmLease, DrmLeaseBuilder, DrmLeaseRequest, DrmLeaseState, LeaseRejected,
 };
@@ -291,4 +297,188 @@ impl OutputDevice {
 
 pub(super) fn format_connector_name(connector: &connector::Info) -> String {
     format!("{}-{}", connector.interface().as_str(), connector.interface_id())
+}
+
+// =============================================================================
+// DeviceManager - Subsystem that owns all DRM device state
+// =============================================================================
+
+/// Device management subsystem.
+///
+/// OWNS all DRM device state:
+/// - Connected devices (GPUs)
+/// - Primary/render node tracking
+/// - GPU manager for multi-GPU
+/// - DmaBuf global
+pub struct DeviceManager {
+    /// Devices indexed by DRM node (not necessarily the render node).
+    pub(crate) devices: HashMap<DrmNode, OutputDevice>,
+    /// DRM node corresponding to the primary GPU. May or may not be the same as
+    /// primary_render_node.
+    pub(crate) primary_node: DrmNode,
+    /// DRM render node corresponding to the primary GPU.
+    pub(crate) primary_render_node: DrmNode,
+    /// Ignored DRM nodes.
+    pub(crate) ignored_nodes: HashSet<DrmNode>,
+    /// GPU manager for multi-GPU support.
+    pub(crate) gpu_manager: GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>>,
+    /// The dma-buf global corresponds to the output device (the primary GPU).
+    /// It is only `Some()` if we have a device corresponding to the primary GPU.
+    pub(crate) dmabuf_global: Option<DmabufGlobal>,
+}
+
+impl DeviceManager {
+    /// Create a new DeviceManager.
+    pub fn new(
+        primary_node: DrmNode,
+        primary_render_node: DrmNode,
+        ignored_nodes: HashSet<DrmNode>,
+        gpu_manager: GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>>,
+    ) -> Self {
+        Self {
+            devices: HashMap::new(),
+            primary_node,
+            primary_render_node,
+            ignored_nodes,
+            gpu_manager,
+            dmabuf_global: None,
+        }
+    }
+
+    // === Device Access ===
+
+    /// Get a reference to a device by node.
+    pub fn get(&self, node: &DrmNode) -> Option<&OutputDevice> {
+        self.devices.get(node)
+    }
+
+    /// Get a mutable reference to a device by node.
+    pub fn get_mut(&mut self, node: &DrmNode) -> Option<&mut OutputDevice> {
+        self.devices.get_mut(node)
+    }
+
+    /// Iterate over all devices.
+    pub fn iter(&self) -> impl Iterator<Item = (&DrmNode, &OutputDevice)> {
+        self.devices.iter()
+    }
+
+    /// Iterate over all devices mutably.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&DrmNode, &mut OutputDevice)> {
+        self.devices.iter_mut()
+    }
+
+    /// Check if a device exists for the given node.
+    pub fn contains(&self, node: &DrmNode) -> bool {
+        self.devices.contains_key(node)
+    }
+
+    /// Insert a device. Returns the previous device if one existed.
+    pub fn insert(&mut self, node: DrmNode, device: OutputDevice) -> Option<OutputDevice> {
+        self.devices.insert(node, device)
+    }
+
+    /// Remove a device.
+    pub fn remove(&mut self, node: &DrmNode) -> Option<OutputDevice> {
+        self.devices.remove(node)
+    }
+
+    /// Get the number of devices.
+    pub fn len(&self) -> usize {
+        self.devices.len()
+    }
+
+    /// Check if there are no devices.
+    pub fn is_empty(&self) -> bool {
+        self.devices.is_empty()
+    }
+
+    /// Iterate over device keys.
+    pub fn keys(&self) -> impl Iterator<Item = &DrmNode> {
+        self.devices.keys()
+    }
+
+    /// Iterate over device values mutably.
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut OutputDevice> {
+        self.devices.values_mut()
+    }
+
+    /// Iterate over device values.
+    pub fn values(&self) -> impl Iterator<Item = &OutputDevice> {
+        self.devices.values()
+    }
+
+    // === Node Info ===
+
+    /// Get the primary DRM node.
+    pub fn primary_node(&self) -> DrmNode {
+        self.primary_node
+    }
+
+    /// Get the primary render node.
+    pub fn primary_render_node(&self) -> DrmNode {
+        self.primary_render_node
+    }
+
+    /// Check if a node is ignored.
+    pub fn is_ignored(&self, node: &DrmNode) -> bool {
+        self.ignored_nodes.contains(node)
+    }
+
+    /// Get all ignored nodes.
+    pub fn ignored_nodes(&self) -> &HashSet<DrmNode> {
+        &self.ignored_nodes
+    }
+
+    /// Set the ignored nodes.
+    pub fn set_ignored_nodes(&mut self, ignored: HashSet<DrmNode>) {
+        self.ignored_nodes = ignored;
+    }
+
+    // === GPU Manager ===
+
+    /// Get a reference to the GPU manager.
+    pub fn gpu_manager(&self) -> &GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>> {
+        &self.gpu_manager
+    }
+
+    /// Get a mutable reference to the GPU manager.
+    pub fn gpu_manager_mut(&mut self) -> &mut GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>> {
+        &mut self.gpu_manager
+    }
+
+    // === DmaBuf ===
+
+    /// Get a reference to the dmabuf global.
+    pub fn dmabuf_global(&self) -> Option<&DmabufGlobal> {
+        self.dmabuf_global.as_ref()
+    }
+
+    /// Set the dmabuf global.
+    pub fn set_dmabuf_global(&mut self, global: Option<DmabufGlobal>) {
+        self.dmabuf_global = global;
+    }
+
+    /// Take the dmabuf global.
+    pub fn take_dmabuf_global(&mut self) -> Option<DmabufGlobal> {
+        self.dmabuf_global.take()
+    }
+}
+
+// Implement IntoIterator for convenient iteration
+impl<'a> IntoIterator for &'a DeviceManager {
+    type Item = (&'a DrmNode, &'a OutputDevice);
+    type IntoIter = std::collections::hash_map::Iter<'a, DrmNode, OutputDevice>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.devices.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut DeviceManager {
+    type Item = (&'a DrmNode, &'a mut OutputDevice);
+    type IntoIter = std::collections::hash_map::IterMut<'a, DrmNode, OutputDevice>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.devices.iter_mut()
+    }
 }

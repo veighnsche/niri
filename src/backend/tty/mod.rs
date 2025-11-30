@@ -59,13 +59,13 @@ use smithay::reexports::rustix::fs::OFlags;
 use smithay::reexports::wayland_protocols;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::DeviceFd;
-use smithay::wayland::dmabuf::{DmabufFeedbackBuilder, DmabufGlobal};
+use smithay::wayland::dmabuf::DmabufFeedbackBuilder;
 use smithay::wayland::drm_lease::DrmLeaseState;
 use smithay::wayland::presentation::Refresh;
 use smithay_drm_extras::drm_scanner::{DrmScanEvent, DrmScanner};
 use wayland_protocols::wp::presentation_time::server::wp_presentation_feedback;
 
-pub use devices::OutputDevice;
+pub use devices::{DeviceManager, OutputDevice};
 pub use helpers::{calculate_drm_mode_from_modeline, calculate_mode_cvt, set_gamma_for_crtc};
 pub use types::{CrtcInfo, SurfaceDmabufFeedback, TtyFrame, TtyRenderer, TtyRendererError};
 use devices::format_connector_name;
@@ -90,19 +90,8 @@ pub struct Tty {
     session: LibSeatSession,
     udev_dispatcher: Dispatcher<'static, UdevBackend, State>,
     libinput: Libinput,
-    gpu_manager: GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>>,
-    // DRM node corresponding to the primary GPU. May or may not be the same as
-    // primary_render_node.
-    primary_node: DrmNode,
-    // DRM render node corresponding to the primary GPU.
-    primary_render_node: DrmNode,
-    // Ignored DRM nodes.
-    ignored_nodes: HashSet<DrmNode>,
-    // Devices indexed by DRM node (not necessarily the render node).
-    devices: HashMap<DrmNode, OutputDevice>,
-    // The dma-buf global corresponds to the output device (the primary GPU). It is only `Some()`
-    // if we have a device corresponding to the primary GPU.
-    dmabuf_global: Option<DmabufGlobal>,
+    // Device management subsystem - owns all DRM device state.
+    pub(crate) devices: DeviceManager,
     // The output config had changed, but the session is paused, so we need to update it on resume.
     update_output_config_on_resume: bool,
     // The ignored nodes have changed, but the session is paused, so we need to update it on
@@ -339,17 +328,20 @@ impl Tty {
             warn!("ignoring the primary node or render node is not allowed");
         }
 
+        // Create the device management subsystem.
+        let devices = DeviceManager::new(
+            primary_node,
+            primary_render_node,
+            ignored_nodes,
+            gpu_manager,
+        );
+
         Ok(Self {
             config,
             session,
             udev_dispatcher,
             libinput,
-            gpu_manager,
-            primary_node,
-            primary_render_node,
-            ignored_nodes,
-            devices: HashMap::new(),
-            dmabuf_global: None,
+            devices,
             update_output_config_on_resume: false,
             update_ignored_nodes_on_resume: false,
             debug_tint: false,
@@ -365,7 +357,7 @@ impl Tty {
         // being available.
         if let Some((primary_device_id, primary_device_path)) = udev
             .device_list()
-            .find(|&(device_id, _)| device_id == self.primary_node.dev_id())
+            .find(|&(device_id, _)| device_id == self.devices.primary_node().dev_id())
         {
             if let Err(err) = self.device_added(primary_device_id, primary_device_path, niri) {
                 warn!(
@@ -377,7 +369,7 @@ impl Tty {
         };
 
         for (device_id, path) in udev.device_list() {
-            if device_id == self.primary_node.dev_id() {
+            if device_id == self.devices.primary_node().dev_id() {
                 continue;
             }
 
@@ -447,12 +439,12 @@ impl Tty {
                 if self.update_ignored_nodes_on_resume {
                     self.update_ignored_nodes_on_resume = false;
                     let mut ignored_nodes = ignored_nodes_from_config(&self.config.borrow());
-                    if ignored_nodes.remove(&self.primary_node)
-                        || ignored_nodes.remove(&self.primary_render_node)
+                    if ignored_nodes.remove(&self.devices.primary_node())
+                        || ignored_nodes.remove(&self.devices.primary_render_node())
                     {
                         warn!("ignoring the primary node or render node is not allowed");
                     }
-                    self.ignored_nodes = ignored_nodes;
+                    self.devices.set_ignored_nodes(ignored_nodes);
                 }
 
                 let mut device_list = self
@@ -467,7 +459,7 @@ impl Tty {
                     .keys()
                     .filter(|node| {
                         !device_list.contains_key(&node.dev_id())
-                            || self.ignored_nodes.contains(node)
+                            || self.devices.ignored_nodes().contains(node)
                     })
                     .copied()
                     .collect::<Vec<_>>();
@@ -477,7 +469,7 @@ impl Tty {
                     .keys()
                     .filter(|node| {
                         device_list.contains_key(&node.dev_id())
-                            && !self.ignored_nodes.contains(node)
+                            && !self.devices.ignored_nodes().contains(node)
                     })
                     .copied()
                     .collect::<Vec<_>>();
@@ -567,7 +559,7 @@ impl Tty {
 
         let node = DrmNode::from_dev_id(device_id)?;
 
-        if node == self.primary_node {
+        if node == self.devices.primary_node() {
             debug!("this is the primary node");
         }
 
@@ -578,7 +570,7 @@ impl Tty {
             return Ok(());
         }
 
-        if self.ignored_nodes.contains(&node) {
+        if self.devices.ignored_nodes().contains(&node) {
             debug!("node is ignored, skipping");
             return Ok(());
         }
@@ -618,7 +610,7 @@ impl Tty {
                 .ok()
                 .flatten()
                 .unwrap_or(node);
-            self.gpu_manager
+            self.devices.gpu_manager_mut()
                 .as_mut()
                 .add_node(render_node, gbm.clone())
                 .context("error adding render node to GPU manager")?;
@@ -637,12 +629,13 @@ impl Tty {
             }
         };
 
-        if render_node == Some(self.primary_render_node) && self.dmabuf_global.is_none() {
-            let render_node = self.primary_render_node;
+        if render_node == Some(self.devices.primary_render_node()) && self.devices.dmabuf_global().is_none() {
+            let render_node = self.devices.primary_render_node();
             debug!("initializing the primary renderer");
 
             let mut renderer = self
-                .gpu_manager
+                .devices
+                .gpu_manager_mut()
                 .single_renderer(&render_node)
                 .context("error creating renderer")?;
 
@@ -681,15 +674,17 @@ impl Tty {
                     &niri.display_handle,
                     &default_feedback,
                 );
-            assert!(self.dmabuf_global.replace(dmabuf_global).is_none());
+            assert!(self.devices.dmabuf_global().is_none());
+            self.devices.set_dmabuf_global(Some(dmabuf_global));
 
             // Update the dmabuf feedbacks for all surfaces.
+            let primary_render_node = self.devices.primary_render_node();
             for (node, device) in self.devices.iter_mut() {
                 for surface in device.surfaces.values_mut() {
                     match surface_dmabuf_feedback(
                         &surface.compositor,
                         primary_formats.clone(),
-                        self.primary_render_node,
+                        primary_render_node,
                         device.render_node,
                         *node,
                     ) {
@@ -706,7 +701,7 @@ impl Tty {
 
         let allocator_gbm = if render_node.is_some() {
             gbm.clone()
-        } else if let Some(primary_device) = self.devices.get(&self.primary_node) {
+        } else if let Some(primary_device) = self.devices.get(&self.devices.primary_node()) {
             primary_device.gbm.clone()
         } else {
             bail!("no allocator available for device");
@@ -765,7 +760,7 @@ impl Tty {
             return;
         }
 
-        if self.ignored_nodes.contains(&node) {
+        if self.devices.ignored_nodes().contains(&node) {
             debug!("node is ignored, skipping");
             return;
         }
@@ -960,10 +955,11 @@ impl Tty {
                 .values()
                 .any(|device| device.render_node == Some(render_node));
 
-            if was_last && render_node == self.primary_render_node {
+            let primary_render_node = self.devices.primary_render_node();
+            if was_last && render_node == primary_render_node {
                 debug!("destroying the primary renderer");
 
-                match self.gpu_manager.single_renderer(&self.primary_render_node) {
+                match self.devices.gpu_manager_mut().single_renderer(&primary_render_node) {
                     Ok(mut renderer) => renderer.unbind_wl_display(),
                     Err(err) => {
                         warn!("error creating renderer during device removal: {err}");
@@ -971,7 +967,7 @@ impl Tty {
                 }
 
                 // Disable and destroy the dmabuf global.
-                if let Some(global) = self.dmabuf_global.take() {
+                if let Some(global) = self.devices.take_dmabuf_global() {
                     niri.protocols
                         .dmabuf
                         .disable_global::<State>(&niri.display_handle, &global);
@@ -1001,9 +997,9 @@ impl Tty {
             }
 
             if was_last {
-                self.gpu_manager.as_mut().remove_node(&render_node);
+                self.devices.gpu_manager_mut().as_mut().remove_node(&render_node);
                 // Trigger re-enumeration in order to remove the device from gpu_manager.
-                let _ = self.gpu_manager.devices();
+                let _ = self.devices.gpu_manager_mut().devices();
             }
         }
 
@@ -1011,7 +1007,7 @@ impl Tty {
 
         self.refresh_ipc_outputs(niri);
 
-        drop(device);
+        let _ = device;
 
         match TryInto::<OwnedFd>::try_into(device_fd) {
             Ok(fd) => {
@@ -1034,6 +1030,9 @@ impl Tty {
     ) -> anyhow::Result<()> {
         let connector_name = format_connector_name(&connector);
         debug!("connecting connector: {connector_name}");
+
+        // Extract values we need before getting mutable device reference.
+        let primary_render_node = self.devices.primary_render_node();
 
         let device = self.devices.get_mut(&node).context("missing device")?;
 
@@ -1189,10 +1188,20 @@ impl Tty {
             output.user_data().insert_if_missing(|| PanelOrientation(x));
         }
 
-        let render_node = device.render_node.unwrap_or(self.primary_render_node);
-        let renderer = self.gpu_manager.single_renderer(&render_node)?;
-        let egl_context = renderer.as_ref().egl_context();
-        let render_formats = egl_context.dmabuf_render_formats();
+        // Extract device render_node before we need to re-borrow self.devices.
+        let device_render_node = device.render_node;
+        let render_node = device_render_node.unwrap_or(primary_render_node);
+
+        // Drop device reference temporarily to access gpu_manager.
+        let _ = device;
+        let render_formats = {
+            let renderer = self.devices.gpu_manager_mut().single_renderer(&render_node)?;
+            let egl_context = renderer.as_ref().egl_context();
+            egl_context.dmabuf_render_formats().clone()
+        };
+
+        // Re-borrow device.
+        let device = self.devices.get_mut(&node).context("missing device")?;
 
         // Filter out the CCS modifiers as they have increased bandwidth, causing some monitor
         // configurations to stop working.
@@ -1207,7 +1216,7 @@ impl Tty {
             .iter()
             .copied()
             .filter(|format| {
-                if device.render_node.is_none() {
+                if device_render_node.is_none() {
                     return format.modifier == Modifier::Linear;
                 }
 
@@ -1282,15 +1291,18 @@ impl Tty {
             compositor.set_debug_flags(DebugFlags::TINT);
         }
 
+        // Drop device to access gpu_manager_mut for dmabuf feedback.
+        let _ = device;
+
         let mut dmabuf_feedback = None;
-        if let Ok(primary_renderer) = self.gpu_manager.single_renderer(&self.primary_render_node) {
+        if let Ok(primary_renderer) = self.devices.gpu_manager_mut().single_renderer(&primary_render_node) {
             let primary_formats = primary_renderer.dmabuf_formats();
 
             match surface_dmabuf_feedback(
                 &compositor,
                 primary_formats,
-                self.primary_render_node,
-                device.render_node,
+                primary_render_node,
+                device_render_node,
                 node,
             ) {
                 Ok(feedback) => {
@@ -1337,6 +1349,8 @@ impl Tty {
             sequence_delta_plot_name,
         };
 
+        // Re-borrow device to insert surface.
+        let device = self.devices.get_mut(&node).context("missing device")?;
         let res = device.surfaces.insert(crtc, surface);
         assert!(res.is_none(), "crtc must not have already existed");
 
@@ -1633,9 +1647,11 @@ impl Tty {
         &mut self,
         f: impl FnOnce(&mut GlesRenderer) -> T,
     ) -> Option<T> {
+        let primary_render_node = self.devices.primary_render_node();
         let mut renderer = self
-            .gpu_manager
-            .single_renderer(&self.primary_render_node)
+            .devices
+            .gpu_manager_mut()
+            .single_renderer(&primary_render_node)
             .ok()?;
         Some(f(renderer.as_gles_renderer()))
     }
@@ -1651,6 +1667,10 @@ impl Tty {
         let mut rv = RenderResult::Skipped;
 
         let tty_state: &TtyOutputState = output.user_data().get().unwrap();
+
+        // Extract values we need before getting mutable device reference.
+        let primary_render_node = self.devices.primary_render_node();
+
         let Some(device) = self.devices.get_mut(&tty_state.node) else {
             error!("missing output device");
             return rv;
@@ -1669,10 +1689,14 @@ impl Tty {
             return rv;
         }
 
-        let mut renderer = match self.gpu_manager.renderer(
-            &self.primary_render_node,
-            &device.render_node.unwrap_or(self.primary_render_node),
-            surface.compositor.format(),
+        // Extract values before getting renderer (which borrows gpu_manager).
+        let device_render_node = device.render_node;
+        let surface_format = surface.compositor.format();
+
+        let mut renderer = match self.devices.gpu_manager.renderer(
+            &primary_render_node,
+            &device_render_node.unwrap_or(primary_render_node),
+            surface_format,
         ) {
             Ok(renderer) => renderer,
             Err(err) => {
@@ -1680,6 +1704,10 @@ impl Tty {
                 return rv;
             }
         };
+
+        // Access surface directly through devices.devices to avoid borrow conflict with gpu_manager.
+        let device = self.devices.devices.get_mut(&tty_state.node).unwrap();
+        let surface = device.surfaces.get_mut(&tty_state.crtc).unwrap();
 
         // Render the elements.
         let mut elements =
@@ -1827,7 +1855,8 @@ impl Tty {
     }
 
     pub fn import_dmabuf(&mut self, dmabuf: &Dmabuf) -> bool {
-        let mut renderer = match self.gpu_manager.single_renderer(&self.primary_render_node) {
+        let primary_render_node = self.devices.primary_render_node;
+        let mut renderer = match self.devices.gpu_manager.single_renderer(&primary_render_node) {
             Ok(renderer) => renderer,
             Err(err) => {
                 debug!("error creating renderer for primary GPU: {err:?}");
@@ -1837,7 +1866,7 @@ impl Tty {
 
         match renderer.import_dmabuf(dmabuf, None) {
             Ok(_texture) => {
-                dmabuf.set_node(Some(self.primary_render_node));
+                dmabuf.set_node(Some(primary_render_node));
                 true
             }
             Err(err) => {
@@ -1848,9 +1877,10 @@ impl Tty {
     }
 
     pub fn early_import(&mut self, surface: &WlSurface) {
-        if let Err(err) = self.gpu_manager.early_import(
+        let primary_render_node = self.devices.primary_render_node;
+        if let Err(err) = self.devices.gpu_manager.early_import(
             // We always render on the primary GPU.
-            self.primary_render_node,
+            primary_render_node,
             surface,
         ) {
             warn!("error doing early import: {err:?}");
@@ -2024,9 +2054,9 @@ impl Tty {
         let device = self
             .devices
             .values()
-            .find(|d| d.render_node == Some(self.primary_render_node));
+            .find(|d| d.render_node == Some(self.devices.primary_render_node()));
         // Otherwise, try to get the device corresponding to the primary node.
-        let device = device.or_else(|| self.devices.get(&self.primary_node));
+        let device = device.or_else(|| self.devices.get(&self.devices.primary_node()));
 
         Some(device?.gbm.clone())
     }
@@ -2058,25 +2088,29 @@ impl Tty {
         if output_state.frame_clock.vrr() == enable_vrr {
             return;
         }
-        for (&node, device) in self.devices.iter_mut() {
-            for (&crtc, surface) in device.surfaces.iter_mut() {
-                let tty_state: &TtyOutputState = output.user_data().get().unwrap();
-                if tty_state.node == node && tty_state.crtc == crtc {
-                    let word = if enable_vrr { "enabling" } else { "disabling" };
-                    if let Err(err) = surface.compositor.use_vrr(enable_vrr) {
-                        warn!(
-                            "output {:?}: error {} VRR: {err:?}",
-                            surface.name.connector, word
-                        );
-                    }
-                    output_state
-                        .frame_clock
-                        .set_vrr(surface.compositor.vrr_enabled());
+        let tty_state: &TtyOutputState = output.user_data().get().unwrap();
+        let target_node = tty_state.node;
+        let target_crtc = tty_state.crtc;
 
-                    self.refresh_ipc_outputs(niri);
-                    return;
+        let mut found = false;
+        if let Some(device) = self.devices.devices.get_mut(&target_node) {
+            if let Some(surface) = device.surfaces.get_mut(&target_crtc) {
+                let word = if enable_vrr { "enabling" } else { "disabling" };
+                if let Err(err) = surface.compositor.use_vrr(enable_vrr) {
+                    warn!(
+                        "output {:?}: error {} VRR: {err:?}",
+                        surface.name.connector, word
+                    );
                 }
+                output_state
+                    .frame_clock
+                    .set_vrr(surface.compositor.vrr_enabled());
+                found = true;
             }
+        }
+
+        if found {
+            self.refresh_ipc_outputs(niri);
         }
     }
 
@@ -2090,16 +2124,16 @@ impl Tty {
         }
 
         let mut ignored_nodes = ignored_nodes_from_config(&self.config.borrow());
-        if ignored_nodes.remove(&self.primary_node)
-            || ignored_nodes.remove(&self.primary_render_node)
+        if ignored_nodes.remove(&self.devices.primary_node())
+            || ignored_nodes.remove(&self.devices.primary_render_node())
         {
             warn!("ignoring the primary node or render node is not allowed");
         }
 
-        if ignored_nodes == self.ignored_nodes {
+        if &ignored_nodes == self.devices.ignored_nodes() {
             return;
         }
-        self.ignored_nodes = ignored_nodes;
+        self.devices.set_ignored_nodes(ignored_nodes);
 
         let mut device_list = self
             .udev_dispatcher
@@ -2112,7 +2146,7 @@ impl Tty {
             .devices
             .keys()
             .filter(|node| {
-                self.ignored_nodes.contains(node) || !device_list.contains_key(&node.dev_id())
+                self.devices.ignored_nodes().contains(node) || !device_list.contains_key(&node.dev_id())
             })
             .copied()
             .collect::<Vec<_>>();
