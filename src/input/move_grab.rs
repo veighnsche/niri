@@ -156,16 +156,8 @@ impl MoveGrab {
             // Check if the gesture moved far enough to decide.
             let c = location - self.start_data.location();
             if c.x * c.x + c.y * c.y >= 8. * 8. {
-                let is_floating = data
-                    .niri
-                    .layout
-                    .workspaces()
-                    .find_map(|(_, _, ws)| {
-                        ws.windows()
-                            .any(|w| w.window == self.window)
-                            .then(|| ws.is_floating(&self.window))
-                    })
-                    .unwrap_or(false);
+                // TEAM_109: Use Layout::is_window_floating which properly checks floating space
+                let is_floating = data.niri.layout.is_window_floating(&self.window);
 
                 let is_view_offset =
                     self.enable_view_offset && !is_floating && c.x.abs() > c.y.abs();

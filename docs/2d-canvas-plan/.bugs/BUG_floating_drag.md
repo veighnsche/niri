@@ -16,7 +16,7 @@ Cannot drag floating windows by their title bar. Title bar buttons (close, maxim
 | 002 | TEAM_106 | interactive_move_begin not finding floating | INCONCLUSIVE | Added logging, needs testing |
 
 ## Current Status
-INVESTIGATING
+**FIXED** by TEAM_109
 
 ## Investigation Notes (TEAM_106)
 
@@ -49,9 +49,33 @@ INVESTIGATING
 - `src/layout/layout_impl/interactive_move.rs` - interactive_move_begin/update/end
 - `src/layout/canvas/floating/mod.rs` - FloatingSpace::window_under
 
-## Recommended Next Steps for CHASE_003
-1. Add logging to `xdg_shell.rs::move_request()` to see if it's even called
-2. Add logging to `MoveGrab::new()` to see if grab is created
-3. Add logging to `MoveGrab::begin_move()` to see if move starts
-4. Check if `interactive_move_update()` is being called with correct deltas
-5. Compare with main branch's floating drag behavior
+## Root Cause (TEAM_109)
+
+The bug was in `src/input/move_grab.rs` lines 159-168.
+
+**Problem**: When recognizing a drag gesture, the code checked `is_floating` using `layout.workspaces()` which only iterates over rows (tiled windows), NOT the floating space.
+
+```rust
+let is_floating = data.niri.layout.workspaces()
+    .find_map(|(_, _, ws)| {
+        ws.windows().any(|w| w.window == self.window)
+            .then(|| ws.is_floating(&self.window))
+    })
+    .unwrap_or(false);  // Always false for floating windows!
+```
+
+**Result**:
+1. `is_floating = false` for floating windows (wrong!)
+2. Horizontal drag → `is_view_offset = true`
+3. `begin_view_offset()` searches `workspaces()`, doesn't find floating window
+4. Returns `false` → grab ends, no move happens
+
+## Fix (TEAM_109)
+
+1. Added `Layout::is_window_floating(&smithay::desktop::Window)` method to `window_ops.rs`
+2. Method checks all monitors' floating spaces using `is_wl_surface()` comparison
+3. Updated `move_grab.rs` to use the new method
+
+## Files Modified
+- `src/layout/layout_impl/window_ops.rs` - Added `is_window_floating` method
+- `src/input/move_grab.rs` - Use new method for `is_floating` check

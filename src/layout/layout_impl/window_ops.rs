@@ -7,6 +7,7 @@ use niri_ipc::SizeChange;
 use smithay::output::Output;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::Serial;
+use smithay::wayland::seat::WaylandFocus;
 
 use super::super::row_types::RowAddWindowTarget;
 use super::super::{
@@ -480,5 +481,42 @@ impl<W: LayoutElement> Layout<W> {
         }
 
         None
+    }
+
+    /// TEAM_109: Check if a window is in the floating space.
+    ///
+    /// Returns true if the window is found in any monitor's floating space.
+    /// Takes a smithay Window reference and uses is_wl_surface for comparison.
+    pub fn is_window_floating(&self, window: &smithay::desktop::Window) -> bool {
+        let Some(wl_surface) = window.wl_surface() else {
+            return false;
+        };
+
+        match &self.monitor_set {
+            MonitorSet::Normal { monitors, .. } => {
+                for mon in monitors {
+                    // Check if the window is in this monitor's floating space
+                    if mon
+                        .canvas
+                        .floating
+                        .tiles()
+                        .any(|tile| tile.window().is_wl_surface(&wl_surface))
+                    {
+                        return true;
+                    }
+                }
+            }
+            MonitorSet::NoOutputs { canvas, .. } => {
+                // Check if the window is in the floating space
+                if canvas
+                    .floating
+                    .tiles()
+                    .any(|tile| tile.window().is_wl_surface(&wl_surface))
+                {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }

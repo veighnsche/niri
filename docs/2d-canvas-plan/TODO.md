@@ -77,11 +77,12 @@ src/layout/  (79 files)
 **Actual**: All other tiles IMMEDIATELY animate to the left and go off-screen fast  
 **Additional**: When dropped, tiles return. Picking up again causes them to fly left again.  
 
-### BUG-003: Cannot drag floating windows by title bar
+### BUG-003: Cannot drag floating windows by title bar ✅ FIXED
 **Severity**: High  
 **Expected**: Floating windows can be dragged by clicking and dragging their title bar (CSD)  
 **Actual**: Title bar drag does not move floating windows  
-**Note**: Title bar buttons (close/maximize) now work, but drag doesn't
+**Root Cause**: `move_grab.rs` checked `is_floating` using `workspaces()` which doesn't include floating space - always returned `false` for floating windows, causing horizontal drags to fail  
+**Fix**: TEAM_109 - Added `Layout::is_window_floating()` method and updated move_grab.rs. See `.bugs/BUG_floating_drag.md`
 
 ### BUG-004: Mod+R/Mod+F affects tiled windows when floating is active ✅ FIXED
 
