@@ -468,10 +468,9 @@ impl<I: InputBackend> PointerInput<I> for State {
                     } else {
                         // We don't want to accidentally "catch" the wrong workspace during
                         // animations.
-                        // TEAM_033: active_workspace_ref() returns Option, so flatten it
                         self.niri.output_under_cursor().and_then(|output| {
                             let mon = self.niri.layout.monitor_for_output(&output)?;
-                            let ws = mon.active_workspace_ref()?;
+                            let ws = mon.canvas().active_row()?;
                             Some((output, ws))
                         })
                     };
@@ -895,7 +894,7 @@ impl<I: InputBackend> PointerInput<I> for State {
                         redraw |= self
                             .niri
                             .layout
-                            .workspace_switch_gesture_end(Some(true))
+                            .row_switch_gesture_end(Some(true))
                             .is_some();
                     } else {
                         redraw |= self
@@ -911,7 +910,7 @@ impl<I: InputBackend> PointerInput<I> for State {
                             if let Some(output) = self.niri.output_under_cursor() {
                                 self.niri
                                     .layout
-                                    .workspace_switch_gesture_begin(&output, true);
+                                    .row_switch_gesture_begin(&output, true);
                                 redraw = true;
                             }
                         }
@@ -919,7 +918,7 @@ impl<I: InputBackend> PointerInput<I> for State {
                         let res = self
                             .niri
                             .layout
-                            .workspace_switch_gesture_update(vertical, timestamp, true);
+                            .row_switch_gesture_update(vertical, timestamp, true);
                         if let Some(Some(_)) = res {
                             redraw = true;
                         }
@@ -961,7 +960,7 @@ impl<I: InputBackend> PointerInput<I> for State {
                         redraw |= self
                             .niri
                             .layout
-                            .workspace_switch_gesture_end(Some(true))
+                            .row_switch_gesture_end(Some(true))
                             .is_some();
                     } else {
                         redraw |= self

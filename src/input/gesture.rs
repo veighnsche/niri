@@ -132,11 +132,9 @@ where
                         } else {
                             // We don't want to accidentally "catch" the wrong workspace during
                             // animations.
-                            // TEAM_033: active_workspace_ref() returns Option, so flatten it
-                            self.niri.output_under_cursor().and_then(|output| {
-                                let mon = self.niri.layout.monitor_for_output(&output)?;
-                                let ws = mon.active_workspace_ref()?;
-                                Some((output, ws))
+                            self.niri.layout.monitor_for_output(&output).and_then(|mon| {
+                                let ws = mon.canvas().active_row()?;
+                                Some((output.clone(), ws))
                             })
                         };
 
@@ -151,7 +149,7 @@ where
                     } else {
                         self.niri
                             .layout
-                            .workspace_switch_gesture_begin(&output, true);
+                            .row_switch_gesture_begin(&output, true);
                     }
                 }
             }
@@ -163,7 +161,7 @@ where
         let res = self
             .niri
             .layout
-            .workspace_switch_gesture_update(delta_y, timestamp, true);
+            .row_switch_gesture_update(delta_y, timestamp, true);
         if let Some(output) = res {
             if let Some(output) = output {
                 self.niri.queue_redraw(&output);
@@ -208,7 +206,7 @@ where
         self.niri.input.set_swipe_3f(None);
 
         let mut handled = false;
-        let res = self.niri.layout.workspace_switch_gesture_end(Some(true));
+        let res = self.niri.layout.row_switch_gesture_end(Some(true));
         if let Some(output) = res {
             self.niri.queue_redraw(&output);
             handled = true;

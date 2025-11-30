@@ -4,7 +4,7 @@
 
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
-use crate::layout::monitor::{InsertWorkspace, Monitor};
+use crate::layout::monitor::{InsertRow, Monitor};
 use crate::layout::{HitType, LayoutElement};
 use crate::utils::ResizeEdge;
 
@@ -100,7 +100,7 @@ impl<W: LayoutElement> Monitor<W> {
     pub(in crate::layout) fn insert_position(
         &self,
         pos_within_output: Point<f64, Logical>,
-    ) -> (InsertWorkspace, Rectangle<f64, Logical>) {
+    ) -> (InsertRow, Rectangle<f64, Logical>) {
         let mut iter = self.workspaces_with_render_geo_idx();
 
         let dummy = Rectangle::default();
@@ -110,7 +110,7 @@ impl<W: LayoutElement> Monitor<W> {
 
         // Check if above first.
         if pos_within_output.y < geo.loc.y {
-            return (InsertWorkspace::NewAt(idx as usize), dummy);
+            return (InsertRow::NewAt(idx as usize), dummy);
         }
 
         let contains = move |geo: Rectangle<f64, Logical>| {
@@ -120,7 +120,7 @@ impl<W: LayoutElement> Monitor<W> {
         // Check first.
         // TEAM_050: Use actual workspace ID, not synthetic ID from index
         if contains(geo) {
-            return (InsertWorkspace::Existing(ws.id()), geo);
+            return (InsertRow::Existing(ws.id()), geo);
         }
 
         let mut last_geo = geo;
@@ -131,12 +131,12 @@ impl<W: LayoutElement> Monitor<W> {
             let gap_size = Size::from((geo.size.w, geo.loc.y - gap_loc.y));
             let gap_geo = Rectangle::new(gap_loc, gap_size);
             if contains(gap_geo) {
-                return (InsertWorkspace::NewAt(idx as usize), dummy);
+                return (InsertRow::NewAt(idx as usize), dummy);
             }
 
             // Check workspace itself.
             if contains(geo) {
-                return (InsertWorkspace::Existing(ws.id()), geo);
+                return (InsertRow::Existing(ws.id()), geo);
             }
 
             last_geo = geo;
@@ -144,7 +144,7 @@ impl<W: LayoutElement> Monitor<W> {
         }
 
         // Anything below.
-        (InsertWorkspace::NewAt((last_idx + 1) as usize), dummy)
+        (InsertRow::NewAt((last_idx + 1) as usize), dummy)
     }
 
     // =========================================================================
@@ -155,8 +155,7 @@ impl<W: LayoutElement> Monitor<W> {
     ///
     /// During animations, assumes the final view position.
     pub fn active_tile_visual_rectangle(&self) -> Option<Rectangle<f64, Logical>> {
-        // DEPRECATED(overview): Removed overview_open check
-        self.active_workspace_ref()
+        self.canvas.active_row()
             .and_then(|ws| ws.active_tile_visual_rectangle())
     }
 }

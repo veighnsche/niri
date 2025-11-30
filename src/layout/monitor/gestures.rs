@@ -1,7 +1,6 @@
 // TEAM_013: Gesture methods extracted from monitor.rs
 //!
-//! This module contains workspace switch gesture handling.
-//! LEGACY: These will be removed when workspaces are fully replaced by Canvas2D.
+//! This module contains row switch gesture handling.
 
 use std::time::Duration;
 
@@ -10,21 +9,21 @@ use smithay::utils::{Logical, Point};
 use crate::animation::Animation;
 use crate::input::swipe_tracker::SwipeTracker;
 use crate::layout::monitor::{
-    Monitor, WorkspaceSwitch, WorkspaceSwitchGesture, WORKSPACE_DND_EDGE_SCROLL_MOVEMENT,
-    WORKSPACE_GESTURE_MOVEMENT, WORKSPACE_GESTURE_RUBBER_BAND,
+    Monitor, RowSwitch, RowSwitchGesture, ROW_DND_EDGE_SCROLL_MOVEMENT, ROW_GESTURE_MOVEMENT,
+    ROW_GESTURE_RUBBER_BAND,
 };
 use crate::layout::LayoutElement;
 
 impl<W: LayoutElement> Monitor<W> {
     // =========================================================================
-    // Workspace switch gestures
+    // Row switch gestures
     // =========================================================================
 
-    pub fn workspace_switch_gesture_begin(&mut self, is_touchpad: bool) {
+    pub fn row_switch_gesture_begin(&mut self, is_touchpad: bool) {
         let center_idx = self.active_row_idx();
-        let current_idx = self.workspace_render_idx();
+        let current_idx = self.row_render_idx();
 
-        let gesture = WorkspaceSwitchGesture {
+        let gesture = RowSwitchGesture {
             center_idx,
             start_idx: current_idx,
             current_idx,
@@ -36,16 +35,16 @@ impl<W: LayoutElement> Monitor<W> {
             dnd_last_event_time: None,
             dnd_nonzero_start_time: None,
         };
-        self.workspace_switch = Some(WorkspaceSwitch::Gesture(gesture));
+        self.row_switch = Some(RowSwitch::Gesture(gesture));
     }
 
-    pub fn workspace_switch_gesture_update(
+    pub fn row_switch_gesture_update(
         &mut self,
         delta_y: f64,
         timestamp: Duration,
         is_touchpad: bool,
     ) -> Option<bool> {
-        let Some(WorkspaceSwitch::Gesture(gesture)) = &self.workspace_switch else {
+        let Some(RowSwitch::Gesture(gesture)) = &self.row_switch else {
             return None;
         };
 
@@ -56,12 +55,12 @@ impl<W: LayoutElement> Monitor<W> {
         // Overview mode has been removed, zoom is always 1.0
         let zoom = 1.0;
         let total_height = if gesture.is_touchpad {
-            WORKSPACE_GESTURE_MOVEMENT
+            ROW_GESTURE_MOVEMENT
         } else {
             self.workspace_size_with_gap(1.)
         };
 
-        let Some(WorkspaceSwitch::Gesture(gesture)) = &mut self.workspace_switch else {
+        let Some(RowSwitch::Gesture(gesture)) = &mut self.row_switch else {
             return None;
         };
 
@@ -73,7 +72,7 @@ impl<W: LayoutElement> Monitor<W> {
         };
 
         let delta_y = delta_y / delta_scale;
-        let mut rubber_band = WORKSPACE_GESTURE_RUBBER_BAND;
+        let mut rubber_band = ROW_GESTURE_RUBBER_BAND;
         rubber_band.limit /= zoom;
 
         gesture.tracker.push(delta_y, timestamp);
@@ -92,8 +91,8 @@ impl<W: LayoutElement> Monitor<W> {
         Some(true)
     }
 
-    pub fn workspace_switch_gesture_end(&mut self, is_touchpad: Option<bool>) -> bool {
-        let Some(WorkspaceSwitch::Gesture(gesture)) = &self.workspace_switch else {
+    pub fn row_switch_gesture_end(&mut self, is_touchpad: Option<bool>) -> bool {
+        let Some(RowSwitch::Gesture(gesture)) = &self.row_switch else {
             return false;
         };
 
@@ -104,9 +103,9 @@ impl<W: LayoutElement> Monitor<W> {
         // Overview mode has been removed, zoom is always 1.0
         let zoom = 1.0;
         let total_height = if gesture.dnd_last_event_time.is_some() {
-            WORKSPACE_DND_EDGE_SCROLL_MOVEMENT
+            ROW_DND_EDGE_SCROLL_MOVEMENT
         } else if gesture.is_touchpad {
-            WORKSPACE_GESTURE_MOVEMENT
+            ROW_GESTURE_MOVEMENT
         } else {
             self.workspace_size_with_gap(1.)
         };
@@ -115,7 +114,7 @@ impl<W: LayoutElement> Monitor<W> {
         let current_active_idx = self.active_row_idx();
         let row_count = self.canvas.rows().count();
 
-        let Some(WorkspaceSwitch::Gesture(gesture)) = &mut self.workspace_switch else {
+        let Some(RowSwitch::Gesture(gesture)) = &mut self.row_switch else {
             return false;
         };
 
@@ -123,7 +122,7 @@ impl<W: LayoutElement> Monitor<W> {
         let now = self.clock.now_unadjusted();
         gesture.tracker.push(0., now);
 
-        let mut rubber_band = WORKSPACE_GESTURE_RUBBER_BAND;
+        let mut rubber_band = ROW_GESTURE_RUBBER_BAND;
         rubber_band.limit /= zoom;
 
         let mut velocity = gesture.tracker.velocity() / total_height;
@@ -145,12 +144,11 @@ impl<W: LayoutElement> Monitor<W> {
 
         // Set active row in canvas - this handles camera animation and tracking
         self.canvas.focus_row(new_idx as i32);
-        self.workspace_switch = Some(WorkspaceSwitch::Animation(Animation::new(
+        self.row_switch = Some(RowSwitch::Animation(Animation::new(
             self.clock.clone(),
             gesture.current_idx,
             new_idx as f64,
             velocity,
-            // TEAM_055: Renamed from workspace_switch to row_switch
             self.options.animations.row_switch.0,
         )));
 
@@ -165,7 +163,7 @@ impl<W: LayoutElement> Monitor<W> {
         // Overview mode has been removed, zoom is always 1.0
         let zoom = 1.0;
 
-        let Some(WorkspaceSwitch::Gesture(gesture)) = &mut self.workspace_switch else {
+        let Some(RowSwitch::Gesture(gesture)) = &mut self.row_switch else {
             return false;
         };
 
@@ -177,7 +175,7 @@ impl<W: LayoutElement> Monitor<W> {
         let config = &self.options.gestures.dnd_edge_workspace_switch;
         let trigger_height = config.trigger_height;
 
-        // Restrict the scrolling horizontally to the strip of workspaces to avoid unwanted trigger
+        // Restrict the scrolling horizontally to the strip of rows to avoid unwanted trigger
         // after using the hot corner or during horizontal scroll.
         let width = self.view_size.w * zoom;
         let x = pos.x - (self.view_size.w - width) / 2.;
@@ -233,7 +231,7 @@ impl<W: LayoutElement> Monitor<W> {
 
         gesture.tracker.push(delta, now);
 
-        let total_height = WORKSPACE_DND_EDGE_SCROLL_MOVEMENT;
+        let total_height = ROW_DND_EDGE_SCROLL_MOVEMENT;
         let pos = gesture.tracker.pos() / total_height;
         let unclamped = gesture.start_idx + pos;
 
@@ -249,8 +247,8 @@ impl<W: LayoutElement> Monitor<W> {
 
     pub fn dnd_scroll_gesture_end(&mut self) {
         if !matches!(
-            self.workspace_switch,
-            Some(WorkspaceSwitch::Gesture(WorkspaceSwitchGesture {
+            self.row_switch,
+            Some(RowSwitch::Gesture(RowSwitchGesture {
                 dnd_last_event_time: Some(_),
                 ..
             }))
@@ -259,6 +257,6 @@ impl<W: LayoutElement> Monitor<W> {
             return;
         };
 
-        self.workspace_switch_gesture_end(None);
+        self.row_switch_gesture_end(None);
     }
 }

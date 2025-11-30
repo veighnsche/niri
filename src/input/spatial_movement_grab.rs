@@ -26,7 +26,7 @@ pub struct SpatialMovementGrab {
 enum GestureState {
     Recognizing,
     ViewOffset,
-    WorkspaceSwitch,
+    RowSwitch,
 }
 
 impl SpatialMovementGrab {
@@ -56,7 +56,7 @@ impl SpatialMovementGrab {
         let res = match self.gesture {
             GestureState::Recognizing => None,
             GestureState::ViewOffset => layout.view_offset_gesture_end(Some(false)),
-            GestureState::WorkspaceSwitch => layout.workspace_switch_gesture_end(Some(false)),
+            GestureState::RowSwitch => layout.row_switch_gesture_end(Some(false)),
         };
 
         if let Some(output) = res {
@@ -95,9 +95,14 @@ impl PointerGrab<State> for SpatialMovementGrab {
                 if c.x * c.x + c.y * c.y >= 8. * 8. {
                     if c.x.abs() > c.y.abs() {
                         self.gesture = GestureState::ViewOffset;
-                        if let Some((ws_idx, ws)) = layout.find_workspace_by_id(self.workspace_id) {
-                            // TEAM_033: Clone output for comparison
-                            if ws.current_output() == Some(self.output.clone()) {
+                        // Check if the workspace is on the expected output
+                        if let Some((ws_idx, output)) = layout.find_workspace_by_id(self.workspace_id)
+                            .and_then(|(idx, _ws)| {
+                                layout.output_for_workspace_by_id(self.workspace_id)
+                                    .map(|out| (idx, out))
+                            })
+                        {
+                            if output == self.output {
                                 layout.view_offset_gesture_begin(
                                     &self.output,
                                     Some(ws_idx as usize),
@@ -111,9 +116,9 @@ impl PointerGrab<State> for SpatialMovementGrab {
                             None
                         }
                     } else {
-                        self.gesture = GestureState::WorkspaceSwitch;
-                        layout.workspace_switch_gesture_begin(&self.output, false);
-                        layout.workspace_switch_gesture_update(-c.y, timestamp, false)
+                        self.gesture = GestureState::RowSwitch;
+                        layout.row_switch_gesture_begin(&self.output, false);
+                        layout.row_switch_gesture_update(-c.y, timestamp, false)
                     }
                 } else {
                     Some(None)
@@ -122,8 +127,8 @@ impl PointerGrab<State> for SpatialMovementGrab {
             GestureState::ViewOffset => {
                 layout.view_offset_gesture_update(-delta.x, timestamp, false)
             }
-            GestureState::WorkspaceSwitch => {
-                layout.workspace_switch_gesture_update(-delta.y, timestamp, false)
+            GestureState::RowSwitch => {
+                layout.row_switch_gesture_update(-delta.y, timestamp, false)
             }
         };
 

@@ -6,7 +6,7 @@
 
 use std::cmp::min;
 
-use crate::layout::monitor::{Monitor, WorkspaceSwitch};
+use crate::layout::monitor::{Monitor, RowSwitch};
 use crate::layout::LayoutElement;
 
 impl<W: LayoutElement> Monitor<W> {
@@ -21,8 +21,8 @@ impl<W: LayoutElement> Monitor<W> {
 
     pub fn switch_row_up(&mut self) {
         let current_idx = self.canvas.active_row_idx();
-        let new_idx = match &self.workspace_switch {
-            Some(WorkspaceSwitch::Gesture(gesture)) if gesture.dnd_last_event_time.is_some() => {
+        let new_idx = match &self.row_switch {
+            Some(RowSwitch::Gesture(gesture)) if gesture.dnd_last_event_time.is_some() => {
                 let current = gesture.current_idx;
                 let new = current.ceil() - 1.;
                 new.clamp(0., (self.row_count() - 1) as f64) as i32
@@ -35,8 +35,8 @@ impl<W: LayoutElement> Monitor<W> {
 
     pub fn switch_row_down(&mut self) {
         let current_idx = self.canvas.active_row_idx();
-        let new_idx = match &self.workspace_switch {
-            Some(WorkspaceSwitch::Gesture(gesture)) if gesture.dnd_last_event_time.is_some() => {
+        let new_idx = match &self.row_switch {
+            Some(RowSwitch::Gesture(gesture)) if gesture.dnd_last_event_time.is_some() => {
                 let current = gesture.current_idx;
                 let new = current.floor() + 1.;
                 new.clamp(0., (self.row_count() - 1) as f64) as i32
@@ -172,9 +172,9 @@ impl<W: LayoutElement> Monitor<W> {
     // Row render index
     // =========================================================================
 
-    pub fn workspace_render_idx(&self) -> f64 {
+    pub fn row_render_idx(&self) -> f64 {
         // TEAM_022: Returns the current row index for rendering
-        if let Some(switch) = &self.workspace_switch {
+        if let Some(switch) = &self.row_switch {
             switch.current_idx()
         } else {
             self.canvas.active_row_idx() as f64

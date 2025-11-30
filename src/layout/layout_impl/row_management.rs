@@ -29,6 +29,21 @@ impl<W: LayoutElement> Layout<W> {
         None
     }
 
+    /// Get the output containing a workspace by ID.
+    pub fn output_for_workspace_by_id(&self, id: RowId) -> Option<smithay::output::Output> {
+        match &self.monitor_set {
+            MonitorSet::Normal { ref monitors, .. } => {
+                for mon in monitors {
+                    if mon.canvas.rows().any(|(_, w)| w.id() == id) {
+                        return Some(mon.output.clone());
+                    }
+                }
+            }
+            MonitorSet::NoOutputs { .. } => {}
+        }
+        None
+    }
+
     // TEAM_056: Backwards compatibility alias for find_row_by_name
     pub fn find_workspace_by_name(&self, name: &str) -> Option<(i32, &crate::layout::row::Row<W>)> {
         self.find_row_by_name(name)

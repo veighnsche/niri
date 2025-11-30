@@ -86,8 +86,8 @@ pub(crate) struct DndHold<W: LayoutElement> {
 pub(crate) enum DndHoldTarget<WindowId> {
     /// Holding over a window.
     Window(WindowId),
-    /// Holding over a workspace/row.
-    Workspace(RowId),
+    /// Holding over a row.
+    Row(RowId),
 }
 
 impl<W: LayoutElement> InteractiveMoveState<W> {

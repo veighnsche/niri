@@ -53,7 +53,7 @@ use types::{ColumnWidth, ScrollDirection};
 
 // TEAM_060: Removed WorkspaceId type alias - using RowId directly
 pub use self::monitor::MonitorRenderElement;
-use self::monitor::{Monitor, WorkspaceSwitch};
+use self::monitor::{Monitor, RowSwitch};
 // DEPRECATED(overview): Removed Animation and SwipeTracker imports (no longer needed)
 use crate::animation::Clock;
 // TEAM_003: ScrollDirection now imported from types module above
@@ -475,8 +475,8 @@ pub enum AddWindowTarget<'a, W: LayoutElement> {
     Auto,
     /// On this output.
     Output(&'a Output),
-    /// On this workspace.
-    Workspace(RowId),
+    /// On this row.
+    Row(RowId),
     /// Next to this existing window.
     NextTo(&'a W::Id),
 }
@@ -1055,20 +1055,47 @@ impl<W: LayoutElement> Layout<W> {
             }
         }
 
-        let workspace = if let Some(window) = window {
-            Some(
-                self.workspaces_mut()
-                    .find(|ws| ws.has_window(window))
-                    .unwrap(),
-            )
-        } else {
-            self.active_row_mut()
-        };
-
-        let Some(workspace) = workspace else {
-            return;
-        };
-        workspace.set_window_floating(window, floating);
+        // Check current floating state and toggle if needed
+        match &mut self.monitor_set {
+            MonitorSet::Normal {
+                monitors,
+                active_monitor_idx,
+                ..
+            } => {
+                if let Some(window) = window {
+                    for mon in monitors.iter_mut() {
+                        if mon.canvas.contains_any(window) {
+                            let is_floating = mon.canvas.is_window_floating(window);
+                            if is_floating != floating {
+                                mon.canvas.toggle_floating_window_by_id(Some(window));
+                            }
+                            return;
+                        }
+                    }
+                } else {
+                    let mon = &mut monitors[*active_monitor_idx];
+                    let is_floating = mon.canvas.floating_is_active;
+                    if is_floating != floating {
+                        mon.canvas.toggle_floating_window_by_id(None);
+                    }
+                }
+            }
+            MonitorSet::NoOutputs { canvas, .. } => {
+                if let Some(window) = window {
+                    if canvas.contains_any(window) {
+                        let is_floating = canvas.is_window_floating(window);
+                        if is_floating != floating {
+                            canvas.toggle_floating_window_by_id(Some(window));
+                        }
+                    }
+                } else {
+                    let is_floating = canvas.floating_is_active;
+                    if is_floating != floating {
+                        canvas.toggle_floating_window_by_id(None);
+                    }
+                }
+            }
+        }
     }
 
     pub fn focus_floating(&mut self) {
@@ -1229,7 +1256,7 @@ impl<W: LayoutElement> Layout<W> {
             let mon = &mut monitors[new_idx];
             mon.add_tile(
                 removed.tile,
-                MonitorAddWindowTarget::Workspace {
+                MonitorAddWindowTarget::Row {
                     id: ws_id,
                     column_idx: None,
                 },
@@ -1244,7 +1271,7 @@ impl<W: LayoutElement> Layout<W> {
             }
 
             let mon = &mut monitors[mon_idx];
-            if mon.workspace_switch.is_none() {
+            if mon.row_switch.is_none() {
                 monitors[mon_idx].clean_up_workspaces();
             }
         }
@@ -1274,7 +1301,7 @@ impl<W: LayoutElement> Layout<W> {
                 return;
             }
 
-            let ws = current.active_workspace();
+            let ws = current.canvas_mut().active_row_mut();
 
             if let Some(ws) = ws {
                 let Some(column) = ws.remove_active_column() else {
@@ -1388,7 +1415,7 @@ impl<W: LayoutElement> Layout<W> {
     // TEAM_063: set_fullscreen, toggle_fullscreen, toggle_windowed_fullscreen,
     // set_maximized, toggle_maximized moved to layout_impl/fullscreen.rs
 
-    pub fn workspace_switch_gesture_begin(&mut self, output: &Output, is_touchpad: bool) {
+    pub fn row_switch_gesture_begin(&mut self, output: &Output, is_touchpad: bool) {
         let monitors = match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => monitors,
             MonitorSet::NoOutputs { .. } => unreachable!(),
@@ -1397,15 +1424,15 @@ impl<W: LayoutElement> Layout<W> {
         for monitor in monitors {
             // Cancel the gesture on other outputs.
             if &monitor.output != output {
-                monitor.workspace_switch_gesture_end(None);
+                monitor.row_switch_gesture_end(None);
                 continue;
             }
 
-            monitor.workspace_switch_gesture_begin(is_touchpad);
+            monitor.row_switch_gesture_begin(is_touchpad);
         }
     }
 
-    pub fn workspace_switch_gesture_update(
+    pub fn row_switch_gesture_update(
         &mut self,
         delta_y: f64,
         timestamp: Duration,
@@ -1418,7 +1445,7 @@ impl<W: LayoutElement> Layout<W> {
 
         for monitor in monitors {
             if let Some(refresh) =
-                monitor.workspace_switch_gesture_update(delta_y, timestamp, is_touchpad)
+                monitor.row_switch_gesture_update(delta_y, timestamp, is_touchpad)
             {
                 if refresh {
                     return Some(Some(monitor.output.clone()));
@@ -1431,14 +1458,14 @@ impl<W: LayoutElement> Layout<W> {
         None
     }
 
-    pub fn workspace_switch_gesture_end(&mut self, is_touchpad: Option<bool>) -> Option<Output> {
+    pub fn row_switch_gesture_end(&mut self, is_touchpad: Option<bool>) -> Option<Output> {
         let monitors = match &mut self.monitor_set {
             MonitorSet::Normal { monitors, .. } => monitors,
             MonitorSet::NoOutputs { .. } => return None,
         };
 
         for monitor in monitors {
-            if monitor.workspace_switch_gesture_end(is_touchpad) {
+            if monitor.row_switch_gesture_end(is_touchpad) {
                 return Some(monitor.output.clone());
             }
         }
@@ -1556,7 +1583,7 @@ impl<W: LayoutElement> Layout<W> {
         reference: Option<(Option<Output>, usize)>,
         new_idx: usize,
     ) {
-        let (monitor, old_idx) = if let Some((output, old_idx)) = reference {
+        let (_monitor, old_idx) = if let Some((output, old_idx)) = reference {
             let monitor = if let Some(output) = output {
                 let Some(monitor) = self.monitor_for_output_mut(&output) else {
                     return;
@@ -1579,7 +1606,9 @@ impl<W: LayoutElement> Layout<W> {
             (monitor, index)
         };
 
-        monitor.move_workspace_to_idx(old_idx, new_idx);
+        // TODO: Implement row reordering in Canvas2D
+        // For now, we can only move rows up/down, not to arbitrary indices
+        let _ = (old_idx, new_idx);
     }
 
     // TEAM_012: Renamed from set_workspace_name, simplified to not take reference

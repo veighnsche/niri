@@ -9,7 +9,7 @@ use smithay::backend::renderer::element::utils::{
 use smithay::utils::{Logical, Point, Rectangle, Size};
 
 use crate::layout::monitor::{
-    InsertHintRenderLoc, InsertWorkspace, Monitor, MonitorInnerRenderElement, MonitorRenderElement,
+    InsertHintRenderLoc, InsertRow, Monitor, MonitorInnerRenderElement, MonitorRenderElement,
 };
 use crate::layout::LayoutElement;
 use crate::render_helpers::renderer::NiriRenderer;
@@ -44,8 +44,8 @@ impl<W: LayoutElement> Monitor<W> {
         self.insert_hint_render_loc = None;
         if let Some(ref hint) = self.insert_hint {
             // Find the row for this hint and compute the hint area
-            let hint_area = match hint.workspace {
-                InsertWorkspace::Existing(ws_id) => {
+            let hint_area = match hint.row {
+                InsertRow::Existing(ws_id) => {
                     // Find the row with this workspace ID
                     if let Some(row_idx) = self.canvas.find_row_by_id(ws_id) {
                         self.canvas.rows().find_map(|(idx, row)| {
@@ -59,7 +59,7 @@ impl<W: LayoutElement> Monitor<W> {
                         None
                     }
                 }
-                InsertWorkspace::NewAt(_) => {
+                InsertRow::NewAt(_) => {
                     // For new workspaces, use the active row's hint area
                     if let Some(row) = self.canvas.active_row() {
                         row.insert_hint_area(hint.position)
@@ -71,7 +71,7 @@ impl<W: LayoutElement> Monitor<W> {
 
             if let Some(area) = hint_area {
                 self.insert_hint_render_loc = Some(InsertHintRenderLoc {
-                    workspace: hint.workspace,
+                    row: hint.row,
                     location: area.loc,
                 });
 
@@ -93,7 +93,7 @@ impl<W: LayoutElement> Monitor<W> {
 
     pub fn render_above_top_layer(&self) -> bool {
         // Render above the top layer only if the view is stationary.
-        if self.workspace_switch.is_some() {
+        if self.row_switch.is_some() {
             return false;
         }
 
@@ -105,7 +105,7 @@ impl<W: LayoutElement> Monitor<W> {
         }
     }
 
-    pub fn render_insert_hint_between_workspaces<R: NiriRenderer>(
+    pub fn render_insert_hint_between_rows<R: NiriRenderer>(
         &self,
         renderer: &mut R,
     ) -> impl Iterator<Item = MonitorRenderElement<R>> {
@@ -113,7 +113,7 @@ impl<W: LayoutElement> Monitor<W> {
 
         if !self.options.layout.insert_hint.off {
             if let Some(render_loc) = self.insert_hint_render_loc {
-                if let InsertWorkspace::NewAt(_) = render_loc.workspace {
+                if let InsertRow::NewAt(_) = render_loc.row {
                     let iter = self
                         .insert_hint_element
                         .render(renderer, render_loc.location)
@@ -227,7 +227,7 @@ impl<W: LayoutElement> Monitor<W> {
         let height = (self.view_size.h * scale).ceil() as i32;
 
         // Crop bounds for overflow prevention
-        let crop_bounds = if self.workspace_switch.is_some() {
+        let crop_bounds = if self.row_switch.is_some() {
             Rectangle::new(
                 Point::from((-i32::MAX / 2, 0)),
                 Size::from((i32::MAX, height)),

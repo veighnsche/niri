@@ -607,7 +607,7 @@ impl Niri {
         let _zoom = 1.0;
         let monitor_elements = mon.render_elements(renderer, target, focus_ring);
         // render_workspace_shadows removed - workspace shadows no longer exist
-        let insert_hint_elements = mon.render_insert_hint_between_workspaces(renderer);
+        let insert_hint_elements = mon.render_insert_hint_between_rows(renderer);
         let int_move_elements: Vec<_> = self
             .layout
             .render_interactive_move_for_output(renderer, output, target)

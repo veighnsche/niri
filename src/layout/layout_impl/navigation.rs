@@ -446,10 +446,28 @@ impl<W: LayoutElement> Layout<W> {
     }
 
     pub fn expel_from_column(&mut self) {
-        let Some(workspace) = self.active_row_mut() else {
+        // Expel active tile from column to floating layer
+        // This needs to happen at Canvas2D level since floating is there
+        let Some(mon) = self.active_monitor() else {
             return;
         };
-        workspace.expel_from_column();
+
+        // Get the active window from the active row's active column
+        let Some(window_id) = mon.canvas.active_row().and_then(|row| {
+            row.active_column().and_then(|col| {
+                // Only expel if column has more than one tile
+                if col.tiles.len() > 1 {
+                    col.tiles.get(col.active_tile_idx).map(|t| t.window().id().clone())
+                } else {
+                    None
+                }
+            })
+        }) else {
+            return;
+        };
+
+        // Toggle to floating (removes from tiled and adds to floating)
+        mon.canvas.toggle_floating_window_by_id(Some(&window_id));
     }
 
     pub fn swap_window_in_direction(&mut self, direction: ScrollDirection) {

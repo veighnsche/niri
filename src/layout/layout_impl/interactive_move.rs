@@ -8,7 +8,7 @@ use smithay::output::Output;
 use smithay::utils::{Logical, Point};
 
 use super::types::{DndData, InteractiveMoveData, InteractiveMoveState};
-use crate::layout::monitor::{InsertPosition, InsertWorkspace, MonitorAddWindowTarget};
+use crate::layout::monitor::{InsertPosition, InsertRow, MonitorAddWindowTarget};
 use crate::layout::{
     ActivateWindow, Layout, LayoutElement, MonitorSet, Options, RemovedTile,
     INTERACTIVE_MOVE_ALPHA, INTERACTIVE_MOVE_START_THRESHOLD,
@@ -390,7 +390,7 @@ impl<W: LayoutElement> Layout<W> {
                 let mut ws_id = None;
                 if let Some(mon) = self.monitor_for_output(&output) {
                     let (insert_ws, _) = mon.insert_position(move_.pointer_pos_within_output);
-                    if let InsertWorkspace::Existing(id) = insert_ws {
+                    if let InsertRow::Existing(id) = insert_ws {
                         ws_id = Some(id);
                     }
                 }
@@ -553,7 +553,7 @@ impl<W: LayoutElement> Layout<W> {
 
                         let (insert_ws, geo) = mon.insert_position(move_.pointer_pos_within_output);
                         let (position, offset) = match insert_ws {
-                            InsertWorkspace::Existing(ws_id) => {
+                            InsertRow::Existing(ws_id) => {
                                 // TEAM_035: Extract row from tuple
                                 let ws_idx = mon
                                     .canvas
@@ -573,7 +573,7 @@ impl<W: LayoutElement> Layout<W> {
 
                                 (position, Some(geo.loc))
                             }
-                            InsertWorkspace::NewAt(_) => {
+                            InsertRow::NewAt(_) => {
                                 let position = if move_.is_floating {
                                     InsertPosition::Floating
                                 } else {
@@ -599,7 +599,7 @@ impl<W: LayoutElement> Layout<W> {
                             ws.scrolling_insert_position(Point::from((0., 0.)))
                         };
 
-                        let insert_ws = InsertWorkspace::Existing(ws.id());
+                        let insert_ws = InsertRow::Existing(ws.id());
                         // TEAM_014: zoom always 1.0 (Part 3)
                         (mon, insert_ws, position, Some(ws_geo.loc), 1.0)
                     };
@@ -609,12 +609,12 @@ impl<W: LayoutElement> Layout<W> {
 
                 // TEAM_035: Use canvas.rows() instead of mon.workspaces
                 let ws_idx = match insert_ws {
-                    InsertWorkspace::Existing(ws_id) => mon
+                    InsertRow::Existing(ws_id) => mon
                         .canvas
                         .rows()
                         .position(|(_, ws)| ws.id() == ws_id)
                         .unwrap(),
-                    InsertWorkspace::NewAt(ws_idx) => {
+                    InsertRow::NewAt(ws_idx) => {
                         if mon.options.layout.empty_row_above_first && ws_idx == 0 {
                             // Reuse the top empty workspace.
                             0
@@ -636,7 +636,7 @@ impl<W: LayoutElement> Layout<W> {
                         let ws_id = ws.id();
                         mon.add_tile(
                             move_.tile,
-                            MonitorAddWindowTarget::Workspace {
+                            MonitorAddWindowTarget::Row {
                                 id: ws_id,
                                 column_idx: Some(column_idx),
                             },
@@ -667,7 +667,7 @@ impl<W: LayoutElement> Layout<W> {
                         tile.clear_floating_pos();
 
                         match insert_ws {
-                            InsertWorkspace::Existing(_) => {
+                            InsertRow::Existing(_) => {
                                 if let Some(offset) = offset {
                                     let pos = (tile_render_loc - offset).downscale(zoom);
                                     // TEAM_035: Extract row from tuple and call method
@@ -681,7 +681,7 @@ impl<W: LayoutElement> Layout<W> {
                                     );
                                 }
                             }
-                            InsertWorkspace::NewAt(_) => {
+                            InsertRow::NewAt(_) => {
                                 // When putting a floating tile on a new workspace, we don't really
                                 // have a good pre-existing position.
                             }
@@ -699,7 +699,7 @@ impl<W: LayoutElement> Layout<W> {
                         let ws_id = ws.id();
                         mon.add_tile(
                             tile,
-                            MonitorAddWindowTarget::Workspace {
+                            MonitorAddWindowTarget::Row {
                                 id: ws_id,
                                 column_idx: None,
                             },

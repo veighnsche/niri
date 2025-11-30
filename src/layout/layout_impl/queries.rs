@@ -5,7 +5,7 @@
 use smithay::utils::{Logical, Rectangle, Size};
 
 use super::super::{
-    output_size, InteractiveMoveState, Layout, LayoutElement, MonitorSet, WorkspaceSwitch,
+    output_size, InteractiveMoveState, Layout, LayoutElement, MonitorSet, RowSwitch,
 };
 
 impl<W: LayoutElement> Layout<W> {
@@ -86,8 +86,8 @@ impl<W: LayoutElement> Layout<W> {
             })
             .unwrap();
 
-        // During a gesture, focus-follows-mouse does not cause any unintended workspace switches.
-        if let Some(WorkspaceSwitch::Gesture(_)) = mon.workspace_switch {
+        // During a gesture, focus-follows-mouse does not cause any unintended row switches.
+        if let Some(RowSwitch::Gesture(_)) = mon.row_switch {
             return true;
         }
 

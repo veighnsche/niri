@@ -1194,46 +1194,99 @@ impl<W: LayoutElement> Row<W> {
 
     // TEAM_064: find_wl_surface, find_wl_surface_mut moved to state.rs
 
-    /// Get popup target rectangle.
-    /// TEAM_025: Stub implementation
-    /// TEAM_035: Updated return type to Rectangle<f64, Logical>
-    pub fn popup_target_rect(&self, _window: &W::Id) -> Option<Rectangle<f64, Logical>> {
-        // TEAM_025: TODO - implement popup target rect
+    /// Get popup target rectangle for a window in this row.
+    pub fn popup_target_rect(&self, window: &W::Id) -> Option<Rectangle<f64, Logical>> {
+        // Find the column containing this window
+        let gaps = self.options.layout.gaps;
+        let mut col_x = 0.;
+
+        for (col_idx, col) in self.columns.iter().enumerate() {
+            if let Some(tile_idx) = col.tiles.iter().position(|t| t.window().id() == window) {
+                let tile = &col.tiles[tile_idx];
+                let tile_size = tile.tile_size();
+                let tile_offset = col.tile_offset(tile_idx);
+
+                // Return tile geometry in row-relative coordinates
+                return Some(Rectangle::new(
+                    Point::from((col_x - self.view_offset_x() + tile_offset.x, tile_offset.y)),
+                    Size::from((tile_size.w, tile_size.h)),
+                ));
+            }
+
+            col_x += self.data.get(col_idx).map(|d| d.width).unwrap_or(0.) + gaps;
+        }
+
         None
     }
 
     // TEAM_064: activate_window_without_raising moved to navigation.rs
 
     /// Get tiles with IPC layouts.
-    /// TEAM_025: Stub implementation
-    /// TEAM_035: Updated return type to iterator of (tile, layout) tuples
     pub fn tiles_with_ipc_layouts(
         &self,
-    ) -> impl Iterator<Item = (&Tile<W>, niri_ipc::WindowLayout)> {
-        // TEAM_025: TODO - implement IPC layout generation
-        // For now, return tiles with empty layouts
-        self.tiles().map(|tile| {
-            let layout = niri_ipc::WindowLayout {
-                pos_in_scrolling_layout: None,
-                tile_size: (0.0, 0.0),
-                window_size: (0, 0),
-                tile_pos_in_workspace_view: None,
-                window_offset_in_tile: (0.0, 0.0),
-            };
-            (tile, layout)
+    ) -> impl Iterator<Item = (&Tile<W>, niri_ipc::WindowLayout)> + '_ {
+        let view_offset = self.view_offset_x();
+        let gaps = self.options.layout.gaps;
+
+        // Pre-compute column X positions
+        let mut col_positions = Vec::with_capacity(self.columns.len());
+        let mut x = 0.;
+        for data in &self.data {
+            col_positions.push(x);
+            x += data.width + gaps;
+        }
+
+        self.columns.iter().enumerate().flat_map(move |(col_idx, col)| {
+            let col_x = col_positions.get(col_idx).copied().unwrap_or(0.);
+
+            col.tiles().enumerate().map(move |(tile_idx, (tile, tile_offset))| {
+                let tile_size = tile.tile_size();
+                let window_size = tile.window().size();
+
+                // IPC uses 1-based indices
+                let pos_in_scrolling = (col_idx + 1, tile_idx + 1);
+                let pos_in_view = (
+                    col_x - view_offset + tile_offset.x,
+                    tile_offset.y,
+                );
+
+                let layout = niri_ipc::WindowLayout {
+                    pos_in_scrolling_layout: Some(pos_in_scrolling),
+                    tile_size: (tile_size.w, tile_size.h),
+                    window_size: (window_size.w, window_size.h),
+                    tile_pos_in_workspace_view: Some(pos_in_view),
+                    window_offset_in_tile: (0.0, 0.0),
+                };
+                (tile, layout)
+            })
         })
     }
 
-    /// Expel window from column to floating.
-    /// TEAM_028: Stub implementation
-    pub fn expel_from_column(&mut self) {
-        // TEAM_028: TODO - implement window expulsion to floating
-    }
+    /// Swap window in given direction within the row.
+    /// Note: ScrollDirection only has Left/Right - vertical swapping uses different methods.
+    pub fn swap_window_in_direction(&mut self, direction: super::types::ScrollDirection) {
+        if self.columns.is_empty() {
+            return;
+        }
 
-    /// Swap window in given direction.
-    /// TEAM_028: Stub implementation
-    pub fn swap_window_in_direction(&mut self, _direction: super::types::ScrollDirection) {
-        // TEAM_028: TODO - implement window swapping
+        match direction {
+            super::types::ScrollDirection::Left => {
+                if self.active_column_idx > 0 {
+                    // Swap columns
+                    self.columns.swap(self.active_column_idx, self.active_column_idx - 1);
+                    self.data.swap(self.active_column_idx, self.active_column_idx - 1);
+                    self.active_column_idx -= 1;
+                }
+            }
+            super::types::ScrollDirection::Right => {
+                if self.active_column_idx + 1 < self.columns.len() {
+                    // Swap columns
+                    self.columns.swap(self.active_column_idx, self.active_column_idx + 1);
+                    self.data.swap(self.active_column_idx, self.active_column_idx + 1);
+                    self.active_column_idx += 1;
+                }
+            }
+        }
     }
 
     /// Toggle column tabbed display mode.
@@ -1301,52 +1354,60 @@ impl<W: LayoutElement> Row<W> {
         }
     }
 
-    /// Center all visible columns.
-    /// TEAM_028: Stub implementation
+    /// Center all visible columns within the view.
     pub fn center_visible_columns(&mut self) {
-        // TEAM_028: TODO - implement visible columns centering
+        if self.columns.is_empty() {
+            return;
+        }
+
+        // Compute total width of all columns plus gaps
+        let gaps = self.options.layout.gaps;
+        let total_width: f64 = self.data.iter().map(|d| d.width).sum::<f64>()
+            + gaps * (self.columns.len().saturating_sub(1)) as f64;
+
+        // Center the content
+        let view_width = self.working_area.size.w;
+        let new_offset = (total_width - view_width) / 2.;
+
+        self.animate_view_offset_with_config(
+            self.active_column_idx,
+            new_offset.max(0.),
+            self.options.animations.horizontal_view_movement.0,
+        );
     }
 
     // TEAM_064: Sizing methods moved to sizing.rs:
     // toggle_width, toggle_window_width, toggle_window_height, toggle_full_width,
     // set_column_width, set_window_width
 
-    /// Get scrolling insert position.
-    /// TEAM_028: Stub implementation
-    /// TEAM_035: Updated return type to InsertPosition
+    /// Get scrolling insert position based on pointer position within the row.
     pub fn scrolling_insert_position(
         &self,
-        _pos: Point<f64, Logical>,
+        pos: Point<f64, Logical>,
     ) -> super::types::InsertPosition {
-        // TEAM_028: TODO - implement insert position calculation
-        super::types::InsertPosition::NewColumn(0)
+        if self.columns.is_empty() {
+            return super::types::InsertPosition::NewColumn(0);
+        }
+
+        let gaps = self.options.layout.gaps;
+        let x = pos.x + self.view_offset_x();
+
+        // Check each column position
+        let mut col_x = 0.;
+        for (idx, data) in self.data.iter().enumerate() {
+            let col_center = col_x + data.width / 2.;
+
+            if x < col_center {
+                return super::types::InsertPosition::NewColumn(idx);
+            }
+
+            col_x += data.width + gaps;
+        }
+
+        // Past all columns - insert at end
+        super::types::InsertPosition::NewColumn(self.columns.len())
     }
 
-    /// Store unmap snapshot if empty.
-    /// TEAM_028: Stub implementation
-    /// TEAM_035: Updated signature to accept &W::Id
-    pub fn store_unmap_snapshot_if_empty(&mut self, _renderer: &mut GlesRenderer, _window: &W::Id) {
-        // TEAM_028: TODO - implement unmap snapshot storage
-    }
-
-    /// Clear unmap snapshot.
-    /// TEAM_028: Stub implementation
-    /// TEAM_035: Updated signature to accept &W::Id
-    pub fn clear_unmap_snapshot(&mut self, _window: &W::Id) {
-        // TEAM_028: TODO - implement unmap snapshot clearing
-    }
-
-    /// Start close animation for window.
-    /// TEAM_028: Stub implementation
-    /// TEAM_035: Updated signature to accept &W::Id
-    pub fn start_close_animation_for_window(
-        &mut self,
-        _renderer: &mut GlesRenderer,
-        _window: &W::Id,
-        _blocker: TransactionBlocker,
-    ) {
-        // TEAM_028: TODO - implement close animation
-    }
 
     /// Start close animation for a tile with snapshot.
     /// TEAM_033: Added for interactive move window closing
@@ -1385,6 +1446,59 @@ impl<W: LayoutElement> Row<W> {
             }
             Err(err) => {
                 tracing::warn!("error creating a closing window animation: {err:?}");
+            }
+        }
+    }
+
+    /// Store unmap snapshot for a window if it's empty.
+    pub fn store_unmap_snapshot_if_empty(&mut self, renderer: &mut GlesRenderer, window: &W::Id) {
+        for col in &mut self.columns {
+            for tile in col.tiles.iter_mut() {
+                if tile.window().id() == window {
+                    tile.store_unmap_snapshot_if_empty(renderer);
+                    return;
+                }
+            }
+        }
+    }
+
+    /// Clear unmap snapshot for a window.
+    pub fn clear_unmap_snapshot(&mut self, window: &W::Id) {
+        for col in &mut self.columns {
+            for tile in col.tiles.iter_mut() {
+                if tile.window().id() == window {
+                    let _ = tile.take_unmap_snapshot();
+                    return;
+                }
+            }
+        }
+    }
+
+    /// Start close animation for a window.
+    pub fn start_close_animation_for_window(
+        &mut self,
+        renderer: &mut GlesRenderer,
+        window: &W::Id,
+        blocker: TransactionBlocker,
+    ) {
+        // Find the tile and get its snapshot and position
+        for (col_idx, col) in self.columns.iter_mut().enumerate() {
+            for (tile_idx, tile) in col.tiles.iter_mut().enumerate() {
+                if tile.window().id() == window {
+                    let Some(snapshot) = tile.take_unmap_snapshot() else {
+                        return;
+                    };
+                    let tile_size = tile.tile_size();
+                    let tile_offset = col.tile_offset(tile_idx);
+                    let col_x = self.column_x(col_idx);
+                    let tile_pos = Point::from((col_x + tile_offset.x, tile_offset.y));
+
+                    // Start the close animation
+                    self.start_close_animation_for_tile(
+                        renderer, snapshot, tile_size, tile_pos, blocker,
+                    );
+                    return;
+                }
             }
         }
     }

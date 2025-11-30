@@ -37,9 +37,9 @@ mod render; // LEGACY: Workspace rendering // LEGACY: Workspace gestures
 // TEAM_013: Re-exports
 // TEAM_014: Removed OverviewProgress from re-exports (Part 3)
 pub use types::{
-    InsertHint, InsertHintRenderLoc, InsertPosition, InsertWorkspace, MonitorAddWindowTarget,
-    WorkspaceSwitch, WorkspaceSwitchGesture, WORKSPACE_DND_EDGE_SCROLL_MOVEMENT,
-    WORKSPACE_GESTURE_MOVEMENT, WORKSPACE_GESTURE_RUBBER_BAND,
+    InsertHint, InsertHintRenderLoc, InsertPosition, InsertRow, MonitorAddWindowTarget,
+    RowSwitch, RowSwitchGesture, ROW_DND_EDGE_SCROLL_MOVEMENT, ROW_GESTURE_MOVEMENT,
+    ROW_GESTURE_RUBBER_BAND,
 };
 
 // TEAM_013: Phase 1.5.3 — Monitor now uses Canvas2D instead of workspaces.
@@ -69,8 +69,8 @@ pub struct Monitor<W: LayoutElement> {
     pub(in crate::layout) canvas: Canvas2D<W>,
 
     // TEAM_022: Legacy workspace fields removed - Canvas2D is now sole layout system
-    /// LEGACY: In-progress switch between rows (was workspaces).
-    pub(in crate::layout) workspace_switch: Option<WorkspaceSwitch>,
+    /// In-progress switch between rows.
+    pub(in crate::layout) row_switch: Option<RowSwitch>,
 
     // =========================================================================
     // Shared state
@@ -146,8 +146,8 @@ impl<W: LayoutElement> Monitor<W> {
             insert_hint: None,
             insert_hint_element: InsertHintElement::new(options.layout.insert_hint),
             insert_hint_render_loc: None,
-            // TEAM_022: Keep workspace_switch for row switching animations
-            workspace_switch: None,
+            // TEAM_022: Row switch for row switching animations
+            row_switch: None,
             clock,
             base_options,
             options,
@@ -194,25 +194,8 @@ impl<W: LayoutElement> Monitor<W> {
         self.canvas.rows().count()
     }
 
-    // TEAM_022: Returns active row as active_workspace for compatibility
-    pub fn active_workspace(&mut self) -> Option<&mut Row<W>> {
-        self.canvas.active_row_mut()
-    }
-
-    // TEAM_022: Returns active row ref as active_workspace_ref for compatibility
-    pub fn active_workspace_ref(&self) -> Option<&Row<W>> {
-        self.canvas.active_row()
-    }
-
-    // TEAM_021: Legacy workspace compatibility method
     pub fn are_transitions_ongoing(&self) -> bool {
-        // Check canvas for ongoing transitions
         self.canvas.are_transitions_ongoing()
-    }
-
-    // TEAM_021: Legacy workspace compatibility method
-    pub fn move_workspace_to_idx(&mut self, _old_idx: usize, _new_idx: usize) {
-        // Empty stub - workspace movement is now handled by canvas
     }
 
     pub fn layout_config(&self) -> Option<&niri_config::LayoutPart> {
@@ -371,7 +354,7 @@ impl<W: LayoutElement> Monitor<W> {
     ) -> (i32, Option<usize>) {
         match target {
             MonitorAddWindowTarget::Auto => (self.canvas.active_row_idx(), None),
-            MonitorAddWindowTarget::Workspace { id, column_idx } => {
+            MonitorAddWindowTarget::Row { id, column_idx } => {
                 // Find the row with this workspace ID
                 let row_idx = self
                     .canvas
@@ -562,9 +545,9 @@ impl<W: LayoutElement> Monitor<W> {
         }
     }
 
-    /// Stop workspace/row switching animation.
-    pub fn stop_workspace_switch(&mut self) {
-        self.workspace_switch = None;
+    /// Stop row switching animation.
+    pub fn stop_row_switch(&mut self) {
+        self.row_switch = None;
     }
 
     /// Remove a row/workspace by index and return it.

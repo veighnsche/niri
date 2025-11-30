@@ -1069,7 +1069,7 @@ impl Op {
                 let win = TestWindow::new(params);
                 layout.add_window(
                     win,
-                    AddWindowTarget::Workspace(ws_id),
+                    AddWindowTarget::Row(ws_id),
                     None,
                     None,
                     false,
@@ -1562,17 +1562,17 @@ impl Op {
                     return;
                 };
 
-                layout.workspace_switch_gesture_begin(&output, is_touchpad);
+                layout.row_switch_gesture_begin(&output, is_touchpad);
             }
             Op::RowPanGestureUpdate {
                 delta,
                 timestamp,
                 is_touchpad,
             } => {
-                layout.workspace_switch_gesture_update(delta, timestamp, is_touchpad);
+                layout.row_switch_gesture_update(delta, timestamp, is_touchpad);
             }
             Op::RowPanGestureEnd { is_touchpad } => {
-                layout.workspace_switch_gesture_end(is_touchpad);
+                layout.row_switch_gesture_end(is_touchpad);
             }
             // DEPRECATED(overview): Overview gestures are now no-ops
             Op::OverviewGestureBegin => {}

@@ -208,7 +208,7 @@ impl CompositorHandler for State {
                         AddWindowTarget::NextTo(p)
                     // TEAM_055: Renamed from workspace_id to row_id
                     } else if let Some(id) = row_id {
-                        AddWindowTarget::Workspace(id)
+                        AddWindowTarget::Row(id)
                     } else if let Some(output) = &output {
                         AddWindowTarget::Output(output)
                     } else {

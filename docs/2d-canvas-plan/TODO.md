@@ -194,6 +194,7 @@ See `docs/2d-canvas-plan/.teams/TEAM_0XX_*.md` for detailed history.
 - TEAM_065: canvas/operations split
 - TEAM_066: TODO audit/cleanup
 - TEAM_067: niri.rs refactor masterplan
+- TEAM_103: Technical debt stub cleanup
 
 ### Original Docs
 - `docs/2d-canvas-plan/README.md` - Original vision

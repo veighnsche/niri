@@ -27,13 +27,13 @@ impl<W: LayoutElement> Layout<W> {
                 // TEAM_035: Add type annotation for empty vec and make mutable
                 let mut workspaces: Vec<crate::layout::row::Row<W>> = vec![];
 
-                if primary.workspace_switch.is_some() {
-                    primary.stop_workspace_switch();
+                if primary.row_switch.is_some() {
+                    primary.stop_row_switch();
                     stopped_primary_ws_switch = true;
                 }
 
-                // If we stopped a workspace switch, then we might need to clean up workspaces.
-                // Also if empty_row_above_first is set and there are only 2 workspaces left,
+                // If we stopped a row switch, then we might need to clean up rows.
+                // Also if empty_row_above_first is set and there are only 2 rows left,
                 // both will be empty and one of them needs to be removed. clean_up_workspaces
                 // takes care of this.
 

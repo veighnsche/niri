@@ -24,7 +24,7 @@ impl<W: LayoutElement> Monitor<W> {
         {
             if options.layout.empty_row_above_first {
                 self.add_workspace_top();
-            } else if self.workspace_switch.is_none() && self.active_row_idx() != 0 {
+            } else if self.row_switch.is_none() && self.active_row_idx() != 0 {
                 // Remove row 0 only if it's empty and unnamed
                 if let Some(row) = self.canvas.row(0) {
                     if row.is_empty() && row.name().is_none() {

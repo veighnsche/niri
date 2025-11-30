@@ -48,7 +48,7 @@ impl<W: LayoutElement> Layout<W> {
 
                         (mon_idx, MonitorAddWindowTarget::Auto)
                     }
-                    AddWindowTarget::Workspace(ws_id) => {
+                    AddWindowTarget::Row(ws_id) => {
                         let mon_idx = monitors
                             .iter()
                             .position(|mon| mon.canvas.rows().any(|(_, ws)| ws.id() == ws_id))
@@ -56,7 +56,7 @@ impl<W: LayoutElement> Layout<W> {
 
                         (
                             mon_idx,
-                            MonitorAddWindowTarget::Workspace {
+                            MonitorAddWindowTarget::Row {
                                 id: ws_id,
                                 column_idx: None,
                             },
@@ -131,8 +131,8 @@ impl<W: LayoutElement> Layout<W> {
                         (0, RowAddWindowTarget::Auto)
                     }
                     AddWindowTarget::Output(_) => panic!(),
-                    AddWindowTarget::Workspace(ws_id) => {
-                        // TEAM_057: Find the row with the given workspace ID
+                    AddWindowTarget::Row(ws_id) => {
+                        // TEAM_057: Find the row with the given row ID
                         let ws_idx = canvas.find_row_by_id(ws_id).unwrap_or(0);
                         (ws_idx, RowAddWindowTarget::Auto)
                     }
@@ -274,7 +274,7 @@ impl<W: LayoutElement> Layout<W> {
                             .unwrap_or(false);
                         let active_ord_idx = mon.active_row_idx();
                         let ws_count = mon.canvas.rows().count();
-                        let switch_in_progress = mon.workspace_switch.is_some();
+                        let switch_in_progress = mon.row_switch.is_some();
 
                         // Clean up empty workspaces that are not active and not last.
                         if !ws_has_windows

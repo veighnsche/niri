@@ -7,7 +7,7 @@ use smithay::output::Output;
 
 use super::super::row_types::RowId;
 use super::super::{
-    InteractiveMoveState, Layout, LayoutElement, Monitor, MonitorSet, WorkspaceSwitch,
+    InteractiveMoveState, Layout, LayoutElement, Monitor, MonitorSet, RowSwitch,
 };
 
 impl<W: LayoutElement> Layout<W> {
@@ -45,10 +45,9 @@ impl<W: LayoutElement> Layout<W> {
                         *active_monitor_idx = monitor_idx;
 
                         // If currently in the middle of a vertical swipe between the target
-                        // workspace and some other, don't switch the
-                        // workspace.
-                        match &mon.workspace_switch {
-                            Some(WorkspaceSwitch::Gesture(gesture))
+                        // row and some other, don't switch the row.
+                        match &mon.row_switch {
+                            Some(RowSwitch::Gesture(gesture))
                                 if gesture.current_idx.floor() == workspace_idx as f64
                                     || gesture.current_idx.ceil() == workspace_idx as f64 => {}
                             _ => mon.switch_row(workspace_idx),
@@ -94,10 +93,10 @@ impl<W: LayoutElement> Layout<W> {
             if let Some(workspace_idx) = found_ws_idx {
                 *active_monitor_idx = monitor_idx;
 
-                // If currently in the middle of a vertical swipe between the target workspace
-                // and some other, don't switch the workspace.
-                match &mon.workspace_switch {
-                    Some(WorkspaceSwitch::Gesture(gesture))
+                // If currently in the middle of a vertical swipe between the target row
+                // and some other, don't switch the row.
+                match &mon.row_switch {
+                    Some(RowSwitch::Gesture(gesture))
                         if gesture.current_idx.floor() == workspace_idx as f64
                             || gesture.current_idx.ceil() == workspace_idx as f64 => {}
                     _ => mon.switch_row(workspace_idx),

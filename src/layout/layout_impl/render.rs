@@ -11,7 +11,7 @@ use smithay::output::Output;
 use smithay::utils::{Point, Rectangle, Scale};
 
 use super::types::{DndHold, DndHoldTarget, InteractiveMoveState};
-use crate::layout::monitor::{InsertHint, InsertPosition, InsertWorkspace};
+use crate::layout::monitor::{InsertHint, InsertPosition, InsertRow};
 use crate::layout::tile::TileRenderElement;
 use crate::layout::{Layout, LayoutElement, MonitorSet, Options};
 use crate::render_helpers::renderer::NiriRenderer;
@@ -82,7 +82,7 @@ impl<W: LayoutElement> Layout<W> {
                         .map(|(win, _)| DndHoldTarget::Window(win.id().clone()))
                         .or_else(|| {
                             mon.row_under_narrow(pos_within_output)
-                                .map(|ws| DndHoldTarget::Workspace(ws.id()))
+                                .map(|ws| DndHoldTarget::Row(ws.id()))
                         });
 
                     let dnd = self.dnd.as_mut().unwrap();
@@ -115,7 +115,7 @@ impl<W: LayoutElement> Layout<W> {
                                     .rows_mut()
                                     .position(|(_, ws)| ws.activate_window(id))
                                     .unwrap(),
-                                DndHoldTarget::Workspace(id) => mon
+                                DndHoldTarget::Row(id) => mon
                                     .canvas
                                     .rows()
                                     .position(|(_idx, ws)| ws.id() == *id)
@@ -275,7 +275,7 @@ impl<W: LayoutElement> Layout<W> {
             // TEAM_014: Removed overview_zoom (Part 3) - always 1.0
             let (insert_ws, geo) = mon.insert_position(move_.pointer_pos_within_output);
             match insert_ws {
-                InsertWorkspace::Existing(ws_id) => {
+                InsertRow::Existing(ws_id) => {
                     // TEAM_035: Extract row from tuple
                     let (_, ws) = mon
                         .canvas
@@ -297,19 +297,19 @@ impl<W: LayoutElement> Layout<W> {
                             radius.expanded_by(border_width as f32)
                         });
                     mon.insert_hint = Some(InsertHint {
-                        workspace: insert_ws,
+                        row: insert_ws,
                         position,
                         corner_radius,
                     });
                 }
-                InsertWorkspace::NewAt(_) => {
+                InsertRow::NewAt(_) => {
                     let position = if move_.is_floating {
                         InsertPosition::Floating
                     } else {
                         InsertPosition::NewColumn(0)
                     };
                     mon.insert_hint = Some(InsertHint {
-                        workspace: insert_ws,
+                        row: insert_ws,
                         position,
                         corner_radius: CornerRadius::default(),
                     });
