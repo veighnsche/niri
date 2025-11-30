@@ -4,25 +4,62 @@
 //! - `OutputDevice` - represents a single DRM device (GPU)
 //! - `DeviceManager` - owns all DRM device state (subsystem)
 
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
+use std::rc::Rc;
+use std::mem;
+use std::os::fd::OwnedFd;
+use std::time::Duration;
 
-use anyhow::Context;
-use smithay::backend::allocator::gbm::{GbmAllocator, GbmDevice};
-use smithay::backend::drm::{DrmDevice, DrmDeviceFd, DrmNode};
+use anyhow::{bail, ensure, Context};
+use libc::dev_t;
+use niri_config::Config;
+use smithay::backend::allocator::gbm::{GbmAllocator, GbmDevice, GbmBufferFlags};
+use smithay::backend::drm::{DrmDevice, DrmDeviceFd, DrmNode, NodeType, DrmEvent, compositor::{DrmCompositor, FrameFlags}, VrrSupport};
+use smithay::backend::renderer::{ImportDma, ImportEgl};
 use smithay::backend::renderer::gles::GlesRenderer;
 use smithay::backend::renderer::multigpu::gbm::GbmGlesBackend;
 use smithay::backend::renderer::multigpu::GpuManager;
-use smithay::reexports::calloop::RegistrationToken;
+use smithay::backend::session::libseat::LibSeatSession;
+use smithay::backend::session::Session;
+use smithay::reexports::calloop::{LoopHandle, RegistrationToken, timer::{Timer, TimeoutAction}};
 use smithay::reexports::drm::control::{connector, crtc};
-use smithay::wayland::dmabuf::DmabufGlobal;
+use smithay::reexports::rustix::fs::OFlags;
+use smithay::utils::DeviceFd;
+use smithay::backend::egl::{EGLDisplay, EGLDevice};
+use smithay::output::{Mode, Output, OutputModeSource, PhysicalProperties};
+use smithay::wayland::dmabuf::{DmabufFeedbackBuilder, DmabufGlobal};
 use smithay::wayland::drm_lease::{
     DrmLease, DrmLeaseBuilder, DrmLeaseRequest, DrmLeaseState, LeaseRejected,
 };
 use smithay_drm_extras::drm_scanner::DrmScanner;
 use tracing::{debug, error, warn};
 
+#[cfg(feature = "profile-with-tracy")]
+use tracy_client;
+
 use super::types::{CrtcInfo, Surface, TtyOutputState};
-use crate::niri::Niri;
+use super::helpers::{
+    surface_dmabuf_feedback, make_output_name, is_laptop_panel,
+    pick_mode, find_drm_property, reset_hdr, get_panel_orientation,
+    set_gamma_for_crtc, refresh_interval, calculate_drm_mode_from_modeline,
+};
+use crate::render_helpers::{resources, shaders};
+use crate::render_helpers::renderer::AsGlesRenderer;
+use crate::backend::OutputId;
+use crate::utils::is_laptop_panel;
+use crate::niri::{Niri, State};
+
+/// Result of device_changed operation.
+///
+/// Contains information about what actions the caller should take after device_changed.
+pub struct DeviceChangedResult {
+    /// If set, device_added should be called with these args
+    pub needs_device_added: Option<(dev_t, std::path::PathBuf)>,
+    /// Connectors that need to be connected (node, crtc, crtc_info)
+    pub connectors_to_connect: Vec<(DrmNode, smithay::reexports::drm::control::crtc::Handle, CrtcInfo)>,
+}
 
 /// A connected DRM output device (GPU).
 ///
@@ -549,6 +586,514 @@ impl DeviceManager {
         } else {
             error!("missing output for crtc {crtc:?}");
         };
+    }
+
+    /// Add a new DRM device when it's connected via hotplug.
+    ///
+    /// This method handles GPU hotplug events by creating a new DRM device from scratch,
+    /// initializing EGL display, setting up dmabuf feedback, and registering event loop sources.
+    pub fn device_added(
+        &mut self,
+        device_id: dev_t,
+        path: &Path,
+        session: &mut LibSeatSession,
+        event_loop: &LoopHandle<State>,
+        config: &Rc<RefCell<Config>>,
+        niri: &mut Niri,
+        _debug_tint: bool,
+    ) -> anyhow::Result<()> {
+        debug!("adding device: {device_id} {path:?}");
+
+        let node = DrmNode::from_dev_id(device_id)?;
+
+        if node == self.primary_node() {
+            debug!("this is the primary node");
+        }
+
+        // Only consider primary node on udev event
+        // https://gitlab.freedesktop.org/wlroots/wlroots/-/commit/768fbaad54027f8dd027e7e015e8eeb93cb38c52
+        if node.ty() != NodeType::Primary {
+            debug!("not a primary node, skipping");
+            return Ok(());
+        }
+
+        if self.ignored_nodes().contains(&node) {
+            debug!("node is ignored, skipping");
+            return Ok(());
+        }
+
+        #[cfg(feature = "profile-with-tracy")]
+        let _span = tracy_client::span!("DeviceManager::device_added");
+
+        let open_flags = OFlags::RDWR | OFlags::CLOEXEC | OFlags::NOCTTY | OFlags::NONBLOCK;
+        let fd = {
+            #[cfg(feature = "profile-with-tracy")]
+            let _span = tracy_client::span!("LibSeatSession::open");
+            session.open(path, open_flags)
+        }?;
+        let device_fd = DrmDeviceFd::new(DeviceFd::from(fd));
+
+        let (drm, drm_notifier) = {
+            #[cfg(feature = "profile-with-tracy")]
+            let _span = tracy_client::span!("DrmDevice::new");
+            DrmDevice::new(device_fd.clone(), false)
+        }?;
+        let gbm = {
+            #[cfg(feature = "profile-with-tracy")]
+            let _span = tracy_client::span!("GbmDevice::new");
+            GbmDevice::new(device_fd)
+        }?;
+
+        let mut try_initialize_gpu = || {
+            let display = unsafe { EGLDisplay::new(gbm.clone())? };
+            let egl_device = EGLDevice::device_for_display(&display)?;
+
+            // Software EGL devices (e.g., llvmpipe/softpipe) are rejected for now. They have some
+            // problems (segfault on importing dmabufs from other renderers) and need to be
+            // excluded from some places like DRM leasing.
+            ensure!(
+                !egl_device.is_software(),
+                "software EGL renderers are skipped"
+            );
+
+            let render_node = egl_device
+                .try_get_render_node()
+                .ok()
+                .flatten()
+                .unwrap_or(node);
+            self.gpu_manager_mut()
+                .as_mut()
+                .add_node(render_node, gbm.clone())
+                .context("error adding render node to GPU manager")?;
+
+            Ok(render_node)
+        };
+
+        let render_node = match try_initialize_gpu() {
+            Ok(render_node) => {
+                debug!("got render node: {render_node}");
+                Some(render_node)
+            }
+            Err(err) => {
+                debug!("failed to initialize renderer, falling back to primary gpu: {err:?}");
+                None
+            }
+        };
+
+        if render_node == Some(self.primary_render_node()) && self.dmabuf_global().is_none() {
+            let render_node = self.primary_render_node();
+            debug!("initializing the primary renderer");
+
+            let mut renderer = self
+                .gpu_manager_mut()
+                .single_renderer(&render_node)
+                .context("error creating renderer")?;
+
+            if let Err(err) = renderer.bind_wl_display(&niri.display_handle) {
+                warn!("error binding wl-display in EGL: {err:?}");
+            }
+
+            let gles_renderer = renderer.as_gles_renderer();
+            resources::init(gles_renderer);
+            shaders::init(gles_renderer);
+
+            let config = config.borrow();
+            if let Some(src) = config.animations.window_resize.custom_shader.as_deref() {
+                shaders::set_custom_resize_program(gles_renderer, Some(src));
+            }
+            if let Some(src) = config.animations.window_close.custom_shader.as_deref() {
+                shaders::set_custom_close_program(gles_renderer, Some(src));
+            }
+            if let Some(src) = config.animations.window_open.custom_shader.as_deref() {
+                shaders::set_custom_open_program(gles_renderer, Some(src));
+            }
+            drop(config);
+
+            niri.update_shaders();
+
+            // Create the dmabuf global.
+            let primary_formats = renderer.dmabuf_formats();
+            let default_feedback =
+                DmabufFeedbackBuilder::new(render_node.dev_id(), primary_formats.clone())
+                    .build()
+                    .context("error building default dmabuf feedback")?;
+            let dmabuf_global = niri
+                .protocols
+                .dmabuf
+                .create_global_with_default_feedback::<State>(
+                    &niri.display_handle,
+                    &default_feedback,
+                );
+            assert!(self.dmabuf_global().is_none());
+            self.set_dmabuf_global(Some(dmabuf_global));
+
+            // Update the dmabuf feedbacks for all surfaces.
+            let primary_render_node = self.primary_render_node();
+            for (node, device) in self.iter_mut() {
+                for surface in device.surfaces.values_mut() {
+                    match surface_dmabuf_feedback(
+                        &surface.compositor,
+                        primary_formats.clone(),
+                        primary_render_node,
+                        device.render_node,
+                        *node,
+                    ) {
+                        Ok(feedback) => {
+                            surface.dmabuf_feedback = Some(feedback);
+                        }
+                        Err(err) => {
+                            warn!("error building dmabuf feedback: {err:?}");
+                        }
+                    }
+                }
+            }
+        }
+
+        let allocator_gbm = if render_node.is_some() {
+            gbm.clone()
+        } else if let Some(primary_device) = self.get(&self.primary_node()) {
+            primary_device.gbm.clone()
+        } else {
+            bail!("no allocator available for device");
+        };
+        let gbm_flags = GbmBufferFlags::RENDERING | GbmBufferFlags::SCANOUT;
+        let allocator = GbmAllocator::new(allocator_gbm, gbm_flags);
+
+        let token = event_loop
+            .insert_source(drm_notifier, move |event, meta, state| {
+                let tty = state.backend.tty();
+                match event {
+                    DrmEvent::VBlank(crtc) => {
+                        let meta = meta.expect("VBlank events must have metadata");
+                        tty.on_vblank(&mut state.niri, node, crtc, meta);
+                    }
+                    DrmEvent::Error(error) => warn!("DRM error: {error}"),
+                };
+            })
+            .unwrap();
+
+        let drm_lease_state = DrmLeaseState::new::<State>(&niri.display_handle, &node)
+            .map_err(|err| warn!("error initializing DRM leasing for {node}: {err:?}"))
+            .ok();
+
+        let device = OutputDevice {
+            token,
+            render_node,
+            drm,
+            gbm,
+            allocator,
+            drm_scanner: DrmScanner::new(),
+            surfaces: HashMap::new(),
+            known_crtcs: HashMap::new(),
+            drm_lease_state,
+            active_leases: Vec::new(),
+            non_desktop_connectors: HashSet::new(),
+        };
+        assert!(self.insert(node, device).is_none());
+
+        Ok(())
+    }
+
+    /// Handle connector scanning when a DRM device reports changes (monitor hotplug).
+    ///
+    /// This method scans for connector changes and returns information about what actions
+    /// the caller should take (device_added calls, connector connections).
+    pub fn device_changed(
+        &mut self,
+        device_id: dev_t,
+        niri: &mut Niri,
+        config: &Rc<RefCell<Config>>,
+        cleanup: bool,
+        should_disable_laptop_panels: bool,
+    ) -> DeviceChangedResult {
+        debug!("device changed: {device_id}");
+
+        let Ok(node) = DrmNode::from_dev_id(device_id) else {
+            warn!("error creating DrmNode");
+            return DeviceChangedResult {
+                needs_device_added: None,
+                connectors_to_connect: Vec::new(),
+            };
+        };
+
+        if node.ty() != NodeType::Primary {
+            debug!("not a primary node, skipping");
+            return DeviceChangedResult {
+                needs_device_added: None,
+                connectors_to_connect: Vec::new(),
+            };
+        }
+
+        if self.ignored_nodes().contains(&node) {
+            debug!("node is ignored, skipping");
+            return DeviceChangedResult {
+                needs_device_added: None,
+                connectors_to_connect: Vec::new(),
+            };
+        }
+
+        let Some(device) = self.get_mut(&node) else {
+            if let Some(path) = node.dev_path() {
+                warn!("unknown device; trying to add");
+                return DeviceChangedResult {
+                    needs_device_added: Some((device_id, path.to_path_buf())),
+                    connectors_to_connect: Vec::new(),
+                };
+            } else {
+                warn!("unknown device");
+                return DeviceChangedResult {
+                    needs_device_added: None,
+                    connectors_to_connect: Vec::new(),
+                };
+            }
+        };
+
+        // DrmScanner will preserve any existing connector-CRTC mapping.
+        let scan_result = match device.drm_scanner.scan_connectors(&device.drm) {
+            Ok(x) => x,
+            Err(err) => {
+                warn!("error scanning connectors: {err:?}");
+                return DeviceChangedResult {
+                    needs_device_added: None,
+                    connectors_to_connect: Vec::new(),
+                };
+            }
+        };
+
+        let mut added = Vec::new();
+        let mut removed = Vec::new();
+        for event in scan_result {
+            match event {
+                smithay_drm_extras::drm_scanner::DrmScanEvent::Connected {
+                    connector,
+                    crtc: Some(crtc),
+                } => {
+                    let connector_name = format_connector_name(&connector);
+                    let name = make_output_name(&device.drm, connector.handle(), connector_name);
+                    debug!(
+                        "new connector: {} \"{}\"",
+                        &name.connector,
+                        name.format_make_model_serial(),
+                    );
+
+                    // Assign an id to this crtc.
+                    let id = OutputId::next();
+                    added.push((crtc, CrtcInfo { id, name }));
+                }
+                smithay_drm_extras::drm_scanner::DrmScanEvent::Disconnected {
+                    crtc: Some(crtc), ..
+                } => {
+                    removed.push(crtc);
+                }
+                _ => (),
+            }
+        }
+
+        for crtc in &removed {
+            self.connector_disconnected(niri, node, *crtc);
+        }
+
+        let Some(device) = self.get_mut(&node) else {
+            error!("device disappeared");
+            return DeviceChangedResult {
+                needs_device_added: None,
+                connectors_to_connect: Vec::new(),
+            };
+        };
+
+        for crtc in removed {
+            if device.known_crtcs.remove(&crtc).is_none() {
+                error!("output ID missing for disconnected crtc: {crtc:?}");
+            }
+        }
+
+        let mut connectors_to_connect = Vec::new();
+        for (crtc, mut info) in added {
+            // Make/model/serial can match exactly between different physical monitors. This doesn't
+            // happen often, but our Layout does not support such duplicates and will panic.
+            //
+            // As a workaround, search for duplicates, and unname the new connectors if one is
+            // found. Connector names are always unique.
+            let name = &mut info.name;
+            let formatted = name.format_make_model_serial_or_connector();
+            for info in self.values().flat_map(|d| d.known_crtcs.values()) {
+                if info.name.matches(&formatted) {
+                    let connector = mem::take(&mut name.connector);
+                    warn!(
+                        "new connector {connector} duplicates make/model/serial \
+                         of existing connector {}, unnaming",
+                        info.name.connector,
+                    );
+                    *name = niri_config::OutputName {
+                        connector,
+                        make: None,
+                        model: None,
+                        serial: None,
+                    };
+                    break;
+                }
+            }
+
+            // Insert it right away so next added connector will check against this one too.
+            let device = self.get_mut(&node).unwrap();
+            device.known_crtcs.insert(crtc, info.clone());
+
+            // Store connector info for later connection - we'll need to find the connector info
+            // from the device's drm_scanner when connecting
+            connectors_to_connect.push((node, crtc, info));
+        }
+
+        // If the device was just added or resumed, we need to cleanup any disconnected connectors
+        // and planes.
+        if cleanup {
+            let device = self.get(&node).unwrap();
+
+            // Follow the logic in on_output_config_changed().
+            let should_disable = |conn: &str| should_disable_laptop_panels && is_laptop_panel(conn);
+
+            let config = config.borrow();
+            let disable_monitor_names = config.debug.disable_monitor_names;
+
+            let should_be_off = |crtc, conn: &smithay::reexports::drm::control::connector::Info| {
+                let output_name = device.known_crtc_name(&crtc, conn, disable_monitor_names);
+
+                let config = config
+                    .outputs
+                    .find(&output_name)
+                    .cloned()
+                    .unwrap_or_default();
+
+                config.off || should_disable(&output_name.connector)
+            };
+
+            if let Err(err) = device.cleanup_mismatching_resources(&should_be_off) {
+                warn!("error cleaning up connectors: {err:?}");
+            }
+
+            let device = self.get_mut(&node).unwrap();
+            for surface in device.surfaces.values_mut() {
+                // We aren't force-clearing the CRTCs, so we need to make the surfaces read the
+                // updated state after a session resume. This also causes a full damage for the
+                // next redraw.
+                if let Err(err) = surface.compositor.reset_state() {
+                    warn!("error resetting DrmCompositor state: {err:?}");
+                }
+            }
+        }
+
+        DeviceChangedResult {
+            needs_device_added: None,
+            connectors_to_connect,
+        }
+    }
+
+    /// Handle GPU unplug cleanup.
+    ///
+    /// This method removes a DRM device and cleans up all associated resources.
+    /// Returns the device FD that needs to be closed via session.
+    pub fn device_removed(
+        &mut self,
+        device_id: dev_t,
+        niri: &mut Niri,
+        event_loop: &LoopHandle<State>,
+        _session: &LibSeatSession,
+    ) -> Option<OwnedFd> {
+        debug!("removing device: {device_id}");
+
+        let Ok(node) = DrmNode::from_dev_id(device_id) else {
+            warn!("error creating DrmNode");
+            return None;
+        };
+
+        if node.ty() != NodeType::Primary {
+            debug!("not a primary node, skipping");
+            return None;
+        }
+
+        let Some(device) = self.get_mut(&node) else {
+            warn!("unknown device");
+            return None;
+        };
+
+        let crtcs: Vec<_> = device
+            .drm_scanner
+            .crtcs()
+            .map(|(_info, crtc)| crtc)
+            .collect();
+
+        for crtc in crtcs {
+            self.connector_disconnected(niri, node, crtc);
+        }
+
+        let mut device = self.remove(&node).unwrap();
+        let device_fd = device.drm.device_fd().device_fd();
+
+        if let Some(lease_state) = &mut device.drm_lease_state {
+            lease_state.disable_global::<State>();
+        }
+
+        if let Some(render_node) = device.render_node {
+            // Sometimes (Asahi DisplayLink), multiple primary nodes will correspond to the same
+            // render node. In this case, we want to keep the render node active until the last
+            // primary node that uses it is gone.
+            let was_last = !self
+                .values()
+                .any(|device| device.render_node == Some(render_node));
+
+            let primary_render_node = self.primary_render_node();
+            if was_last && render_node == primary_render_node {
+                debug!("destroying the primary renderer");
+
+                match self.gpu_manager_mut().single_renderer(&primary_render_node) {
+                    Ok(mut renderer) => renderer.unbind_wl_display(),
+                    Err(err) => {
+                        warn!("error creating renderer during device removal: {err}");
+                    }
+                }
+
+                // Disable and destroy the dmabuf global.
+                if let Some(global) = self.take_dmabuf_global() {
+                    niri.protocols
+                        .dmabuf
+                        .disable_global::<State>(&niri.display_handle, &global);
+                    event_loop
+                        .insert_source(
+                            Timer::from_duration(Duration::from_secs(10)),
+                            move |_, _, state| {
+                                state
+                                    .niri
+                                    .protocols
+                                    .dmabuf
+                                    .destroy_global::<State>(&state.niri.display_handle, global);
+                                TimeoutAction::Drop
+                            },
+                        )
+                        .unwrap();
+
+                    // Clear the dmabuf feedbacks for all surfaces.
+                    for device in self.values_mut() {
+                        for surface in device.surfaces.values_mut() {
+                            surface.dmabuf_feedback = None;
+                        }
+                    }
+                } else {
+                    error!("dmabuf global was already missing");
+                }
+            }
+
+            if was_last {
+                self.gpu_manager_mut().as_mut().remove_node(&render_node);
+                // Trigger re-enumeration in order to remove the device from gpu_manager.
+                let _ = self.gpu_manager_mut().devices();
+            }
+        }
+
+        event_loop.remove(device.token);
+
+        let _ = device;
+
+        // Return the device FD for the caller to close via session
+        TryInto::<OwnedFd>::try_into(device_fd).ok()
     }
 }
 
