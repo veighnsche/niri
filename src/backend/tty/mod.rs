@@ -9,6 +9,7 @@
 
 mod devices;
 mod helpers;
+mod render;
 mod types;
 
 use std::cell::RefCell;
@@ -67,6 +68,7 @@ use wayland_protocols::wp::presentation_time::server::wp_presentation_feedback;
 
 pub use devices::{DeviceManager, OutputDevice};
 pub use helpers::{calculate_drm_mode_from_modeline, calculate_mode_cvt, set_gamma_for_crtc};
+pub use render::RenderManager;
 pub use types::{CrtcInfo, SurfaceDmabufFeedback, TtyFrame, TtyRenderer, TtyRendererError};
 use devices::format_connector_name;
 use helpers::{
@@ -92,13 +94,13 @@ pub struct Tty {
     libinput: Libinput,
     // Device management subsystem - owns all DRM device state.
     pub(crate) devices: DeviceManager,
+    // Render management subsystem - owns render state.
+    render: RenderManager,
     // The output config had changed, but the session is paused, so we need to update it on resume.
     update_output_config_on_resume: bool,
     // The ignored nodes have changed, but the session is paused, so we need to update it on
     // resume.
     update_ignored_nodes_on_resume: bool,
-    // Whether the debug tinting is enabled.
-    debug_tint: bool,
     ipc_outputs: Arc<Mutex<IpcOutputMap>>,
 }
 
@@ -342,9 +344,9 @@ impl Tty {
             udev_dispatcher,
             libinput,
             devices,
+            render: RenderManager::new(),
             update_output_config_on_resume: false,
             update_ignored_nodes_on_resume: false,
-            debug_tint: false,
             ipc_outputs: Arc::new(Mutex::new(HashMap::new())),
         })
     }
@@ -1276,7 +1278,7 @@ impl Tty {
             }
         };
 
-        if self.debug_tint {
+        if self.render.debug_tint() {
             compositor.set_debug_flags(DebugFlags::TINT);
         }
 
@@ -1782,17 +1784,7 @@ impl Tty {
     }
 
     pub fn toggle_debug_tint(&mut self) {
-        self.debug_tint = !self.debug_tint;
-
-        for device in self.devices.values_mut() {
-            for surface in device.surfaces.values_mut() {
-                let compositor = &mut surface.compositor;
-
-                let mut flags = compositor.debug_flags();
-                flags.set(DebugFlags::TINT, self.debug_tint);
-                compositor.set_debug_flags(flags);
-            }
-        }
+        self.render.toggle_debug_tint(&mut self.devices);
     }
 
     pub fn import_dmabuf(&mut self, dmabuf: &Dmabuf) -> bool {
