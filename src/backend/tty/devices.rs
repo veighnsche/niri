@@ -19,9 +19,10 @@ use smithay::wayland::drm_lease::{
     DrmLease, DrmLeaseBuilder, DrmLeaseRequest, DrmLeaseState, LeaseRejected,
 };
 use smithay_drm_extras::drm_scanner::DrmScanner;
-use tracing::warn;
+use tracing::{debug, error, warn};
 
-use super::types::{CrtcInfo, Surface};
+use super::types::{CrtcInfo, Surface, TtyOutputState};
+use crate::niri::Niri;
 
 /// A connected DRM output device (GPU).
 ///
@@ -485,6 +486,57 @@ impl DeviceManager {
             lease_state.resume::<crate::niri::State>();
         }
         Ok(())
+    }
+
+    // === Connector Lifecycle ===
+
+    /// Handle a connector becoming disconnected (monitor unplugged).
+    pub fn connector_disconnected(&mut self, niri: &mut Niri, node: DrmNode, crtc: crtc::Handle) {
+        let Some(device) = self.devices.get_mut(&node) else {
+            debug!("disconnecting connector for crtc: {crtc:?}");
+            error!("missing device");
+            return;
+        };
+
+        let Some(surface) = device.surfaces.remove(&crtc) else {
+            debug!("disconnecting connector for crtc: {crtc:?}");
+
+            if let Some((conn, _)) = device
+                .non_desktop_connectors
+                .iter()
+                .find(|(_, crtc_)| *crtc_ == crtc)
+            {
+                debug!("withdrawing non-desktop connector from DRM leasing");
+
+                let conn = *conn;
+                device.non_desktop_connectors.remove(&(conn, crtc));
+
+                if let Some(lease_state) = &mut device.drm_lease_state {
+                    lease_state.withdraw_connector(conn);
+                }
+            } else {
+                debug!("crtc wasn't enabled");
+            }
+
+            return;
+        };
+
+        debug!("disconnecting connector: {:?}", surface.name.connector);
+
+        let output = niri
+            .outputs
+            .space()
+            .outputs()
+            .find(|output| {
+                let tty_state: &TtyOutputState = output.user_data().get().unwrap();
+                tty_state.node == node && tty_state.crtc == crtc
+            })
+            .cloned();
+        if let Some(output) = output {
+            niri.remove_output(&output);
+        } else {
+            error!("missing output for crtc {crtc:?}");
+        };
     }
 }
 
